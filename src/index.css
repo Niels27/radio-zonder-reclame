@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-radio-darker text-white font-sans;
+  }
+  
+  #root {
+    @apply min-h-screen flex flex-col;
+  }
+}
+
+@layer components {
+  .radio-card {
+    @apply bg-radio-dark hover:bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200 border border-gray-700 hover:border-radio-accent;
+  }
+  
+  .radio-card.active {
+    @apply border-radio-accent bg-radio-accent/10;
+  }
+  
+  .player-controls {
+    @apply bg-radio-dark border-t border-gray-700 p-4 flex items-center justify-between;
+  }
+  
+  .ad-break-indicator {
+    @apply bg-ad-break text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse;
+  }
+  
+  .volume-slider {
+    @apply w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer;
+  }
+  
+  .volume-slider::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 bg-radio-accent rounded-full cursor-pointer;
+  }
+  
+  .volume-slider::-moz-range-thumb {
+    @apply w-4 h-4 bg-radio-accent rounded-full cursor-pointer border-none;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
