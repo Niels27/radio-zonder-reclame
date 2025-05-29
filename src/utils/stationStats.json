@@ -1,0 +1,38 @@
+{
+  "total": 806,
+  "categories": [
+    {
+      "name": "public",
+      "count": 55
+    },
+    {
+      "name": "commercial",
+      "count": 77
+    },
+    {
+      "name": "regional",
+      "count": 2
+    },
+    {
+      "name": "local",
+      "count": 30
+    },
+    {
+      "name": "news",
+      "count": 66
+    },
+    {
+      "name": "religious",
+      "count": 7
+    },
+    {
+      "name": "specialty",
+      "count": 81
+    },
+    {
+      "name": "other",
+      "count": 488
+    }
+  ],
+  "generated": "2025-05-29T16:41:14.818Z"
+}

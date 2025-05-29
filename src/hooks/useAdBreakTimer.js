@@ -4,11 +4,12 @@ export const useAdBreakTimer = (audioPlayer) => {
   const [adBreakMinute, setAdBreakMinute] = useState(30); // minute of hour when ads start
   const [adBreakDuration, setAdBreakDuration] = useState(5); // minutes
   const [timeToNextAdBreak, setTimeToNextAdBreak] = useState(0); // seconds
-  const [isAdBreakActive, setIsAdBreakActive] = useState(false);
-  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [isAdBreakActive, setIsAdBreakActive] = useState(false);  const [playlistUrl, setPlaylistUrl] = useState('');
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [playlistThumbnail, setPlaylistThumbnail] = useState(null);
   const [playlistTitle, setPlaylistTitle] = useState('');
+  const [playlistShuffle, setPlaylistShuffle] = useState(false);
+  const [playlistRepeat, setPlaylistRepeat] = useState('all'); // 'all', 'one', 'off'
   
   const intervalRef = useRef(null);
   const adBreakTimeoutRef = useRef(null);
@@ -36,18 +37,18 @@ export const useAdBreakTimer = (audioPlayer) => {
     const savedSettings = localStorage.getItem('adBreakSettings');
     if (savedSettings) {
       try {
-        const settings = JSON.parse(savedSettings);
-        setAdBreakMinute(settings.minute || 30);
+        const settings = JSON.parse(savedSettings);        setAdBreakMinute(settings.minute || 30);
         setAdBreakDuration(settings.duration || 5);
         setPlaylistUrl(settings.playlistUrl || '');
         setPlaylistThumbnail(settings.playlistThumbnail || null);
         setPlaylistTitle(settings.playlistTitle || '');
+        setPlaylistShuffle(settings.playlistShuffle || false);
+        setPlaylistRepeat(settings.playlistRepeat || 'all');
       } catch (error) {
         console.error('Failed to load ad break settings:', error);
       }
     }
   }, []);
-
   // Save settings to localStorage
   const saveSettings = useCallback(() => {
     const settings = {
@@ -55,10 +56,12 @@ export const useAdBreakTimer = (audioPlayer) => {
       duration: adBreakDuration,
       playlistUrl,
       playlistThumbnail,
-      playlistTitle
+      playlistTitle,
+      playlistShuffle,
+      playlistRepeat
     };
     localStorage.setItem('adBreakSettings', JSON.stringify(settings));
-  }, [adBreakMinute, adBreakDuration, playlistUrl, playlistThumbnail, playlistTitle]);
+  }, [adBreakMinute, adBreakDuration, playlistUrl, playlistThumbnail, playlistTitle, playlistShuffle, playlistRepeat]);
 
   // Save settings whenever they change
   useEffect(() => {
@@ -114,10 +117,12 @@ export const useAdBreakTimer = (audioPlayer) => {
       if (audioPlayer.currentSource === 'radio' && audioPlayer.currentStation) {
         lastStationRef.current = audioPlayer.currentStation;
       }
-      
-      // Start playlist
+        // Start playlist with current settings
       setIsAdBreakActive(true);
-      await audioPlayer.playPlaylist(validation.playlistId);
+      await audioPlayer.playPlaylist(validation.playlistId, {
+        shuffle: playlistShuffle,
+        repeat: playlistRepeat
+      });
       
       // Set timeout to return to radio after ad break
       adBreakTimeoutRef.current = setTimeout(() => {
@@ -128,7 +133,7 @@ export const useAdBreakTimer = (audioPlayer) => {
       console.error('Failed to start ad break:', error);
       setIsAdBreakActive(false);
     }
-  }, [playlistUrl, audioPlayer, adBreakDuration]);
+  }, [playlistUrl, audioPlayer, adBreakDuration, playlistShuffle, playlistRepeat]);
 
   // End ad break and return to radio
   const endAdBreak = useCallback(() => {
@@ -181,8 +186,7 @@ export const useAdBreakTimer = (audioPlayer) => {
     return () => {
       stopTimer();
     };
-  }, [stopTimer]);
-  return {
+  }, [stopTimer]);  return {
     adBreakMinute,
     adBreakDuration,
     timeToNextAdBreak,
@@ -190,9 +194,13 @@ export const useAdBreakTimer = (audioPlayer) => {
     playlistUrl,
     playlistThumbnail,
     playlistTitle,
+    playlistShuffle,
+    playlistRepeat,
     isTimerRunning,
     setAdBreakMinute,
     setAdBreakDuration,
+    setPlaylistShuffle,
+    setPlaylistRepeat,
     setPlaylistUrl: async (url) => {
       setPlaylistUrl(url);
       if (url) {

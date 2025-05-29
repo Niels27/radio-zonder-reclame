@@ -80,8 +80,7 @@ export const useAudioPlayer = () => {
       setIsLoading(false);
     }
   }, []);
-
-  const playPlaylist = useCallback(async (playlistId) => {
+  const playPlaylist = useCallback(async (playlistId, options = {}) => {
     if (!playlistId) return;
     
     setError(null);
@@ -110,19 +109,34 @@ export const useAudioPlayer = () => {
         youtubePlayerRef.current = await createYouTubePlayer('youtube-player', playlistId, {
           playerVars: {
             autoplay: 1,
-            loop: 1
+            loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
+            shuffle: options.shuffle ? 1 : 0
           }
         });
       } else {
         // Use existing player with new playlist
         youtubePlayerRef.current.loadPlaylist({
           listType: 'playlist',
-          list: playlistId
+          list: playlistId,
+          shuffle: options.shuffle ? 1 : 0
         });
+        
+        // Set shuffle mode
+        if (options.shuffle) {
+          youtubePlayerRef.current.setShuffle(true);
+        }
+        
+        // Set loop mode based on repeat setting
+        if (options.repeat === 'all' || options.repeat === 'one') {
+          youtubePlayerRef.current.setLoop(true);
+        } else {
+          youtubePlayerRef.current.setLoop(false);
+        }
       }
       
       setCurrentSource('playlist');
-      setIsPlaying(true);    } catch {
+      setIsPlaying(true);
+    } catch {
       setError('Failed to load YouTube playlist');
       setIsPlaying(false);
     } finally {

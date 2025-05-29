@@ -114,3 +114,16 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
     }
   });
 };
+
+// Playlist control helper functions and icons
+export const playlistControlIcons = {
+  shuffle: {
+    enabled: 'shuffle-enabled',
+    disabled: 'shuffle-disabled'
+  },
+  repeat: {
+    all: 'repeat-all',
+    one: 'repeat-one', 
+    off: 'repeat-off'
+  }
+};

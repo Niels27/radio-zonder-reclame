@@ -41,10 +41,10 @@ const AdBreakSettings = ({
                             {!isTimerRunning ? (
                                 <button
                                     onClick={onStartTimer}
-                                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors flex items-center space-x-1"
+                                    className="px-3 py-3 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors flex items-center space-x-1"
                                 >
                                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M8 5v14l11-7z" />
+                                        <path d="M5 1v20l20-9z" />
                                     </svg>
                                     <span>Activeren</span>
                                 </button>
@@ -118,8 +118,8 @@ const AdBreakSettings = ({
                             <button
                                 onClick={onManualAdBreak}
                                 className={`px-4 py-2 rounded transition-colors flex items-center space-x-1 ${isAdBreakActive
-                                        ? 'bg-red-600 hover:bg-red-700 text-white'
-                                        : 'bg-orange-600 hover:bg-orange-700 text-white'
+                                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                                    : 'bg-orange-600 hover:bg-orange-700 text-white'
                                     }`}
                             >
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
