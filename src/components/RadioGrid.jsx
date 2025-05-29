@@ -1,71 +1,261 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Star, StarOff, X } from 'lucide-react';
-import { allDutchStations, isPopularStation, getPopularStations } from '../utils/allDutchStations';
-import { useFavorites } from '../hooks/useFavorites';
+// components/RadioGrid.jsx - Ensure proper favorites integration
+// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\RadioGrid.jsx
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, X, Star } from 'lucide-react';
 import LoadingIndicator from './LoadingIndicator';
+import { useFavorites } from '../hooks/useFavorites';
+import { LogoFallback } from '../utils/logoFallback.js';
+import { getBestLogoUrl, getLogoFallbacks, shouldMonitorLogo, logFailedLogo, getFailedLogos } from '../utils/logoManager.js';
+import { allDutchStations, isPopularStation, getPopularStations } from '../utils/allDutchStations.js';
 
-const RadioGrid = ({ onStationSelect, currentStation, isLoading }) => {
+// Progressive Logo Component with Fallback Support
+const StationLogo = ({ station, className = "w-full h-full" }) => {
+  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
+  const [hasTriedOriginal, setHasTriedOriginal] = useState(false);
+  
+  const logoUrls = useMemo(() => {
+    const urls = [];
+    
+    // First try the premium logo from logoManager
+    const bestUrl = getBestLogoUrl(station);
+    if (bestUrl) {
+      urls.push(bestUrl);
+    }
+    
+    // Then try original station logos if they exist
+    if (station.logo && station.logo !== bestUrl) {
+      urls.push(station.logo);
+    }
+    if (station.favicon && station.favicon !== bestUrl && station.favicon !== station.logo) {
+      urls.push(station.favicon);
+    }
+    
+    // Add fallback URLs only if we don't have any original logos
+    if (urls.length === 0) {
+      urls.push(...getLogoFallbacks(station));
+    }
+    
+    return urls.filter(Boolean);
+  }, [station]);
+  
+  const currentUrl = logoUrls[currentUrlIndex];
+  
+  const handleImageError = async (error) => {
+    console.log(`Logo failed for ${station.name}: ${currentUrl}`, error);
+    
+    // Log failed logo for monitoring if it's a priority station
+    if (shouldMonitorLogo(station)) {
+      logFailedLogo(station, currentUrl, error?.toString() || 'Unknown error');
+    }
+    
+    // Try next URL in fallback chain
+    if (currentUrlIndex < logoUrls.length - 1) {
+      setCurrentUrlIndex(prev => prev + 1);
+      setImageError(false);
+      setHasTriedOriginal(true);
+    } else {
+      // All URLs failed, show fallback
+      setImageError(true);
+      setHasTriedOriginal(true);
+    }
+  };
+
+  const handleImageLoad = () => {
+    setImageError(false);
+  };
+
+  // Reset when station changes
+  useEffect(() => {
+    setCurrentUrlIndex(0);
+    setImageError(false);
+    setHasTriedOriginal(false);
+  }, [station.name]);
+
+  // If we have a logo URL and haven't failed, show image
+  if (currentUrl && !imageError) {
+    return (
+      <img
+        src={currentUrl}
+        alt={`${station.name} logo`}
+        className={className}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        style={{ objectFit: 'contain' }}
+      />
+    );
+  }
+
+  // Only show text fallback if we've actually tried the original logos and they failed
+  if (imageError || (hasTriedOriginal && logoUrls.length === 0)) {
+    // Generate a nice blue circle with initials (like before)
+    return (
+      <div 
+        className={`${className} bg-blue-600 rounded-full flex items-center justify-center text-white font-bold`}
+        style={{ fontSize: '1.5rem' }}
+      >
+        {LogoFallback.getLogoText(station.name)}
+      </div>
+    );
+  }
+
+  // Loading state - show blue circle while checking
+  return (
+    <div 
+      className={`${className} bg-blue-600 rounded-full flex items-center justify-center text-white font-bold animate-pulse`}
+      style={{ fontSize: '1.5rem' }}
+    >
+      {LogoFallback.getLogoText(station.name)}
+    </div>
+  );
+};
+
+// Update SmartText component to better detect overflow
+const SmartText = ({ text, className, isName = false }) => {
+  const [shouldScroll, setShouldScroll] = useState(false);
+  const textRef = React.useRef(null);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (textRef.current) {
+        const element = textRef.current;
+        // For station names (2 lines), check if content exceeds the height
+        if (isName) {
+          const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
+          const maxHeight = lineHeight * 2; // 2 lines
+          setShouldScroll(element.scrollHeight > maxHeight + 2); // +2 for tolerance
+        } else {
+          // For descriptions (1 line), check horizontal overflow
+          setShouldScroll(element.scrollWidth > element.clientWidth);
+        }
+      }
+    };
+
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [text, isName]);
+
+  return (
+    <div className={`${isName ? 'px-2 mb-1 flex-1 flex items-center' : 'px-2 mb-2'}`}>
+      <div 
+        ref={textRef}
+        className={`${className} ${shouldScroll ? 'text-overflow' : ''} w-full text-center`}
+      >
+        {text}
+      </div>
+    </div>
+  );
+};
+
+const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('popular');
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
 
+  // Debug effect to monitor favorites changes
+  useEffect(() => {
+    console.log('RadioGrid - Favorites changed:', favorites);
+  }, [favorites]);
+
+  // Logo monitoring - expose functions to global console for debugging
+  useEffect(() => {
+    window.radioLogoDebug = {
+      getFailedLogos: () => {
+        try {
+          return getFailedLogos();
+        } catch (error) {
+          console.error('Error getting failed logos:', error);
+          return [];
+        }
+      },
+      logStats: () => {
+        try {
+          const failed = getFailedLogos();
+          return {
+            totalFailed: failed.length,
+            failedStations: failed.map(f => f.stationName),
+            lastFailures: failed.slice(-5)
+          };
+        } catch (error) {
+          console.error('Error getting logo stats:', error);
+          return { error: error.message };
+        }
+      }
+    };
+
+    return () => {
+      delete window.radioLogoDebug;
+    };
+  }, []);
+
   // Combine all stations from allDutchStations
   const allStations = useMemo(() => {
     const stations = [];
     
-    // Add popular stations first (marked as default for UI purposes)
-    const popularStations = getPopularStations().map(station => ({
+    // Add popular stations first
+    const popularStations = getPopularStations();
+    stations.push(...popularStations.map(station => ({
       ...station,
-      isDefault: true,
-      category: 'popular'
-    }));
+      category: 'popular',
+      isDefault: true
+    })));
     
-    stations.push(...popularStations);
-    
-    // Add all other stations
+    // Add other categories from allDutchStations
     Object.entries(allDutchStations).forEach(([category, categoryStations]) => {
-      Object.values(categoryStations).forEach(station => {
-        // Skip if already added as popular station
-        if (!isPopularStation(station.name)) {
-          stations.push({
-            ...station,
-            isDefault: false,
-            category
-          });
-        }
-      });
+      if (category !== 'popular') {
+        Object.values(categoryStations).forEach(station => {
+          // Only add if not already in popular stations
+          if (!popularStations.find(p => p.name === station.name)) {
+            stations.push({
+              ...station,
+              category,
+              originalCategory: category
+            });
+          }
+        });
+      }
     });
-
+    
     return stations;
   }, []);
 
   // Filter stations based on search and category
   const filteredStations = useMemo(() => {
-    let stations = allStations;
+    let filtered = allStations;
 
-    // Filter by search query - search across ALL stations regardless of category
-    if (searchQuery.trim()) {
+    // Apply search filter
+    if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      stations = stations.filter(station =>
+      filtered = filtered.filter(station => 
         station.name.toLowerCase().includes(query) ||
-        station.description?.toLowerCase().includes(query)
+        station.description.toLowerCase().includes(query) ||
+        station.city?.toLowerCase().includes(query)
       );
-      // If searching, show all results regardless of category
-      return stations;
     }
 
-    // Only apply category filter if not searching
+    // Apply category filter
     if (selectedCategory === 'favorites') {
-      stations = stations.filter(station => isFavorite(station.name));
+      console.log('Filtering favorites, current favorites:', favorites); // Debug log
+      console.log('All stations count:', filtered.length); // Debug log
+      filtered = filtered.filter(station => {
+        const isFav = favorites.includes(station.name);
+        //console.log(`Station ${station.name} is favorite:`, isFav); // Debug log
+        return isFav;
+      });
+      console.log('Filtered favorites count:', filtered.length); // Debug log
     } else if (selectedCategory === 'popular') {
-      stations = stations.filter(station => station.isDefault);
+      filtered = filtered.filter(station => station.isDefault || station.category === 'popular');
     } else if (selectedCategory !== 'all') {
-      stations = stations.filter(station => station.category === selectedCategory);
+      filtered = filtered.filter(station => 
+        station.category === selectedCategory || 
+        station.originalCategory === selectedCategory
+      );
     }
 
-    return stations;
-  }, [allStations, searchQuery, selectedCategory, isFavorite]);
+    return filtered;
+  }, [allStations, searchQuery, selectedCategory, favorites]);
 
   const categories = [
     { key: 'all', label: 'Alle stations' },
@@ -81,187 +271,185 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading }) => {
   ];
 
   const handleStationSelect = (station) => {
-    // Ensure station has required properties for audio player
-    const stationData = {
-      name: station.name,
-      url: station.url,
-      description: station.description || '',
-      logo: station.logo || station.favicon
-    };
-    onStationSelect(stationData);
+    if (isLoading) return;
+    onStationSelect(station);
   };
 
-return (
- <div className="flex-1 p-6">
-   <div className="max-w-6xl mx-auto">
-     {/* Header with search */}
-     <div className="flex items-center justify-between mb-8">
-       <div className="flex items-center gap-4">
-         <h1 className="text-3xl font-bold">Nederlandse Radiozenders</h1>
-         
-         {!showSearch ? (
-           <button
-             onClick={() => setShowSearch(true)}
-             className="p-2 rounded-lg bg-radio-card text-radio-text hover:bg-radio-hover transition-colors"
-             title="Zoeken"
-           >
-             <Search size={20} />
-           </button>
-         ) : (
-           <div className="flex items-center gap-2 bg-radio-card rounded-lg px-4 py-2">
-             <Search size={16} className="text-radio-secondary" />
-             <input
-               type="text"
-               placeholder="Zoek radiozenders..."
-               value={searchQuery}
-               onChange={(e) => setSearchQuery(e.target.value)}
-               className="bg-transparent border-none outline-none text-radio-text placeholder-radio-secondary min-w-64"
-               autoFocus
-             />
-             <button
-               onClick={() => {
-                 setShowSearch(false);
-                 setSearchQuery('');
-               }}
-               className="text-radio-secondary hover:text-radio-text transition-colors"
-             >
-               <X size={16} />
-             </button>
-           </div>
-         )}
-       </div>
-     </div>
+  return (
+    <div className="flex-1 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header with search */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold">Nederlandse Radiozenders</h1>
+            
+            {!showSearch ? (
+              <button
+                onClick={() => setShowSearch(true)}
+                className="p-2 rounded-lg bg-radio-card text-radio-text hover:bg-radio-hover transition-colors"
+                title="Zoeken"
+                id="search-icon"
+              >
+                <Search size={20} />
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 bg-radio-dark rounded-lg px-4 py-2">
+                <Search size={16} className="text-radio-secondary" />
+                <input
+                  type="text"
+                  placeholder="Zoek radiozenders..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent border-none outline-none text-white placeholder-radio-secondary min-w-64"
+                  autoFocus
+                />
+                <button
+                  onClick={() => {
+                    setShowSearch(false);
+                    setSearchQuery('');
+                  }}
+                  className="text-radio-secondary hover:text-white transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-     {/* Category filters */}
-     <div className="flex flex-wrap gap-2 mb-6">
-       {categories.map(category => (
-         <button
-           key={category.key}
-           onClick={() => setSelectedCategory(category.key)}
-           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-             selectedCategory === category.key
-               ? 'bg-radio-accent text-white'
-               : 'bg-radio-card text-radio-text hover:bg-radio-hover'
-           }`}
-         >
-           {category.label}
-           {category.key === 'favorites' && favorites.length > 0 && (
-             <span className="ml-2 bg-radio-accent/20 text-radio-accent px-2 py-0.5 rounded-full text-xs">
-               {favorites.length}
-             </span>
-           )}
-         </button>
-       ))}
-     </div>
+        {/* Category filters */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {categories.map(category => (
+            <button
+              key={category.key}
+              onClick={() => setSelectedCategory(category.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === category.key
+                  ? 'bg-radio-accent text-white'
+                  : 'bg-radio-dark text-white hover:bg-gray-700'
+              }`}
+            >
+              {category.label}
+              {category.key === 'favorites' && favorites.length > 0 && (
+                <span className="ml-2 bg-radio-accent/20 text-radio-accent px-2 py-0.5 rounded-full text-xs">
+                  {favorites.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-     {/* Results count */}
-     {(searchQuery || selectedCategory !== 'all') && (
-       <div className="mb-4 text-radio-secondary">
-         {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} gevonden
-       </div>
-     )}
-     
-     {/* Loading overlay */}
-     {isLoading && (
-       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-         <div className="bg-radio-dark p-6 rounded-lg">
-           <LoadingIndicator message="Verbinding maken met radiozender..." />
-         </div>
-       </div>
-     )}
-     
-     {/* Stations grid */}
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-       {filteredStations.map((station) => (
-         <div
-           key={`${station.name}-${station.category}`}
-           className={`radio-card ${
-             currentStation?.name === station.name ? 'active' : ''
-           } ${isLoading && currentStation?.name === station.name ? 'opacity-50' : ''} relative`}
-           onClick={() => handleStationSelect(station)}
-         >
-           {/* Favorite button for all stations */}
-           <button
-             onClick={(e) => {
-               e.stopPropagation();
-               toggleFavorite(station);
-             }}
-             className="absolute top-2 right-2 p-1 rounded-full bg-black/50 hover:bg-black/70 transition-colors z-10"
-             title={isFavorite(station.name) ? 'Verwijder van favorieten' : 'Voeg toe aan favorieten'}
-           >
-             {isFavorite(station.name) ? (
-               <Star size={16} className="text-yellow-400 fill-yellow-400" />
-             ) : (
-               <Star size={16} className="text-white" />
-             )}
-           </button>
+        {/* Results count */}
+        {(searchQuery || selectedCategory !== 'all') && (
+          <div className="mb-4 text-radio-secondary">
+            {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} gevonden
+          </div>
+        )}
+        
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-radio-dark p-6 rounded-lg">
+              <LoadingIndicator message="Verbinding maken met radiozender..." />
+            </div>
+          </div>
+        )}
+        
+        {/* Stations grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+          {filteredStations.map((station) => (
+            <div
+              key={station.name}
+              onClick={() => handleStationSelect(station)}
+              className={`radio-card relative overflow-hidden aspect-square ${
+                currentStation?.name === station.name ? 'active' : ''
+              } group`}
+            >
+              {/* Station Logo */}
+              <div className="h-1/2 mb-2 flex items-center justify-center p-2">
+                <StationLogo station={station} className="w-full h-full max-w-16 max-h-16" />
+              </div>
 
-           <div className="flex flex-col items-center text-center">
-             {/* Station logo or first letter */}
-             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2 overflow-hidden">
-               {station.logo ? (
-                 <img
-                   src={station.logo}
-                   alt={station.name}
-                   className="w-full h-full object-cover"
-                   onError={(e) => {
-                     e.target.style.display = 'none';
-                     e.target.nextSibling.style.display = 'flex';
-                   }}
-                 />
-               ) : null}
-               <div 
-                 className={`w-full h-full bg-radio-accent rounded-full flex items-center justify-center ${station.logo ? 'hidden' : ''}`}
-               >
-                 <span className="text-white font-bold text-lg">
-                   {station.name.charAt(0)}
-                 </span>
-               </div>
-             </div>
-             
-             <h3 className="font-semibold text-lg mb-1">{station.name}</h3>
-             <p className="text-radio-secondary text-sm">{station.description}</p>
-             
-             {/* Category badge for non-default stations */}
-             {!station.isDefault && (
-               <div className="mt-1 text-xs text-radio-accent bg-radio-accent/10 px-2 py-1 rounded-full">
-                 {categories.find(c => c.key === station.category)?.label || station.category}
-               </div>
-             )}
-             
-             {currentStation?.name === station.name && (
-               <div className="mt-2 flex items-center text-radio-accent text-sm">
-                 <div className="w-2 h-2 bg-radio-accent rounded-full mr-2 animate-pulse"></div>
-                 Nu Aan Het Spelen
-               </div>
-             )}
-             
-             {isLoading && currentStation?.name === station.name && (
-               <div className="mt-2 text-radio-secondary text-sm">
-                 Laden...
-               </div>
-             )}
-           </div>
-         </div>
-       ))}
-     </div>
+              {/* Station Name - Smart scrolling text */}
+              <SmartText 
+                text={station.name}
+                className="station-name leading-tight font-medium text-white"
+                isName={true}
+              />
 
-     {/* No results message */}
-     {filteredStations.length === 0 && (
-       <div className="text-center py-12">
-         <div className="text-radio-secondary text-lg mb-2">
-           Geen radiozenders gevonden
-         </div>
-         <div className="text-radio-secondary text-sm">
-           Probeer een andere zoekterm of categorie
-         </div>
-       </div>
-     )}
-   </div>
- </div>
-);
+              {/* Station Description - Smart scrolling text */}
+              <SmartText 
+                text={station.description}
+                className="station-description text-gray-400 text-xs"
+                isName={false}
+              />
+
+              {/* Playing Indicator */}
+              {currentStation?.name === station.name && isPlaying && (
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
+                  <div className="sound-wave-container">
+                    <span className="sound-wave"></span>
+                    <span className="sound-wave"></span>
+                    <span className="sound-wave"></span>
+                    <span className="sound-wave"></span>
+                    <span className="sound-wave"></span>
+                    <span className="sound-wave"></span>
+                    <span className="sound-wave"></span>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading Indicator */}
+              {isLoading && currentStation?.name === station.name && (
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-gray-400 text-xs">
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-500 mr-1"></div>
+                    <span className="text-xs">Verbinden...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Favorite Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log('Favorite button clicked for:', station.name);
+                  console.log('Current isFavorite status:', isFavorite(station.name));
+                  toggleFavorite(station.name);
+                  // Force a small delay to see if state updates
+                  setTimeout(() => {
+                    console.log('After toggle - isFavorite status:', isFavorite(station.name));
+                  }, 100);
+                }}
+                className="absolute top-1 right-1 p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+                title={isFavorite(station.name) ? 'Uit favorieten verwijderen' : 'Aan favorieten toevoegen'}
+              >
+                <svg 
+                  className={`w-3 h-3 transition-colors ${isFavorite(station.name) ? 'text-yellow-400' : 'text-gray-400'}`} 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* No results message */}
+        {filteredStations.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-radio-secondary text-lg mb-2">
+              Geen radiozenders gevonden
+            </div>
+            <div className="text-radio-secondary text-sm">
+              Probeer een andere zoekterm of categorie
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default RadioGrid;
-
-

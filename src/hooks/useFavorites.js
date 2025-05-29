@@ -1,49 +1,125 @@
+// hooks/useFavorites.js - Fix favorites persistence
+// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\hooks\useFavorites.js
+
 import { useState, useEffect } from 'react';
+
+const FAVORITES_STORAGE_KEY = 'radioFavorites';
 
 export const useFavorites = () => {
   const [favorites, setFavorites] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load favorites from localStorage on mount
   useEffect(() => {
-    const savedFavorites = localStorage.getItem('radioFavorites');
-    if (savedFavorites) {
+    const loadFavorites = () => {
       try {
-        setFavorites(JSON.parse(savedFavorites));
+        const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
+        console.log('Raw stored favorites:', stored); // Debug log
+        
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          console.log('Parsed favorites:', parsed); // Debug log
+          
+          if (Array.isArray(parsed)) {
+            setFavorites(parsed);
+            console.log('Loaded favorites successfully:', parsed);
+          } else {
+            console.warn('Stored favorites is not an array, resetting to empty array');
+            setFavorites([]);
+            localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([]));
+          }
+        } else {
+          console.log('No stored favorites found, starting with empty array');
+          setFavorites([]);
+        }
       } catch (error) {
-        console.error('Error loading favorites:', error);
+        console.error('Failed to load favorites from localStorage:', error);
         setFavorites([]);
+        // Clear corrupted data
+        localStorage.removeItem(FAVORITES_STORAGE_KEY);
+      } finally {
+        setIsInitialized(true); // Mark as initialized regardless of success/failure
       }
-    }
+    };
+
+    loadFavorites();
   }, []);
 
-  const addToFavorites = (station) => {
-    const newFavorites = [...favorites, station];
-    setFavorites(newFavorites);
-    localStorage.setItem('radioFavorites', JSON.stringify(newFavorites));
-  };
+  // Save favorites to localStorage whenever favorites change (but only after initialization)
+  useEffect(() => {
+    if (!isInitialized) {
+      console.log('Skipping save - not yet initialized');
+      return;
+    }
 
-  const removeFromFavorites = (stationName) => {
-    const newFavorites = favorites.filter(station => station.name !== stationName);
-    setFavorites(newFavorites);
-    localStorage.setItem('radioFavorites', JSON.stringify(newFavorites));
-  };
+    const saveFavorites = () => {
+      try {
+        const favoritesJson = JSON.stringify(favorites);
+        localStorage.setItem(FAVORITES_STORAGE_KEY, favoritesJson);
+        console.log('Saved favorites to localStorage:', favorites); // Debug log
+      } catch (error) {
+        console.error('Failed to save favorites to localStorage:', error);
+      }
+    };
+
+    saveFavorites();
+  }, [favorites, isInitialized]);
 
   const isFavorite = (stationName) => {
-    return favorites.some(station => station.name === stationName);
+    if (!stationName) return false;
+    const result = favorites.includes(stationName);
+    //console.log(`Is "${stationName}" favorite?`, result, 'Current favorites:', favorites); // Debug log
+    return result;
   };
 
-  const toggleFavorite = (station) => {
-    if (isFavorite(station.name)) {
-      removeFromFavorites(station.name);
-    } else {
-      addToFavorites(station);
+  const toggleFavorite = (stationName) => {
+    if (!stationName) {
+      console.warn('Cannot toggle favorite: station name is empty');
+      return;
     }
+
+    console.log('Toggling favorite for:', stationName, 'Current favorites:', favorites); // Debug log
+    
+    setFavorites(prev => {
+      const isCurrentlyFavorite = prev.includes(stationName);
+      let newFavorites;
+      
+      if (isCurrentlyFavorite) {
+        // Remove from favorites
+        newFavorites = prev.filter(name => name !== stationName);
+        console.log('Removed from favorites:', stationName);
+      } else {
+        // Add to favorites
+        newFavorites = [...prev, stationName];
+        console.log('Added to favorites:', stationName);
+      }
+      
+      console.log('New favorites array:', newFavorites);
+      return newFavorites;
+    });
+  };
+
+  const clearFavorites = () => {
+    console.log('Clearing all favorites');
+    setFavorites([]);
+    // Don't remove from localStorage here, let the effect handle it
+  };
+
+  // Debug function to check localStorage directly
+  const debugFavorites = () => {
+    const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    console.log('Debug - Raw localStorage:', stored);
+    console.log('Debug - Current state:', favorites);
+    console.log('Debug - State length:', favorites.length);
+    console.log('Debug - Is initialized:', isInitialized);
   };
 
   return {
     favorites,
-    addToFavorites,
-    removeFromFavorites,
     isFavorite,
-    toggleFavorite
+    toggleFavorite,
+    clearFavorites,
+    debugFavorites, // For debugging purposes
+    isInitialized // Expose for debugging
   };
 };

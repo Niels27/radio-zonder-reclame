@@ -4,57 +4,186 @@
 
 @layer base {
   body {
-    @apply bg-radio-darker text-white font-sans;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   #root {
-    @apply min-h-screen flex flex-col;
+    min-height: 100vh;
   }
 }
 
 @layer components {
+  /* Radio card styles */
   .radio-card {
-    @apply bg-radio-dark hover:bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200 border border-gray-700 hover:border-radio-accent;
+    @apply bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg p-2 cursor-pointer transition-all duration-200 transform hover:scale-105;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Ensure proper height */
   }
   
   .radio-card.active {
-    @apply border-radio-accent bg-radio-accent/10;
+    @apply border-blue-500 bg-blue-500/10;
+  }
+
+  /* Station name - 2 lines max with ellipsis */
+  .station-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    font-size: clamp(0.625rem, 2vw, 0.75rem);
+    line-height: 1.2;
+    height: 2.4em; /* Fixed height for 2 lines */
+    transition: all 0.3s ease;
+  }
+
+  /* Station description - 1 line with horizontal scroll on overflow */
+  .station-description {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.3s ease;
+    width: 100%;
+  }
+
+  /* Scrolling animation for overflowing text */
+  @keyframes scroll-text {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(0); }
+    75% { transform: translateX(-100%); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* Apply scrolling when card is hovered and text overflows */
+  .radio-card:hover .station-name.text-overflow {
+    white-space: nowrap;
+    animation: scroll-text 3s linear infinite;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+    overflow: visible;
+    width: max-content;
+    padding-right: 2rem;
+  }
+
+  .radio-card:hover .station-description.text-overflow {
+    animation: scroll-text 3s linear infinite;
+    overflow: visible;
+    width: max-content;
+    padding-right: 2rem;
+  }
+
+  /* Search icon hover effect */
+  #search-icon {
+    transition: transform 0.2s ease-in-out;
   }
   
-  .player-controls {
-    @apply bg-radio-dark border-t border-gray-700 p-4 flex items-center justify-between;
+  #search-icon:hover {
+    transform: scale(1.2);
   }
-  
-  .ad-break-indicator {
-    @apply bg-ad-break text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse;
+
+  /* Sound wave container */
+  .sound-wave-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 8px;
+    line-height: 1;
   }
-  
+
+  .sound-wave {
+    display: inline-block;
+    width: 4px;
+    height: 1.6px;
+    background-color: #10b981;
+    margin: 0 0.5px;
+    border-radius: 2px;
+    animation: sound-wave 0.8s ease-in-out infinite;
+    transform-origin: bottom;
+    vertical-align: middle;
+  }
+
+  /* Sound wave animation */
+  @keyframes sound-wave {
+    0%, 100% { 
+      height: 1.6px;
+      transform: scaleY(1);
+    }
+    25% { 
+      height: 4.8px;
+      transform: scaleY(3);
+    }
+    50% { 
+      height: 3.2px;
+      transform: scaleY(2);
+    }
+    75% { 
+      height: 6.4px;
+      transform: scaleY(4);
+    }
+  }
+
+  .sound-wave:nth-child(1) { animation-delay: 0s; }
+  .sound-wave:nth-child(2) { animation-delay: 0.1s; }
+  .sound-wave:nth-child(3) { animation-delay: 0.2s; }
+  .sound-wave:nth-child(4) { animation-delay: 0.3s; }
+  .sound-wave:nth-child(5) { animation-delay: 0.4s; }
+  .sound-wave:nth-child(6) { animation-delay: 0.5s; }
+  .sound-wave:nth-child(7) { animation-delay: 0.6s; }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Volume slider styles */
   .volume-slider {
-    @apply w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer;
+    @apply appearance-none bg-gray-600 h-2 rounded-lg outline-none;
   }
   
   .volume-slider::-webkit-slider-thumb {
-    @apply appearance-none w-4 h-4 bg-radio-accent rounded-full cursor-pointer;
+    @apply appearance-none w-4 h-4 bg-blue-500 rounded-full cursor-pointer;
   }
-  
+
   .volume-slider::-moz-range-thumb {
-    @apply w-4 h-4 bg-radio-accent rounded-full cursor-pointer border-none;
+    @apply w-4 h-4 bg-blue-500 rounded-full cursor-pointer border-0;
   }
 }
 
 @layer utilities {
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-in-out;
+  .radio-accent {
+    @apply bg-blue-600;
   }
   
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateX(100%);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+  .radio-accent-hover {
+    @apply bg-blue-500;
+  }
+  
+  .radio-secondary {
+    @apply text-gray-400;
+  }
+  
+  .radio-dark {
+    @apply bg-gray-800;
+  }
+  
+  .radio-hover {
+    @apply bg-gray-700;
   }
 }

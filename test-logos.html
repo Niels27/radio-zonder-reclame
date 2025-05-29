@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logo Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .logo-test { 
+            display: inline-block; 
+            margin: 10px; 
+            text-align: center;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .logo { 
+            width: 80px; 
+            height: 80px; 
+            border-radius: 50%; 
+            object-fit: contain; 
+            background: white;
+            padding: 4px;
+            border: 2px solid #ddd;
+        }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Dutch Radio Station Logo Test</h1>
+    <p>Testing our Wikipedia Commons logo URLs...</p>
+    
+    <div id="logoTests"></div>
+    
+    <script>
+        const PREMIUM_LOGOS = {
+            'Radio 538': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Radio_538_logo_2019.svg/200px-Radio_538_logo_2019.svg.png',
+            'Sky Radio': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Sky_Radio_logo.svg/200px-Sky_Radio_logo.svg.png',
+            'Q-music': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Qmusic_logo.svg/200px-Qmusic_logo.svg.png',
+            'Radio Veronica': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Radio_Veronica_logo_2015.svg/200px-Radio_Veronica_logo_2015.svg.png',
+            'SLAM!': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/SLAM%21_logo_2015.svg/200px-SLAM%21_logo_2015.svg.png',
+            '100% NL': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/100%25NL_logo_2015.svg/200px-100%25NL_logo_2015.svg.png',
+            'NPO Radio 1': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/NPO_Radio_1_logo_2014.svg/200px-NPO_Radio_1_logo_2014.svg.png',
+            'NPO Radio 2': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/NPO_Radio_2_logo_2014.svg/200px-NPO_Radio_2_logo_2014.svg.png',
+            '3FM': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/NPO_3FM_logo_2014.svg/200px-NPO_3FM_logo_2014.svg.png'
+        };
+        
+        const container = document.getElementById('logoTests');
+        
+        Object.entries(PREMIUM_LOGOS).forEach(([station, url]) => {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'logo-test';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'logo';
+            img.alt = station;
+            
+            const label = document.createElement('div');
+            label.textContent = station;
+            
+            const status = document.createElement('div');
+            status.textContent = 'Loading...';
+            
+            img.onload = () => {
+                status.textContent = '✅ Loaded';
+                status.className = 'success';
+            };
+            
+            img.onerror = () => {
+                status.textContent = '❌ Failed';
+                status.className = 'error';
+                console.error(`Failed to load logo for ${station}: ${url}`);
+            };
+            
+            testDiv.appendChild(img);
+            testDiv.appendChild(label);
+            testDiv.appendChild(status);
+            container.appendChild(testDiv);
+        });
+    </script>
+</body>
+</html>

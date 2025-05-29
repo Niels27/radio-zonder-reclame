@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { loadYouTubeAPI, createYouTubePlayer } from '../utils/youtubeUtils';
+import { StreamProxy } from '../utils/streamProxy.js';
 
 export const useAudioPlayer = () => {
   const [currentStation, setCurrentStation] = useState(null);
@@ -21,11 +22,17 @@ export const useAudioPlayer = () => {
     const audio = audioRef.current;
     
     const handleLoadStart = () => setIsLoading(true);
-    const handleCanPlay = () => setIsLoading(false);    const handleError = () => {
-      setError('Failed to load radio stream');
+    const handleCanPlay = () => {
       setIsLoading(false);
-      setIsPlaying(false);
+      setError(null); // Clear any previous errors when successful
     };
+    
+    const handleError = () => {
+      // Only set error if we're not currently trying alternatives
+      // The playRadio function will handle errors appropriately
+      console.log('Audio element error occurred');
+    };
+    
     const handleEnded = () => setIsPlaying(false);
     
     audio.addEventListener('loadstart', handleLoadStart);
@@ -51,31 +58,124 @@ export const useAudioPlayer = () => {
       youtubePlayerRef.current.setVolume(volume * 100);
     }
   }, [volume]);
-
   const playRadio = useCallback(async (stationData) => {
     if (!audioRef.current || !stationData) return;
     
-    setError(null);
+    // Immediately stop current radio and clear state
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+    
+    // Stop YouTube if playing
+    if (youtubePlayerRef.current && youtubePlayerRef.current.pauseVideo) {
+      youtubePlayerRef.current.pauseVideo();
+    }
+    
+    // Clear current state immediately
+    setCurrentStation(null);
+    setIsPlaying(false);
+    setError(null); // Clear errors at start
     setIsLoading(true);
     
     try {
-      // Stop YouTube if playing
-      if (youtubePlayerRef.current && youtubePlayerRef.current.pauseVideo) {
-        youtubePlayerRef.current.pauseVideo();
+      const audio = audioRef.current;
+      
+      // Use StreamProxy with progress feedback
+      let streamUrl;
+      try {
+        streamUrl = await StreamProxy.findWorkingStream(stationData.url, (progress) => {
+          // Show progress to user via notification system
+          if (window.addNotification) {
+            window.addNotification(progress, 'info', 1000);
+          }
+          console.log(`📡 ${progress}`);
+        });
+        console.log(`🎵 Using stream URL: ${streamUrl}`);
+      } catch (proxyError) {
+        console.error('StreamProxy failed completely, using original URL:', proxyError);
+        streamUrl = stationData.url;
       }
       
-      const audio = audioRef.current;
-      audio.src = stationData.url;
+      // Important: Set crossOrigin before setting src
+      audio.crossOrigin = 'anonymous';
+      audio.src = streamUrl;
       
-      await audio.play();
-      setCurrentStation(stationData);
-      setIsPlaying(true);
-      setCurrentSource('radio');
+      try {
+        await audio.play();
+        // Only set station as current if playback succeeds
+        setCurrentStation(stationData);
+        setIsPlaying(true);
+        setCurrentSource('radio');
+        
+        // Store last played station
+        localStorage.setItem('lastPlayedStation', JSON.stringify(stationData));
+        
+        // Show success notification
+        if (window.addNotification) {
+          window.addNotification(`🎵 Now playing ${stationData.name}`, 'success', 2000);
+        }
+      } catch (playError) {
+        // If proxied URL fails, try without proxy
+        if (streamUrl !== stationData.url) {
+          console.log('🔄 Proxied URL failed, trying original...');
+          if (window.addNotification) {
+            window.addNotification('Trying original stream...', 'info', 1000);
+          }
+          audio.src = stationData.url;
+          await audio.play();
+          // Only set station as current if playback succeeds
+          setCurrentStation(stationData);
+          setIsPlaying(true);
+          setCurrentSource('radio');
+          localStorage.setItem('lastPlayedStation', JSON.stringify(stationData));
+          
+          if (window.addNotification) {
+            window.addNotification(`🎵 Now playing ${stationData.name}`, 'success', 2000);
+          }
+        } else {
+          throw playError;
+        }
+      }
       
-      // Store last played station
-      localStorage.setItem('lastPlayedStation', JSON.stringify(stationData));    } catch {
-      setError(`Failed to play ${stationData.name}`);
+    } catch (error) {
+      // Enhanced error logging for radio station failures
+      const errorDetails = {
+        stationName: stationData.name,
+        stationUrl: stationData.url,
+        errorMessage: error.message,
+        errorType: error.name,
+        errorCode: error.code,
+        networkState: audioRef.current?.networkState,
+        readyState: audioRef.current?.readyState,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        connectionType: navigator.connection?.effectiveType || 'unknown',
+        isOnline: navigator.onLine
+      };
+      
+      console.error('🔴 RADIO PLAYBACK FAILED:', errorDetails);
+      
+      // Additional debugging info
+      if (error.code) {
+        const mediaErrorCodes = {
+          1: 'MEDIA_ERR_ABORTED - Playback aborted by user',
+          2: 'MEDIA_ERR_NETWORK - Network error during download',
+          3: 'MEDIA_ERR_DECODE - Error during decoding',
+          4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - Audio format not supported'
+        };
+        console.error(`🔴 Media Error Code ${error.code}: ${mediaErrorCodes[error.code] || 'Unknown error'}`);
+      }
+      
+      // Only set error message after complete failure
+      setError(`Kan ${stationData.name} niet afspelen: Stream niet beschikbaar`);
+      setCurrentStation(null); // Ensure no station shows as active
       setIsPlaying(false);
+      
+      // Show error notification
+      if (window.addNotification) {
+        window.addNotification(`❌ Could not play ${stationData.name}`, 'error', 3000);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +203,9 @@ export const useAudioPlayer = () => {
           youtubeDiv = document.createElement('div');
           youtubeDiv.id = 'youtube-player';
           youtubeDiv.style.display = 'none';
+          youtubeDiv.style.position = 'absolute';
+          youtubeDiv.style.top = '-9999px';
+          youtubeDiv.style.left = '-9999px';
           document.body.appendChild(youtubeDiv);
         }
         
@@ -111,8 +214,29 @@ export const useAudioPlayer = () => {
             autoplay: 1,
             loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
             shuffle: options.shuffle ? 1 : 0
+          },
+          onStateChange: (event) => {
+            // Handle player state changes
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              setIsPlaying(true);
+            } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
+              setIsPlaying(false);
+            }
           }
         });
+        
+        // Wait a moment for player to fully initialize
+        setTimeout(() => {
+          if (options.shuffle && youtubePlayerRef.current) {
+            try {
+              youtubePlayerRef.current.setShuffle(true);
+              console.log('Shuffle enabled after delay');
+            } catch (error) {
+              console.warn('Could not set shuffle after delay:', error);
+            }
+          }
+        }, 1000);
+        
       } else {
         // Use existing player with new playlist
         youtubePlayerRef.current.loadPlaylist({
@@ -121,22 +245,39 @@ export const useAudioPlayer = () => {
           shuffle: options.shuffle ? 1 : 0
         });
         
-        // Set shuffle mode
-        if (options.shuffle) {
-          youtubePlayerRef.current.setShuffle(true);
-        }
-        
-        // Set loop mode based on repeat setting
-        if (options.repeat === 'all' || options.repeat === 'one') {
-          youtubePlayerRef.current.setLoop(true);
-        } else {
-          youtubePlayerRef.current.setLoop(false);
-        }
+        // Set shuffle mode after loading playlist
+        setTimeout(() => {
+          if (options.shuffle && youtubePlayerRef.current) {
+            try {
+              youtubePlayerRef.current.setShuffle(true);
+              console.log('Shuffle enabled on existing player');
+            } catch (error) {
+              console.warn('Could not set shuffle on existing player:', error);
+            }
+          }
+          
+          // Set loop mode based on repeat setting
+          if (options.repeat === 'all' || options.repeat === 'one') {
+            try {
+              youtubePlayerRef.current.setLoop(true);
+            } catch (error) {
+              console.warn('Could not set loop:', error);
+            }
+          } else {
+            try {
+              youtubePlayerRef.current.setLoop(false);
+            } catch (error) {
+              console.warn('Could not unset loop:', error);
+            }
+          }
+        }, 500);
       }
       
       setCurrentSource('playlist');
       setIsPlaying(true);
-    } catch {
+      
+    } catch (error) {
+      console.error('Failed to load YouTube playlist:', error);
       setError('Failed to load YouTube playlist');
       setIsPlaying(false);
     } finally {
@@ -171,6 +312,32 @@ export const useAudioPlayer = () => {
     }
   }, [isPlaying, pauseAudio, resumeAudio]);
 
+  // Add a function to toggle shuffle
+  const toggleShuffle = useCallback((enabled) => {
+    if (youtubePlayerRef.current) {
+      try {
+        youtubePlayerRef.current.setShuffle(enabled);
+        console.log(`Shuffle ${enabled ? 'enabled' : 'disabled'}`);
+        
+        // Force reload the playlist with shuffle setting
+        if (enabled) {
+          // Get current playlist and reload with shuffle
+          setTimeout(() => {
+            if (youtubePlayerRef.current) {
+              try {
+                youtubePlayerRef.current.setShuffle(true);
+              } catch (error) {
+                console.warn('Could not set shuffle on toggle:', error);
+              }
+            }
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error toggling shuffle:', error);
+      }
+    }
+  }, []);
+
   return {
     currentStation,
     isPlaying,
@@ -184,6 +351,8 @@ export const useAudioPlayer = () => {
     resumeAudio,
     togglePlayPause,
     setVolume,
-    setError
+    setError,
+    youtubePlayerRef,
+    toggleShuffle // Add this
   };
 };

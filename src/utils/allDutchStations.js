@@ -148,7 +148,7 @@ export const allDutchStations = {
     "Radio 538 Nonstop": {
       "name": "Radio 538 Nonstop",
       "url": "http://playerservices.streamtheworld.com/m3u/TLPSTR09.m3u",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/538_logo.png/250px-538_logo.png",
       "description": "Publieke omroep",
       "bitrate": 128,
       "city": null,
@@ -636,7 +636,7 @@ export const allDutchStations = {
     "SLAM!": {
       "name": "SLAM!",
       "url": "http://stream.slam.nl/slam",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/0/0f/SLAM%21_logo_2015.svg",
+      "logo": "https://www.slam.nl/favicon.ico",
       "description": "Pop muziek",
       "bitrate": 128,
       "city": null,
@@ -1051,7 +1051,7 @@ export const allDutchStations = {
     "Sky Radio Non-Stop": {
       "name": "Sky Radio Non-Stop",
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
-      "logo": "https://skyradio.nl/favicon.ico",
+      "logo": "http://www.skyradio.nl/favicon.ico",
       "description": "Commerciële radio",
       "bitrate": 128,
       "city": null,
@@ -1312,7 +1312,7 @@ export const allDutchStations = {
       "Radio 538 Non-Stop": {
     "name": "Radio 538 Non-Stop",
     "url": "https://21223.live.streamtheworld.com/538NONSTOP.mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Radio_538_logo.svg",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/538_logo.png/250px-538_logo.png",
     "description": "Non-stop hits zonder praat",
     "bitrate": 128,
     "city": null,
@@ -1321,7 +1321,7 @@ export const allDutchStations = {
     "Sky Radio Non-Stop @ Work": {
     "name": "Sky Radio Non-Stop @ Work",
     "url": "https://22433.live.streamtheworld.com/SKYRADIO_NONSTOP_WORK.mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Sky_Radio_logo.svg",
+    "logo": "http://www.skyradio.nl/favicon.ico",
     "description": "Perfect voor op kantoor",
     "bitrate": 128,
     "city": null,

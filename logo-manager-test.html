@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logo Manager Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .success { color: #22c55e; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+        .stats { 
+            background: #f8fafc; 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin: 15px 0; 
+        }
+        pre { 
+            background: #1e293b; 
+            color: #e2e8f0; 
+            padding: 15px; 
+            border-radius: 6px; 
+            overflow-x: auto; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Dutch Radio Logo Manager Test</h1>
+        <p>Testing our logo management system for popular Dutch radio stations...</p>
+        
+        <div id="output"></div>
+        
+        <div class="stats">
+            <h3>📊 Test Results</h3>
+            <div id="stats"></div>
+        </div>
+        
+        <h3>🌐 Logo Test Results</h3>
+        <div id="logoTests"></div>
+    </div>
+    
+    <script src="test-logo-manager.js"></script>
+    <script>
+        // Redirect console.log to our output div
+        const output = document.getElementById('output');
+        const stats = document.getElementById('stats');
+        const logoTests = document.getElementById('logoTests');
+        
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const message = args.join(' ');
+            const div = document.createElement('div');
+            
+            if (message.includes('✅')) {
+                div.className = 'success';
+            } else if (message.includes('❌')) {
+                div.className = 'error';
+            } else if (message.includes('📊') || message.includes('📈')) {
+                div.className = 'info';
+            }
+            
+            div.textContent = message;
+            output.appendChild(div);
+        };
+        
+        // Run the test after a small delay
+        setTimeout(() => {
+            console.log('🎯 Starting logo manager test...');
+            
+            // Check if we can access our main application's debug tools
+            if (window.opener && window.opener.radioLogoDebug) {
+                console.log('🔗 Connected to main application debug tools');
+                try {
+                    const mainStats = window.opener.radioLogoDebug.logStats();
+                    console.log('📊 Main application logo stats:', JSON.stringify(mainStats, null, 2));
+                } catch (e) {
+                    console.log('⚠️ Could not access main application stats:', e.message);
+                }
+            } else {
+                console.log('ℹ️ Running standalone test (not connected to main app)');
+            }
+        }, 100);
+    </script>
+</body>
+</html>
