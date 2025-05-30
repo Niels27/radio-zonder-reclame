@@ -400,7 +400,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
               )}
 
               {/* Loading Indicator */}
-              {isLoading && currentStation?.name === station.name && (
+             {isLoading && currentStation?.name === station.name && !window.isAdBreakActive && (
                 <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-gray-400 text-xs">
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-500 mr-1"></div>

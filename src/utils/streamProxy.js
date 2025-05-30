@@ -149,52 +149,34 @@ export class StreamProxy {
     return [...new Set(alternatives)]; // Remove duplicates
   }
 
-  static testStreamUrl(url, timeout = 3000) {
+  static testStreamUrl(url, timeout = 8000) {
     return new Promise((resolve, reject) => {
       const audio = new Audio();
       const timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error('Timeout'));
+        audio.src = '';
+        reject(new Error('Stream test timeout'));
       }, timeout);
-
+      
       const cleanup = () => {
         clearTimeout(timeoutId);
-        audio.src = '';
-        audio.removeEventListener('canplaythrough', onSuccess);
-        audio.removeEventListener('loadeddata', onSuccess);
-        audio.removeEventListener('loadedmetadata', onSuccess);
+        audio.removeEventListener('canplay', onCanPlay);
         audio.removeEventListener('error', onError);
-        audio.removeEventListener('abort', onError);
       };
-
-      const onSuccess = () => {
-        cleanup();
-        resolve(true);
-      };
-
-      const onError = (error) => {
-        cleanup();
-        reject(error);
-      };
-
-      // Listen to multiple success events for faster detection
-      audio.addEventListener('canplaythrough', onSuccess);
-      audio.addEventListener('loadeddata', onSuccess);
-      audio.addEventListener('loadedmetadata', onSuccess); // Often fires first
-      audio.addEventListener('error', onError);
-      audio.addEventListener('abort', onError);
-
-      audio.preload = 'metadata'; // Only load metadata, not full stream
-      audio.volume = 0; // Mute for testing
-      audio.crossOrigin = 'anonymous';
       
-      try {
-        audio.src = url;
-        audio.load();
-      } catch (error) {
+      const onCanPlay = () => {
         cleanup();
-        reject(error);
-      }
+        resolve(url);
+      };
+      
+      const onError = (e) => {
+        cleanup();
+        reject(new Error(`Stream test failed: ${e.message || 'Unknown error'}`));
+      };
+      
+      audio.addEventListener('canplay', onCanPlay);
+      audio.addEventListener('error', onError);
+      audio.src = url;
+      audio.load();
     });
   }
 }

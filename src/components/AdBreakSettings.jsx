@@ -18,7 +18,9 @@ const AdBreakSettings = ({
   playlistUrl,
   playlistInfo,
   nextAdBreakIn, // Add this prop for countdown
-  currentAdBreakTimeLeft // New prop for current ad break time left
+  currentAdBreakTimeLeft, // New prop for current ad break time left
+  isManualTestActive, // Add this
+  audioPlayer // This prop exists in App.jsx
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -74,31 +76,33 @@ const AdBreakSettings = ({
 
           {/* Control Buttons - Always Visible */}
           <div className="flex gap-2">
-               <button
-                onClick={onManualAdBreak}
-                disabled={!isPlaylistValid}
-                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
-                  isAdBreakActive 
-                    ? 'bg-orange-600 hover:bg-orange-500 text-white' 
-                    : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
-                }`}
-                title={!isPlaylistValid ? 'Voer eerst een geldige playlist in' : ''}
-              >
-                {isAdBreakActive ? 'Stop Test' : 'Test Pauze'}
-              </button>
+            <button
+              onClick={onManualAdBreak}
+              disabled={!isPlaylistValid || (audioPlayer && audioPlayer.isTransitioning)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+                isManualTestActive
+                  ? 'bg-orange-600 hover:bg-orange-500 text-white' 
+                  : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
+              }`}
+              title={!isPlaylistValid ? 'Voer eerst een geldige playlist in' : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
+            >
+              {isManualTestActive ? 'Stop Test' : 'Test Pauze'}
+            </button>
             {!isTimerRunning ? (
               <button
                 onClick={onStartTimer}
-                disabled={!isPlaylistValid}
+                disabled={!isPlaylistValid || (audioPlayer && audioPlayer.isTransitioning)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-                title={!isPlaylistValid ? 'Voer eerst een geldige YouTube playlist URL in' : ''}
+                title={!isPlaylistValid ? 'Voer eerst een geldige YouTube playlist URL in' : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
               >
                 Activeren
               </button>
             ) : (
               <button
                 onClick={onStopTimer}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors text-sm"
+                disabled={audioPlayer && audioPlayer.isTransitioning}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
+                title={(audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
               >
                 Deactiveren
               </button>

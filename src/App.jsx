@@ -8,6 +8,7 @@ import UserGuide from './components/UserGuide';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useAdBreakTimer } from './hooks/useAdBreakTimer';
 import { validatePlaylistUrl } from './utils/youtubeUtils';
+import LoadingIndicator from './components/LoadingIndicator';
 
 function App() {
   const audioPlayer = useAudioPlayer();
@@ -53,20 +54,29 @@ function App() {
     }
   }, [adBreakTimer.isAdBreakActive]);
 
+  // Keep global ad break state in sync
+  useEffect(() => {
+    window.isAdBreakActive = adBreakTimer.isAdBreakActive;
+    window.queueStationSwitch = adBreakTimer.queueStationSwitch;
+    window.isTimerRunning = adBreakTimer.isTimerRunning; // Add this line
+  }, [adBreakTimer.isAdBreakActive, adBreakTimer.queueStationSwitch, adBreakTimer.isTimerRunning]);
+
   const handleStationSelect = (station) => {
+    // If ad break is active, the playRadio function will automatically queue it
     audioPlayer.playRadio(station);
 
-    if (window.addNotification) {
+    // Only show success notification if not queueing
+    if (!adBreakTimer.isAdBreakActive && window.addNotification) {
       window.addNotification(`Nu aan het spelen: ${station.name}`, 'success', 2000);
     }
 
-    // Start ad break timer if it's not running and we have a playlist
-    if (!adBreakTimer.isTimerRunning && adBreakTimer.playlistUrl) {
-      adBreakTimer.startTimer();
-      if (window.addNotification) {
-        window.addNotification('Reclamepauze timer gestart', 'info', 2000);
-      }
-    }
+    // REMOVE THIS AUTO-START LOGIC - User must manually activate timer
+    // if (!adBreakTimer.isTimerRunning && adBreakTimer.playlistUrl) {
+    //   adBreakTimer.startTimer();
+    //   if (window.addNotification) {
+    //     window.addNotification('Reclamepauze timer gestart', 'info', 2000);
+    //   }
+    // }
   };
 
   // Validate playlist URL when it changes
@@ -251,25 +261,27 @@ function App() {
 
           {/* Ad Break Settings - Moved back here */}
           <div className="bg-gray-800 border-b border-gray-700">
-            <AdBreakSettings
-              adBreakMinute={adBreakTimer.adBreakMinute}
-              adBreakMinute2={adBreakTimer.adBreakMinute2}
-              adBreakDuration={adBreakTimer.adBreakDuration}
-              isTimerRunning={adBreakTimer.isTimerRunning}
-              onMinuteChange={adBreakTimer.setAdBreakMinute}
-              onMinute2Change={adBreakTimer.setAdBreakMinute2}
-              onDurationChange={adBreakTimer.setAdBreakDuration}
-              onStartTimer={adBreakTimer.startTimer}
-              onStopTimer={adBreakTimer.stopTimer}
-              onResetTimer={adBreakTimer.resetTimer}
-              onManualAdBreak={adBreakTimer.manualAdBreak}
-              isAdBreakActive={adBreakTimer.isAdBreakActive}
-              playlistUrl={adBreakTimer.playlistUrl}
-              playlistInfo={playlistInfo}
-              nextAdBreakIn={adBreakTimer.nextAdBreakIn}
-              currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
-
-            />
+            <ErrorBoundary>
+              <AdBreakSettings
+                adBreakMinute={adBreakTimer.adBreakMinute}
+                adBreakMinute2={adBreakTimer.adBreakMinute2}
+                adBreakDuration={adBreakTimer.adBreakDuration}
+                isTimerRunning={adBreakTimer.isTimerRunning}
+                onMinuteChange={adBreakTimer.setAdBreakMinute}
+                onMinute2Change={adBreakTimer.setAdBreakMinute2}
+                onDurationChange={adBreakTimer.setAdBreakDuration}
+                onStartTimer={adBreakTimer.startTimer}
+                onStopTimer={adBreakTimer.stopTimer}
+                onManualAdBreak={adBreakTimer.manualAdBreak}
+                isAdBreakActive={adBreakTimer.isAdBreakActive}
+                isManualTestActive={adBreakTimer.isManualTestActive}
+                playlistUrl={adBreakTimer.playlistUrl}
+                playlistInfo={playlistInfo}
+                nextAdBreakIn={adBreakTimer.nextAdBreakIn}
+                currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
+                audioPlayer={audioPlayer}
+              />
+            </ErrorBoundary>
           </div>
 
           {/* Radio Grid */}
@@ -297,14 +309,25 @@ function App() {
             playlistShuffle={adBreakTimer.playlistShuffle}
             onToggleShuffle={(enabled) => {
               adBreakTimer.setPlaylistShuffle(enabled);
-              audioPlayer.toggleShuffle(enabled);
+              if (window.addNotification) {
+                window.addNotification(`Shuffle ${enabled ? 'ingeschakeld' : 'uitgeschakeld'}`, 'info', 2000);
+              }
             }}
             onNextTrack={() => {
-              if (audioPlayer.currentSource === 'playlist' && audioPlayer.youtubePlayerRef?.current) {
-                audioPlayer.youtubePlayerRef.current.nextVideo();
+              if (audioPlayer.youtubePlayerRef?.current) {
+                try {
+                  audioPlayer.youtubePlayerRef.current.nextVideo();
+                  if (window.addNotification) {
+                    window.addNotification('Volgende nummer', 'info', 1500);
+                  }
+                } catch (error) {
+                  console.error('Could not skip to next track:', error);
+                }
               }
             }}
             playlistInfo={playlistInfo}
+            queuedStation={adBreakTimer.queuedStation}
+            onCancelQueuedSwitch={adBreakTimer.cancelQueuedSwitch}
           />
         </div>
 
@@ -313,6 +336,50 @@ function App() {
 
         {/* Notification System */}
         <NotificationSystem />
+
+        {/* Loading Overlay - Prevent clicks during transitions */}
+        {(audioPlayer.isTransitioning || audioPlayer.isLoading) && (
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-sm mx-4 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {audioPlayer.isTransitioning ? 'Audio wisselen...' : 'Verbinding maken...'}
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    {audioPlayer.isTransitioning 
+                      ? 'Even geduld, de overgang wordt voorbereid' 
+                      : audioPlayer.currentStation 
+                        ? `Verbinding maken met ${audioPlayer.currentStation.name}`
+                        : 'Bezig met laden...'
+                    }
+                  </p>
+                  
+                  {audioPlayer.connectionTimeout && (
+                    <p className="text-orange-400 text-sm mt-2">
+                      {audioPlayer.connectionTimeout}
+                    </p>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => {
+                    console.log('🛑 User clicked abort button');
+                    audioPlayer.abortConnection();
+                    if (window.addNotification) {
+                      window.addNotification('⏹️ Alles gestopt', 'info', 2000);
+                    }
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-200 text-sm rounded-lg transition-colors border border-gray-500"
+                >
+                  Geef op
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ErrorBoundary>
   );
