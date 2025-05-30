@@ -37,14 +37,24 @@ const UserGuide = () => {
         "Zorg ervoor dat je YouTube afspeellijst openbaar is voor beste resultaten",
         "De app werkt het beste op Chrome, Firefox en Edge browsers"
       ]
-    },
-    {
+    },    {
       title: "Probleemoplossing",
       content: [
         "Als een radiozender niet laadt, probeer een andere - sommige kunnen tijdelijk niet beschikbaar zijn",
         "Voor YouTube afspeellijst problemen, controleer of de URL correct is en de afspeellijst openbaar is",
         "Als audio niet afspeelt, controleer je browser's autoplay instellingen",
-        "Ververs de pagina als je onverwachte problemen tegenkomt"
+        "Ververs de pagina als je onverwachte problemen tegenkomt",
+        "Meld niet-werkende radiozenders met de 'Melden dat deze radio niet werkt' knop bij foutmeldingen"
+      ]
+    },    {
+      title: "Voor Ontwikkelaars",
+      content: [
+        "Klik driemaal snel op de rechterbovenhoek van de header om het Developer Dashboard te openen",
+        "Voer het ontwikkelaarswachtwoord in wanneer daarom wordt gevraagd",
+        "Bekijk gerapporteerde stations en beheer station URL/logo overrides",
+        "Test station URLs direct vanuit het dashboard met de afspeel knoppen",
+        "Doorzoek alle beschikbare stations en maak eenvoudig overrides aan",
+        "Exporteer/importeer rapportage data voor backup doeleinden"
       ]
     }
   ];

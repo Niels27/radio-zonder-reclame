@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ReportStationButton from './ReportStationButton';
 
 // components/AudioPlayer.jsx - Show playlist thumbnail and info
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\AudioPlayer.jsx
@@ -278,12 +279,31 @@ const AudioPlayer = ({
               />
             </div>
           </div>
-        </div>
-
-        {/* Error Message */}
+        </div>        {/* Error Message */}
         {error && (
           <div className="mt-3 p-3 bg-red-900/20 border border-red-500/20 rounded-lg text-red-300 text-sm">
-            {error}
+            <div className="flex items-center justify-between">
+              <span>{error}</span>
+              {/* Show report button for any radio connection errors */}
+              {currentStation && currentSource === 'radio' && (
+                <ReportStationButton 
+                  station={currentStation}
+                  errorDetails={{
+                    message: error,
+                    timestamp: new Date().toISOString(),
+                    source: 'audio_player',
+                    userAgent: navigator.userAgent
+                  }}
+                  onReported={(result) => {
+                    console.log('Station reported from AudioPlayer:', result);
+                    // Could show a toast notification here
+                    if (window.addNotification) {
+                      window.addNotification(`Radio ${currentStation.name} gemeld als niet werkend`, 'success', 3000);
+                    }
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>

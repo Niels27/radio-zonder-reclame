@@ -5,6 +5,7 @@ import AdBreakSettings from './components/AdBreakSettings';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationSystem from './components/NotificationSystem';
 import UserGuide from './components/UserGuide';
+import DeveloperDashboard from './components/DeveloperDashboard';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useAdBreakTimer } from './hooks/useAdBreakTimer';
 import { validatePlaylistUrl } from './utils/youtubeUtils';
@@ -16,6 +17,7 @@ function App() {
   const [playlistInfo, setPlaylistInfo] = useState(null);
   const [isValidatingPlaylist, setIsValidatingPlaylist] = useState(false);
   const [isPlaylistInputHovered, setIsPlaylistInputHovered] = useState(false);
+  const [showDeveloperDashboard, setShowDeveloperDashboard] = useState(false);
 
   // Load last played station on mount
   useEffect(() => {
@@ -53,7 +55,6 @@ function App() {
       window.showNotification('Reclamepauze gestart - schakel naar afspeellijst', 'info', 3000);
     }
   }, [adBreakTimer.isAdBreakActive]);
-
   // Keep global ad break state in sync
   useEffect(() => {
     window.isAdBreakActive = adBreakTimer.isAdBreakActive;
@@ -105,19 +106,37 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">
-        {/* Header Section */}
-        <div className="h-[140px] flex items-center justify-center bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 border-b border-gray-700">
-          <div className="text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">        {/* Header Section */}        <div className="h-[140px] flex items-center justify-center bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 border-b border-gray-700 relative">
+          {/* Hidden Developer Access - Triple click the top-right corner */}
+          <div 
+            className="absolute top-0 right-0 w-16 h-16 cursor-pointer"
+            onClick={(e) => {
+              if (e.detail === 1) { // Triple click
+                const password = prompt('Enter developer password:');
+                if (password === '') {
+                  setShowDeveloperDashboard(true);
+                  if (window.addNotification) {
+                    window.addNotification('🛠️ Developer Dashboard geopend', 'success', 2000);
+                  }
+                } else if (password !== null) {
+                  if (window.addNotification) {
+                    window.addNotification('❌ Incorrect password', 'error', 2000);
+                  }
+                }
+              }
+            }}
+            title="Triple-click for developer access"
+          />
+            <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               Nederlandse Radio / Playlist Switcher
             </h1>
             <h2 className="text-2xl md:text-2xl font-semibold text-gray-300">
               Automatische reclamepauze wisseling
-
             </h2>
             <p className="text-gray-400 mt-2 text-lg">
             </p>
+         
           </div>
         </div>
 
@@ -378,7 +397,11 @@ function App() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>        )}
+
+        {/* Developer Dashboard */}
+        {showDeveloperDashboard && (
+          <DeveloperDashboard onClose={() => setShowDeveloperDashboard(false)} />
         )}
       </div>
     </ErrorBoundary>

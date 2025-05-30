@@ -297,16 +297,16 @@ export const useAudioPlayer = () => {
       }
     } catch (error) {
       console.error(`❌ Failed to play ${stationData.name}:`, error);
-      
-      // Clear timeout on error - but only if it's still the same timeout
+        // Clear timeout on error - but only if it's still the same timeout
       if (timeoutRef.current === timeoutId) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
       
       setError(`Kan ${stationData.name} niet afspelen. Probeer een andere zender.`);
-      setCurrentStation(null);
-      setCurrentSource(null);
+      // Don't clear current station immediately - keep it for error reporting
+      // setCurrentStation(null);
+      // setCurrentSource(null);
       setIsPlaying(false);
     } finally {
       setIsLoading(false);

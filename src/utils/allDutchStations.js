@@ -4,6 +4,7 @@
 
 // Popular stations list - the 24 most popular Dutch radio stations
 const popularStationNames = [
+  'TEST FAILING STATION',
   'Radio 538',
   'Sky Radio',
   'Qmusic',
@@ -73,6 +74,15 @@ export const getStats = () => ({
 
 export const allDutchStations = {
   "public": {
+    "TEST FAILING STATION": {
+      "name": "TEST FAILING STATION",
+      "url": "http://this-will-definitely-fail.example.com/nonexistent-stream.mp3",
+      "logo": "https://via.placeholder.com/64x64/ff0000/ffffff?text=FAIL",
+      "description": "Test station that always fails",
+      "bitrate": 128,
+      "city": "Test City",
+      "votes": 1
+    },
     "Radio 10": {
       "name": "Radio 10",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/RADIO10.mp3",
