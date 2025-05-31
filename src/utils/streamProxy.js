@@ -1,182 +1,258 @@
 // utils/streamProxy.js - Much faster with parallel testing and user feedback
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\utils\streamProxy.js
+import { getStationDefinition } from '../data/stationDefinitions.js';
+
 export class StreamProxy {
-  static corsProxies = [
-    'https://api.allorigins.win/raw?url=',
-    'https://cors-anywhere.herokuapp.com/',
-    'https://corsproxy.io/?',
-    'https://cors-proxy.htmldriven.com/?url=',
-  ];
-
-  static async findWorkingStream(originalUrl, onProgress = null) {
-    console.log(`🔍 Finding working stream for: ${originalUrl}`);
-    
-    // First try the original URL quickly
-    try {
-      onProgress?.(`Testing original stream...`);
-      const works = await this.testStreamUrl(originalUrl, 1500); // Very short timeout
-      if (works) {
-        console.log(`✅ Original URL works: ${originalUrl}`);
-        return originalUrl;
-      }
-    } catch (error) {
-      console.log(`❌ Original stream blocked by CORS or failed`);
-    }
-
-    // Get all alternative URLs
-    const alternatives = this.generateAlternativeUrls(originalUrl);
-    
-    if (alternatives.length > 0) {
-      onProgress?.(`Trying ${alternatives.length} alternative streams...`);
-      
-      // Test alternatives in parallel with short timeout
-      const alternativeTests = alternatives.map(async (url, index) => {
-        try {
-          await this.testStreamUrl(url, 2000); // Short timeout for alternatives
-          return { url, index, success: true };
-        } catch (error) {
-          return { url, index, success: false, error: error.message };
-        }
-      });
-
-      // Wait for first successful alternative or all to fail
-      try {
-        const results = await Promise.allSettled(alternativeTests);
-        const successful = results
-          .filter(result => result.status === 'fulfilled' && result.value.success)
-          .map(result => result.value);
-
-        if (successful.length > 0) {
-          // Sort by original index to prefer earlier alternatives
-          successful.sort((a, b) => a.index - b.index);
-          const winner = successful[0];
-          console.log(`✅ Alternative URL works: ${winner.url}`);
-          return winner.url;
-        }
-      } catch (error) {
-        console.log(`❌ All alternatives failed`);
-      }
-    }
-
-    // Try CORS proxies in parallel
-    onProgress?.(`Trying CORS proxies...`);
-    
-    const proxyTests = this.corsProxies.map(async (proxy, index) => {
-      try {
-        const proxiedUrl = proxy + encodeURIComponent(originalUrl);
-        await this.testStreamUrl(proxiedUrl, 3000); // Slightly longer for proxies
-        return { proxy, proxiedUrl, index, success: true };
-      } catch (error) {
-        return { proxy, proxiedUrl: proxy + encodeURIComponent(originalUrl), index, success: false, error: error.message };
-      }
-    });
-
-    try {
-      const proxyResults = await Promise.allSettled(proxyTests);
-      const successfulProxy = proxyResults
-        .filter(result => result.status === 'fulfilled' && result.value.success)
-        .map(result => result.value);
-
-      if (successfulProxy.length > 0) {
-        // Sort by original index to prefer better proxies
-        successfulProxy.sort((a, b) => a.index - b.index);
-        const winner = successfulProxy[0];
-        console.log(`✅ CORS proxy works: ${winner.proxiedUrl}`);
-        return winner.proxiedUrl;
-      }
-    } catch (error) {
-      console.log(`❌ All CORS proxies failed`);
-    }
-
-    // If all else fails, return original URL (user might have CORS extension)
-    onProgress?.(`No working streams found, using original...`);
-    console.log(`⚠️ No working stream found, returning original: ${originalUrl}`);
-    return originalUrl;
-  }
-
-  static generateAlternativeUrls(originalUrl) {
+  // Smarter alternatives generation - avoid redundant URLs
+  static getCORSFriendlyAlternatives(originalUrl, stationName = null) {
     const alternatives = [];
     
-    // For SLAM radio specifically - use known working URLs first
-    if (originalUrl.includes('slam.nl')) {
-      alternatives.push(
-         // From your data - these might work better
-        'http://streaming.slam.nl/slam_aac',
-        'https://22673.live.streamtheworld.com/WEB14_MP3_SC',
-        'http://streaming.slam.nl/web11_aac',
-        'http://stream.radiocorp.nl/web13_mp3',
-        'http://stream.radiocorp.nl/web10_mp3',
-        'http://stream.slam.nl/WEB16_MP3',
-        'http://stream.slam.nl/WEB09_MP3',
-
-        // Then the previous ones as fallback
-        'https://22393.live.streamtheworld.com/SLAM.mp3',
-        'https://icecast-qmusicnl-cdp.triple-it.nl/slam_96.mp3',
-        'https://icecast-qmusicnl-cdp.triple-it.nl/slam_128.mp3'
-      );
+    // 1. Handle SLAM player URLs specifically
+    if (originalUrl.includes('player.slam.nl') || originalUrl.includes('stream=web')) {
+      const streamMatch = originalUrl.match(/stream=([^&]+)/);
+      if (streamMatch) {
+        const streamId = streamMatch[1]; // e.g., "web13"
+        alternatives.push(
+          `http://stream.radiocorp.nl/${streamId}_mp3`,
+          `https://stream.radiocorp.nl/${streamId}_mp3`,
+          `http://stream.radiocorp.nl/${streamId}`,
+          `https://stream.radiocorp.nl/${streamId}`
+        );
+      }
+      return alternatives;
     }
     
-    // For Radio 538
-    if (originalUrl.includes('538')) {
-      alternatives.push(
-        'https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO538.mp3',
-        'https://22763.live.streamtheworld.com/RADIO538.mp3',
-        'https://icecast-qmusicnl-cdp.triple-it.nl/radio538_96.mp3'
-      );
+    // 2. Extract station identifier from URL patterns
+    let stationId = null;
+    
+    // Pattern: stream.STATION.nl/STATION or stream.radiocorp.nl/web13_mp3
+    const streamPattern = /stream\.([^.]+)\.nl\/([^\/]+)/i;
+    const streamMatch = originalUrl.match(streamPattern);
+    if (streamMatch) {
+      const domain = streamMatch[1].toLowerCase();
+      const path = streamMatch[2].toLowerCase();
+      
+      // For radiocorp URLs, use the path as station ID
+      if (domain === 'radiocorp') {
+        stationId = path.replace('_mp3', '').replace('_aac', '');
+      } else {
+        stationId = domain;
+      }
     }
     
-    // For Sky Radio
-    if (originalUrl.includes('skyradio')) {
-      alternatives.push(
-        'https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3',
-        'https://icecast-qmusicnl-cdp.triple-it.nl/skyradio_96.mp3'
-      );
+    // Pattern: playerservices.streamtheworld.com/api/livestream-redirect/STATION.mp3
+    const streamWorldPattern = /livestream-redirect\/([^.]+)\.([^?]+)/i;
+    const streamWorldMatch = originalUrl.match(streamWorldPattern);
+    if (streamWorldMatch) {
+      stationId = streamWorldMatch[1].toLowerCase();
     }
     
-    // For Q-music
-    if (originalUrl.includes('qmusic')) {
+    // 3. Generate smart alternatives (limit to avoid redundancy)
+    if (stationId) {
+      console.log(`🔍 Detected station ID: ${stationId}, generating targeted alternatives...`);
+      
+      // For SLAM/radiocorp streams, use specific known working patterns
+      if (stationId.includes('web') || originalUrl.includes('radiocorp')) {
+        alternatives.push(
+          // Try with CORS proxy first for radiocorp streams
+          `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`,
+          `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`
+        );
+        return alternatives;
+      }
+      
+      // Triple-IT CDN (most reliable)
       alternatives.push(
-        'https://playerservices.streamtheworld.com/api/livestream-redirect/QMUSICNL.mp3',
-        'https://icecast-qmusicnl-cdp.triple-it.nl/qmusic_96.mp3'
+        `https://icecast-qmusicnl-cdp.triple-it.nl/${stationId}_96.mp3`,
+        `https://icecast-qmusicnl-cdp.triple-it.nl/${stationId}_128.mp3`
       );
-    }
-
-    // Try HTTPS if HTTP (quick fix)
-    if (originalUrl.startsWith('http://')) {
-      alternatives.push(originalUrl.replace('http://', 'https://'));
+      
+      // StreamTheWorld alternatives (only try 2-3 most reliable nodes)
+      const reliableNodes = ['22063', '22763', '29033'];
+      reliableNodes.forEach(node => {
+        alternatives.push(`https://${node}.live.streamtheworld.com/${stationId.toUpperCase()}.mp3`);
+      });
+      
+      // Limit to maximum 8 alternatives to avoid spam
+      return alternatives.slice(0, 8);
     }
     
-    return [...new Set(alternatives)]; // Remove duplicates
+    return alternatives;
   }
 
-  static testStreamUrl(url, timeout = 8000) {
+  static async followRedirects(url) {
+    console.log(`🔄 Following redirects for: ${url}`);
+    
+    // Skip redirect following for known problematic patterns
+    const problematicPatterns = [
+      'stream.slam.nl',
+      'stream.joe.nl', 
+      'playerservices.streamtheworld.com',
+      'livestream-redirect'
+    ];
+    
+    if (problematicPatterns.some(pattern => url.includes(pattern))) {
+      console.log(`⚠️ Skipping redirect for known problematic URL pattern`);
+      return url;
+    }
+    
+    // Try simple redirect following for other URLs
+    try {
+      const response = await fetch(url, { 
+        method: 'HEAD', 
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+      
+      if (response.url && response.url !== url) {
+        console.log(`🔄 Redirect found: ${url} → ${response.url}`);
+        return response.url;
+      }
+      return url;
+    } catch (error) {
+      console.log(`❌ Redirect following failed: ${error.message}`);
+      return url;
+    }
+  }
+
+  static async testStreamUrl(url, timeout = 6000, cancellationToken = null) {
     return new Promise((resolve, reject) => {
+      // Check for cancellation before starting
+      if (cancellationToken?.cancel) {
+        reject(new Error('Connection canceled'));
+        return;
+      }
+      
       const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      
       const timeoutId = setTimeout(() => {
+        audio.removeEventListener('canplay', resolve);
+        audio.removeEventListener('error', reject);
         audio.src = '';
         reject(new Error('Stream test timeout'));
       }, timeout);
       
-      const cleanup = () => {
+      // Check for cancellation periodically
+      const cancellationCheck = setInterval(() => {
+        if (cancellationToken?.cancel) {
+          clearTimeout(timeoutId);
+          clearInterval(cancellationCheck);
+          audio.removeEventListener('canplay', resolve);
+          audio.removeEventListener('error', reject);
+          audio.src = '';
+          reject(new Error('Connection canceled'));
+        }
+      }, 100);
+      
+      audio.addEventListener('canplay', () => {
         clearTimeout(timeoutId);
-        audio.removeEventListener('canplay', onCanPlay);
-        audio.removeEventListener('error', onError);
-      };
+        clearInterval(cancellationCheck);
+        audio.src = '';
+        resolve();
+      }, { once: true });
       
-      const onCanPlay = () => {
-        cleanup();
-        resolve(url);
-      };
+      audio.addEventListener('error', (e) => {
+        clearTimeout(timeoutId);
+        clearInterval(cancellationCheck);
+        audio.src = '';
+        const error = e.target.error;
+        reject(new Error(error ? `Media error: ${error.code}` : 'Unknown error'));
+      }, { once: true });
       
-      const onError = (e) => {
-        cleanup();
-        reject(new Error(`Stream test failed: ${e.message || 'Unknown error'}`));
-      };
-      
-      audio.addEventListener('canplay', onCanPlay);
-      audio.addEventListener('error', onError);
       audio.src = url;
-      audio.load();
     });
+  }
+
+  static async findWorkingStream(originalUrl, onProgress = null, stationName = null, cancellationToken = null) {
+    console.log(`🔍 Finding working stream for: ${originalUrl}${stationName ? ` (${stationName})` : ''}`);
+    
+    // Check for cancellation at start
+    if (cancellationToken?.cancel) {
+      throw new Error('Connection canceled');
+    }
+    
+    // 1. FIRST: Try station definitions if available
+    if (stationName) {
+      const stationDef = getStationDefinition(stationName);
+      if (stationDef && stationDef.urls && stationDef.urls.length > 0) {
+        console.log(`📋 Found ${stationDef.urls.length} URLs in station definition for ${stationName}`);
+        onProgress?.(`Trying ${stationDef.urls.length} optimized URLs...`);
+        
+        for (let i = 0; i < stationDef.urls.length; i++) {
+          if (cancellationToken?.cancel) {
+            throw new Error('Connection canceled');
+          }
+          
+          const fallbackUrl = stationDef.urls[i];
+          
+          if (fallbackUrl === originalUrl) {
+            console.log(`⏭️ Skipping duplicate URL: ${fallbackUrl}`);
+            continue;
+          }
+          
+          try {
+            console.log(`🔄 Testing station definition URL ${i + 1}: ${fallbackUrl}`);
+            await this.testStreamUrl(fallbackUrl, 4000, cancellationToken);
+            console.log(`✅ Station definition URL works: ${fallbackUrl}`);
+            return fallbackUrl;
+          } catch (error) {
+            if (error.message === 'Connection canceled') {
+              throw error;
+            }
+            console.log(`❌ Station definition URL ${i + 1} failed: ${fallbackUrl} (${error.message})`);
+          }
+        }
+      }
+    }
+    
+    // 2. SECOND: Generate smart alternatives (limited set)
+    const alternatives = this.getCORSFriendlyAlternatives(originalUrl, stationName);
+    if (alternatives.length > 0) {
+      console.log(`🎯 Generated ${alternatives.length} targeted alternatives`);
+      onProgress?.(`Trying ${alternatives.length} alternatives...`);
+      
+      for (let i = 0; i < alternatives.length; i++) {
+        if (cancellationToken?.cancel) {
+          throw new Error('Connection canceled');
+        }
+        
+        const altUrl = alternatives[i];
+        
+        if (altUrl === originalUrl) continue;
+        
+        try {
+          console.log(`🔄 Testing alternative ${i + 1}: ${altUrl}`);
+          await this.testStreamUrl(altUrl, 4000, cancellationToken);
+          console.log(`✅ Alternative works: ${altUrl}`);
+          return altUrl;
+        } catch (error) {
+          if (error.message === 'Connection canceled') {
+            throw error;
+          }
+          console.log(`❌ Alternative ${i + 1} failed: ${altUrl} (${error.message})`);
+        }
+      }
+    }
+    
+    // 3. THIRD: Try original URL
+    if (cancellationToken?.cancel) {
+      throw new Error('Connection canceled');
+    }
+    
+    try {
+      onProgress?.(`Testing original URL...`);
+      console.log(`🔄 Testing original URL: ${originalUrl}`);
+      await this.testStreamUrl(originalUrl, 4000, cancellationToken);
+      console.log(`✅ Original URL works: ${originalUrl}`);
+      return originalUrl;
+    } catch (error) {
+      if (error.message === 'Connection canceled') {
+        throw error;
+      }
+      console.log(`❌ Original URL failed: ${originalUrl} (${error.message})`);
+    }
+    
+    throw new Error(`All stream URLs failed for ${stationName || 'station'} - may be offline or have CORS restrictions`);
   }
 }

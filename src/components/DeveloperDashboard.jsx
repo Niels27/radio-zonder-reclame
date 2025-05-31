@@ -164,11 +164,9 @@ return (
                         ✕ Close
                     </button>
                 </div>
-            </div>
-
-            {/* Stats Overview */}
+            </div>            {/* Stats Overview */}
             <div className="p-6 border-b bg-gray-50">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="bg-white p-4 rounded-lg shadow">
                         <div className="text-2xl font-bold text-blue-600">{dashboardStats.totalReports}</div>
                         <div className="text-sm text-gray-600">Total Reports</div>
@@ -178,8 +176,12 @@ return (
                         <div className="text-sm text-gray-600">Stations Reported</div>
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow">
-                        <div className="text-2xl font-bold text-green-600">{dashboardStats.activeOverrides}</div>
-                        <div className="text-sm text-gray-600">Active Overrides</div>
+                        <div className="text-2xl font-bold text-green-600">{dashboardStats.solvedStations}</div>
+                        <div className="text-sm text-gray-600">Solved</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <div className="text-2xl font-bold text-orange-600">{dashboardStats.unsolvedStations}</div>
+                        <div className="text-sm text-gray-600">Unsolved</div>
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow">
                         <div className="text-2xl font-bold text-purple-600">{dashboardStats.totalOverrides}</div>
@@ -231,8 +233,7 @@ return (
                     <div className="h-full flex">
                         {/* Station List */}
                         <div className="w-1/3 border-r overflow-y-auto">
-                            <div className="p-4 border-b">
-                                <select
+                            <div className="p-4 border-b">                                <select
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
                                     className="w-full p-2 border rounded text-black"
@@ -241,7 +242,6 @@ return (
                                     <option value="reported">Reported</option>
                                     <option value="investigating">Investigating</option>
                                     <option value="fixed">Fixed</option>
-                                    <option value="ignored">Ignored</option>
                                 </select>
                             </div>
                             <div className="p-4">
@@ -270,22 +270,33 @@ return (
                             {selectedStation ? (
                                 <div className="p-6">
                                     <div className="flex items-center justify-between mb-4">
-                                        <h2 className="text-xl font-bold text-gray-900">{selectedStation.stationName}</h2>
-                                        <div className="flex gap-2">
-                                            {['reported', 'investigating', 'fixed', 'ignored'].map(status => (
-                                                <button
-                                                    key={status}
-                                                    onClick={() => handleStatusUpdate(selectedStation.stationName, status)}
-                                                    className={`px-3 py-1 text-xs rounded ${
-                                                        selectedStation.status === status
-                                                            ? 'bg-blue-600 text-white'
-                                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                                    }`}
-                                                >
-                                                    {status}
-                                                </button>
-                                            ))}
-                                        </div>
+                                        <h2 className="text-xl font-bold text-gray-900">{selectedStation.stationName}</h2>                        <div className="flex gap-2">
+                            {['reported', 'investigating', 'fixed'].map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => handleStatusUpdate(selectedStation.stationName, status)}
+                                    className={`px-3 py-1 text-xs rounded ${
+                                        selectedStation.status === status
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    {status}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => {
+                                    if (confirm(`Are you sure you want to remove all reports for "${selectedStation.stationName}"? This action cannot be undone.`)) {
+                                        stationReportingService.removeStation(selectedStation.stationName);
+                                        loadData();
+                                        setSelectedStation(null);
+                                    }
+                                }}
+                                className="px-3 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
+                            >
+                                remove
+                            </button>
+                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4 mb-6">
@@ -305,24 +316,40 @@ return (
                                                 <div><strong>Last Reported:</strong> {new Date(selectedStation.lastReported).toLocaleString()}</div>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <button
-                                            onClick={() => setEditingOverride(selectedStation)}
-                                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                                        >
-                                            🔧 Set URL Override
-                                        </button>
-                                    </div>
-                                    <h3 className="font-medium mb-2 text-gray-900">Individual Reports</h3>
-                                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    </div>                    <div className="mb-4">
+                        <button
+                            onClick={() => {
+                                // Get the station data from allStations
+                                const stationData = allStations.find(s => s.name === selectedStation.stationName);
+                                const existingOverride = overrides[selectedStation.stationName];
+                                
+                                setEditingOverride({
+                                    stationName: selectedStation.stationName,
+                                    name: selectedStation.stationName,
+                                    url: existingOverride?.url || stationData?.url || selectedStation.originalUrl || '',
+                                    logo: existingOverride?.logo || stationData?.logo || '',
+                                    originalUrl: stationData?.url || selectedStation.originalUrl || '',
+                                    category: stationData?.category || selectedStation.category || ''
+                                });
+                            }}
+                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                        >
+                            🔧 Set URL Override
+                        </button>
+                    </div>
+                                    <h3 className="font-medium mb-2 text-gray-900">Individual Reports</h3>                                    <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {selectedStation.reports.map((report) => (
                                             <div key={report.reportId} className="bg-gray-50 p-3 rounded text-sm text-gray-900">
                                                 <div className="flex justify-between mb-2">
                                                     <span><strong>Report #{report.reportId}</strong></span>
                                                     <span>{new Date(report.timestamp).toLocaleString()}</span>
                                                 </div>
+                                                {report.usingOverride && (
+                                                    <div className="bg-yellow-100 p-2 rounded mb-2">
+                                                        <div><strong>⚠️ Using Override URL:</strong> {report.overrideUrl}</div>
+                                                        <div><strong>Original URL:</strong> {selectedStation.originalUrl}</div>
+                                                    </div>
+                                                )}
                                                 <div><strong>Error:</strong> {report.errorDetails.primaryError}</div>
                                                 {report.errorDetails.mediaErrorCode && (
                                                     <div><strong>Media Error:</strong> {report.errorDetails.mediaErrorCode} - {report.errorDetails.mediaErrorMessage}</div>

@@ -4,12 +4,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { loadYouTubeAPI, createYouTubePlayer } from '../utils/youtubeUtils';
 import { StreamProxy } from '../utils/streamProxy.js';
+import { stationReportingService } from '../utils/stationReporting.js';
 
 export const useAudioPlayer = () => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7); // Initial volume
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(''); // ← ADD THIS MISSING STATE
   const [error, setError] = useState(null);
   const [currentSource, setCurrentSource] = useState(null); // 'radio' or 'playlist' or null
   const [isIntentionalStop, setIsIntentionalStop] = useState(false);
@@ -17,10 +19,12 @@ export const useAudioPlayer = () => {
   const [pausedRadioStation, setPausedRadioStation] = useState(null); // Remember what we paused
   const [isTransitioning, setIsTransitioning] = useState(false); // Prevent overlapping transitions
   const [connectionTimeout, setConnectionTimeout] = useState(null);
+  const [currentConnectionAttempt, setCurrentConnectionAttempt] = useState(null);
 
   const audioRef = useRef(null);
   const youtubePlayerRef = useRef(null);
   const timeoutRef = useRef(null);
+  const connectionTimeoutRef = useRef(null);
 
   // Refs to hold the latest state for use in event handlers of the initialization useEffect
   const currentStationRef = useRef(currentStation);
@@ -103,6 +107,7 @@ export const useAudioPlayer = () => {
     const handlePlayingEvent = () => { // Renamed to avoid conflict with isPlaying state
       console.log('🎧 Audio: native "playing" event fired.');
       setIsLoading(false); // Ensure loading is false when playing event fires
+      setIsPlaying(true); // ← FIX: Set playing to true when audio starts playing
       // If our state isn't isPlaying, but browser says it is, sync it.
       if (!isPlayingRef.current) {
         // setIsPlaying(true); // This could cause issues if play() promise hasn't resolved.
@@ -143,10 +148,22 @@ export const useAudioPlayer = () => {
   const abortConnection = useCallback(() => {
     console.log('🛑 NUCLEAR RESET - Stopping everything');
     
+    // Cancel any ongoing connection attempts
+    if (currentConnectionAttempt) {
+      console.log('🚫 Canceling ongoing connection attempt');
+      currentConnectionAttempt.cancel = true;
+      setCurrentConnectionAttempt(null);
+    }
+    
     // Clear ALL timeouts first
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+    }
+    
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
     }
     
     // Force stop audio completely
@@ -168,6 +185,7 @@ export const useAudioPlayer = () => {
     
     // Reset ALL states to initial values
     setIsLoading(false);
+    setLoadingProgress('');
     setIsTransitioning(false);
     setIsIntentionalStop(false);
     setConnectionTimeout(null);
@@ -182,139 +200,143 @@ export const useAudioPlayer = () => {
     window.isAdBreakActive = false;
     
     console.log('🛑 Nuclear reset complete - everything stopped');
-  }, []);
+  }, [currentConnectionAttempt]);
 
   // Define playRadio - FIXED volume handling
   const playRadio = useCallback(async (stationData) => {
-    if (!audioRef.current || !stationData) return;
-    
-    // Only queue if ad break is active AND timer is running
-    if (window.isAdBreakActive && window.queueStationSwitch && window.isTimerRunning) {
-      console.log('🎵 Ad break active - queueing station switch');
-      window.queueStationSwitch(stationData);
-      return;
-    }
-    
-    if (isTransitioning) {
-      console.log('🎵 Currently transitioning, ignoring radio play request');
-      return;
-    }
-    
     console.log('🎵 Playing radio:', stationData.name);
-    setIsTransitioning(true);
-    setIsIntentionalStop(true);
-    setConnectionTimeout(null);
     
-    // Clear any existing timeout first
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    // Cancel any previous connection attempts
+    if (currentConnectionAttempt) {
+      console.log('🚫 Canceling previous connection attempt for:', currentConnectionAttempt.stationName);
+      currentConnectionAttempt.cancel = true;
     }
     
-    // Set 12-second timeout with proper cleanup
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ Connection timeout reached for:', stationData.name);
-      
-      // Only trigger timeout if we're still trying to connect to THIS station
-      if (audioRef.current && timeoutRef.current === timeoutId) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        
-        setIsLoading(false);
-        setIsTransitioning(false);
-        setIsIntentionalStop(false);
-        setConnectionTimeout('Verbinding duurde te lang');
-        setError(`Verbinding met ${stationData.name} duurde te lang. Probeer opnieuw.`);
-        timeoutRef.current = null;
-      }
-    }, 12000);
+    // Create new connection attempt tracker
+    const connectionAttempt = {
+      stationName: stationData.name,
+      cancel: false,
+      startTime: Date.now()
+    };
+    setCurrentConnectionAttempt(connectionAttempt);
     
-    timeoutRef.current = timeoutId;
-    
-    // Stop YouTube player if it exists
-    if (youtubePlayerRef.current) {
-      try {
-        youtubePlayerRef.current.pauseVideo();
-      } catch (error) {
-        console.warn('Could not stop YouTube player:', error);
-      }
-    }
-    
-    // Wait a moment for any ongoing operations to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Reset states
-    setIsRadioPausedForAdBreak(false);
-    setPausedRadioStation(null);
-    setIsLoading(true); // We are now intentionally loading
-    setError(null);
-    setCurrentStation(stationData);
-    setCurrentSource('radio');
+    // Apply station overrides before processing - MOVE THIS UP
+    const effectiveStationData = stationReportingService.getEffectiveStationData(stationData);
+    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);
     
     try {
+      // Only queue if ad break is active AND timer is running
+      if (window.isAdBreakActive && window.queueStationSwitch && window.isTimerRunning) {
+        console.log('🎵 Ad break active - queueing station switch');
+        window.queueStationSwitch(effectiveStationData);
+        return;
+      }
+      
+      if (isTransitioning) {
+        console.log('🎵 Currently transitioning, ignoring radio play request');
+        return;
+      }
+      
+      setIsIntentionalStop(false); // ← FIX: Change from setIntentionalStop to setIsIntentionalStop
+      setCurrentStation(effectiveStationData);
+      setIsLoading(true);
+      setLoadingProgress('Verbinden...');
+      
+      // Set connection timeout (30 seconds)
+      const timeoutId = setTimeout(() => {
+        if (connectionAttempt && !connectionAttempt.cancel) {
+          console.log('⏰ Connection timeout reached for:', effectiveStationData.name);
+          connectionAttempt.cancel = true;
+          setLoadingProgress('Verbinding mislukt - timeout');
+          setIsLoading(false);
+          setCurrentStation(null);
+          setCurrentConnectionAttempt(null);
+        }
+      }, 30000);
+      
+      connectionTimeoutRef.current = timeoutId;
+      
+      // Check if canceled before proceeding
+      if (connectionAttempt.cancel) {
+        console.log('🚫 Connection attempt canceled before stream search');
+        clearTimeout(timeoutId);
+        return;
+      }
+      
       const workingUrl = await StreamProxy.findWorkingStream(
-        stationData.url,
-        (progress) => console.log(`🔍 ${stationData.name}: ${progress}`)
+        effectiveStationData.url,
+        (progress) => {
+          // Check if canceled during progress updates
+          if (connectionAttempt.cancel) {
+            console.log('🚫 Connection attempt canceled during stream search');
+            throw new Error('Connection canceled by user');
+          }
+          console.log('🔍', effectiveStationData.name + ':', progress);
+          setLoadingProgress(progress);
+        },
+        effectiveStationData.name,
+        connectionAttempt // Pass the cancellation token
       );
       
-      // Check if timeout happened during stream finding
-      if (timeoutRef.current !== timeoutId) {
-        console.log('🛑 Timeout occurred during stream search, aborting');
+      // Clear timeout since we found a working URL
+      clearTimeout(timeoutId);
+      connectionTimeoutRef.current = null;
+      
+      // Final check before setting audio source
+      if (connectionAttempt.cancel) {
+        console.log('🚫 Connection attempt canceled before setting audio source');
         return;
       }
       
       console.log('🎵 Setting audio source to:', workingUrl);
       audioRef.current.src = workingUrl;
+      audioRef.current.volume = volume; // Set volume before playing
       
-      // Add a small delay before playing - helps some browsers/streams
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Play the audio
+      await audioRef.current.play();
+      setIsPlaying(true);
       
-      // Check timeout again before playing
-      if (timeoutRef.current !== timeoutId) {
-        console.log('🛑 Timeout occurred before play, aborting');
+      setIsLoading(false);
+      setLoadingProgress('');
+      setCurrentConnectionAttempt(null);
+      setCurrentSource('radio');
+      
+    } catch (error) {
+      // Clear timeout on error
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      
+      if (connectionAttempt.cancel) {
+        console.log('🚫 Connection attempt was canceled');
         return;
       }
       
-      console.log('🎵 Attempting to play...');
-      const playPromise = audioRef.current.play();
-
-      if (playPromise !== undefined) {
-        await playPromise;
-        console.log('🎵 Play promise resolved. Setting isPlaying to true.');
-        
-        // Clear timeout on success - but only if it's still the same timeout
-        if (timeoutRef.current === timeoutId) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        
-        setIsPlaying(true);
-        
-        localStorage.setItem('lastPlayedStation', JSON.stringify({
-          name: stationData.name,
-          url: workingUrl
-        }));
-      }
-    } catch (error) {
-      console.error(`❌ Failed to play ${stationData.name}:`, error);
-        // Clear timeout on error - but only if it's still the same timeout
-      if (timeoutRef.current === timeoutId) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      console.log(`❌ Failed to play ${effectiveStationData.name}:`, error);
       
-      setError(`Kan ${stationData.name} niet afspelen. Probeer een andere zender.`);
-      // Don't clear current station immediately - keep it for error reporting
-      // setCurrentStation(null);
-      // setCurrentSource(null);
-      setIsPlaying(false);
-    } finally {
+      // DON'T clear currentStation immediately - keep it for error reporting
       setIsLoading(false);
-      setIsTransitioning(false);
-      setIsIntentionalStop(false);
-      setConnectionTimeout(null);
+      setLoadingProgress('Verbinding mislukt');
+      setCurrentConnectionAttempt(null);
+      setError(`Kan ${effectiveStationData.name} niet afspelen: ${error.message}`);
+      
+      // Keep the station data so the report button can access it
+      // Only clear it after a delay to allow user to report the issue
+      setTimeout(() => {
+        setCurrentStation(null);
+      }, 10000); // Clear after 10 seconds
+      
+      // ❌ REMOVE AUTOMATIC REPORTING - Only report when user clicks the button
+      // stationReportingService.reportFailedStation(effectiveStationData, {
+      //   primaryError: error.message,
+      //   timestamp: new Date().toISOString(),
+      //   source: 'playRadio',
+      //   connectionType: navigator.connection?.effectiveType || 'unknown',
+      //   userAgent: navigator.userAgent
+      // });
     }
-  }, [isTransitioning]);
+  }, [currentConnectionAttempt, volume, isTransitioning]);
 
   // Corrected dependencies for playRadio
   // const playRadio = useCallback(async (stationData) => { ... }, 
@@ -546,6 +568,36 @@ export const useAudioPlayer = () => {
     }
   }, [volume, pauseRadioForAdBreak, isTransitioning]);
 
+  const stopRadio = useCallback(async () => {
+    console.log('🛑 Stopping radio...');
+    
+    // Cancel any ongoing connection attempts
+    if (currentConnectionAttempt) {
+      console.log('🚫 Canceling ongoing connection attempt');
+      currentConnectionAttempt.cancel = true;
+      setCurrentConnectionAttempt(null);
+    }
+    
+    setIsIntentionalStop(true);
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+    
+    setCurrentStation(null);
+    setIsPlaying(false);
+    setIsLoading(false);
+    setLoadingProgress('');
+    setConnectionTimeout(null);
+    
+    // Clear any pending timeouts
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+  }, [currentConnectionAttempt]);
+
   const pauseAudio = useCallback(() => {
     if (currentSource === 'radio' && audioRef.current) {
       audioRef.current.pause();
@@ -590,6 +642,7 @@ export const useAudioPlayer = () => {
     isPlaying,
     volume,
     isLoading,
+    loadingProgress, // ← ADD THIS TO THE RETURN
     error,
     currentSource,
     isTransitioning,
@@ -608,6 +661,7 @@ export const useAudioPlayer = () => {
     pausedRadioStation,
     forceStopAllAudio,
     connectionTimeout,
-    abortConnection
+    abortConnection,
+    stopRadio
   };
 };

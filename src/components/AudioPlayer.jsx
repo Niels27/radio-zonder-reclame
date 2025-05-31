@@ -287,13 +287,8 @@ const AudioPlayer = ({
               {/* Show report button for any radio connection errors */}
               {currentStation && currentSource === 'radio' && (
                 <ReportStationButton 
-                  station={currentStation}
-                  errorDetails={{
-                    message: error,
-                    timestamp: new Date().toISOString(),
-                    source: 'audio_player',
-                    userAgent: navigator.userAgent
-                  }}
+                  currentStation={currentStation}  // ← FIX: Changed from 'station'
+                  error={error}                     // ← FIX: Changed from 'errorDetails' object to just the error string
                   onReported={(result) => {
                     console.log('Station reported from AudioPlayer:', result);
                     // Could show a toast notification here

@@ -24,19 +24,20 @@ class StationReportingService {
       localStorage.setItem(this.storageKeys.reportCounter, '0');
     }
   }
-
   // Report a failed station
   reportFailedStation(stationData, errorDetails) {
     const reports = this.getReports();
+    const overrides = this.getOverrides();
     const timestamp = new Date().toISOString();
     const reportId = this.getNextReportId();
     
     const stationKey = stationData.name;
+    const hasOverride = overrides[stationKey] && overrides[stationKey].active;
     
     if (!reports[stationKey]) {
       reports[stationKey] = {
         stationName: stationData.name,
-        originalUrl: stationData.url,
+        originalUrl: hasOverride ? overrides[stationKey].originalUrl : stationData.url,
         logoUrl: stationData.logo,
         description: stationData.description,
         category: stationData.originalCategory || 'unknown',
@@ -44,7 +45,7 @@ class StationReportingService {
         totalReports: 0,
         firstReported: timestamp,
         lastReported: timestamp,
-        status: 'reported' // reported, investigating, fixed, ignored
+        status: 'reported' // reported, investigating, fixed
       };
     }
 
@@ -52,6 +53,8 @@ class StationReportingService {
     const report = {
       reportId,
       timestamp,
+      usingOverride: hasOverride,
+      overrideUrl: hasOverride ? stationData.url : null, // The URL that was actually attempted
       errorDetails: {
         primaryError: errorDetails.primaryError || 'Connection failed',
         mediaErrorCode: errorDetails.mediaErrorCode,
@@ -77,7 +80,7 @@ class StationReportingService {
 
     this.saveReports(reports);
     
-    console.log(`📊 Station reported: ${stationData.name} (Report #${reports[stationKey].totalReports})`);
+    console.log(`📊 Station reported: ${stationData.name} (Report #${reports[stationKey].totalReports})${hasOverride ? ' [Using Override]' : ''}`);
     
     return {
       success: true,
@@ -173,17 +176,26 @@ class StationReportingService {
     localStorage.setItem(this.storageKeys.reportCounter, next.toString());
     return next;
   }
-
   // Get dashboard statistics
   getDashboardStats() {
     const reports = this.getReports();
     const overrides = this.getOverrides();
     
+    // Calculate solved and unsolved stations
+    const stationsByStatus = Object.values(reports).reduce((acc, station) => {
+      acc[station.status] = (acc[station.status] || 0) + 1;
+      return acc;
+    }, {});
+    
+    const solvedStations = (stationsByStatus.fixed || 0);
+    const unsolvedStations = (stationsByStatus.reported || 0) + (stationsByStatus.investigating || 0);
+    
     const stats = {
       totalStationsReported: Object.keys(reports).length,
       totalReports: Object.values(reports).reduce((sum, station) => sum + station.totalReports, 0),
       totalOverrides: Object.keys(overrides).length,
-      activeOverrides: Object.values(overrides).filter(o => o.active).length,
+      solvedStations,
+      unsolvedStations,
       mostReportedStations: Object.entries(reports)
         .sort(([,a], [,b]) => b.totalReports - a.totalReports)
         .slice(0, 10)
@@ -250,6 +262,18 @@ class StationReportingService {
     localStorage.removeItem(this.storageKeys.reportCounter);
     this.initializeStorage();
     console.log('🧹 All reporting data cleared');
+  }
+
+  // Remove station completely (for developer dashboard)
+  removeStation(stationName) {
+    const reports = this.getReports();
+    if (reports[stationName]) {
+      delete reports[stationName];
+      this.saveReports(reports);
+      console.log(`🗑️ Station removed: ${stationName}`);
+      return true;
+    }
+    return false;
   }
 }
 

@@ -2,6 +2,9 @@
 // Generated on: 2025-05-29T16:41:14.814Z
 // Total stations: 806
 
+// Station overrides are now applied from stationDefinitions.js
+import { getStationDefinition } from '../data/stationDefinitions.js';
+
 // Popular stations list - the 24 most popular Dutch radio stations
 const popularStationNames = [
   'TEST FAILING STATION',
@@ -71,6 +74,43 @@ export const getStats = () => ({
   specialty: 81,
   other: 488
 });
+
+// Get all stations from all categories
+export const getAllStations = () => {
+  const allStations = [];
+  
+  Object.entries(allDutchStations).forEach(([category, stations]) => {
+    Object.values(stations).forEach(station => {
+      // Check if there's a custom definition for this station
+      const customDefinition = getStationDefinition(station.name);
+      
+      if (customDefinition) {
+        // Use custom definition with multiple URLs
+        allStations.push({
+          ...station,
+          url: customDefinition.urls[0], // Primary URL for compatibility
+          urls: customDefinition.urls,   // All URLs for fallback
+          logo: customDefinition.logo || station.logo,
+          description: customDefinition.description || station.description,
+          category,
+          originalCategory: category,
+          hasCustomDefinition: true
+        });
+      } else {
+        // Use original station data
+        allStations.push({
+          ...station,
+          urls: [station.url], // Convert single URL to array for consistency
+          category,
+          originalCategory: category,
+          hasCustomDefinition: false
+        });
+      }
+    });
+  });
+  
+  return allStations;
+};
 
 export const allDutchStations = {
   "public": {
@@ -645,7 +685,7 @@ export const allDutchStations = {
     },
     "SLAM!": {
       "name": "SLAM!",
-      "url": "http://stream.slam.nl/slam",
+      "url": "https://stream.slam.nl/slam",
       "logo": "https://www.slam.nl/favicon.ico",
       "description": "Pop muziek",
       "bitrate": 128,
@@ -7434,17 +7474,6 @@ export const allDutchStations = {
       "votes": 0
     }
   }
-};
-
-// Get all stations as flat array
-export const getAllStations = () => {
-  const all = [];
-  Object.values(allDutchStations).forEach(category => {
-    Object.values(category).forEach(station => {
-      all.push(station);
-    });
-  });
-  return all;
 };
 
 // Search stations by name
