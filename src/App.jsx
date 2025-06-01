@@ -54,13 +54,15 @@ function App() {
     if (adBreakTimer.isAdBreakActive && window.showNotification) {
       window.showNotification('Reclamepauze gestart - schakel naar afspeellijst', 'info', 3000);
     }
-  }, [adBreakTimer.isAdBreakActive]);
-  // Keep global ad break state in sync
+  }, [adBreakTimer.isAdBreakActive]);  // Keep global ad break state in sync
   useEffect(() => {
     window.isAdBreakActive = adBreakTimer.isAdBreakActive;
     window.queueStationSwitch = adBreakTimer.queueStationSwitch;
-    window.isTimerRunning = adBreakTimer.isTimerRunning; // Add this line
-  }, [adBreakTimer.isAdBreakActive, adBreakTimer.queueStationSwitch, adBreakTimer.isTimerRunning]);
+    window.isTimerRunning = adBreakTimer.isTimerRunning;
+    window.playlistUrl = adBreakTimer.playlistUrl;
+    window.playlistShuffle = adBreakTimer.playlistShuffle;
+    window.shouldPlayPlaylistDuringAdBreak = adBreakTimer.shouldPlayPlaylistDuringAdBreak;
+  }, [adBreakTimer.isAdBreakActive, adBreakTimer.queueStationSwitch, adBreakTimer.isTimerRunning, adBreakTimer.playlistUrl, adBreakTimer.playlistShuffle, adBreakTimer.shouldPlayPlaylistDuringAdBreak]);
 
   const handleStationSelect = (station) => {
     // If ad break is active, the playRadio function will automatically queue it
@@ -109,11 +111,11 @@ function App() {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">        {/* Header Section */}        <div className="h-[140px] flex items-center justify-center bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 border-b border-gray-700 relative">
           {/* Hidden Developer Access - Triple click the top-right corner */}
           <div 
-            className="absolute top-0 right-0 w-16 h-16 cursor-pointer"
+            className="absolute top-5  right-10 w-5 h-5 cursor-pointer"
             onClick={(e) => {
-              if (e.detail === 1) { // Triple click
+              if (e.detail === 3) { // Triple click
                 const password = prompt('Enter developer password:');
-                if (password === '') {
+                if (password === '42069') {
                   setShowDeveloperDashboard(true);
                   if (window.addNotification) {
                     window.addNotification('🛠️ Developer Dashboard geopend', 'success', 2000);
@@ -125,7 +127,7 @@ function App() {
                 }
               }
             }}
-            title="Triple-click for developer access"
+           // title="Triple-click for developer access"
           />
             <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -280,15 +282,16 @@ function App() {
 
           {/* Ad Break Settings - Moved back here */}
           <div className="bg-gray-800 border-b border-gray-700">
-            <ErrorBoundary>
-              <AdBreakSettings
+            <ErrorBoundary>              <AdBreakSettings
                 adBreakMinute={adBreakTimer.adBreakMinute}
                 adBreakMinute2={adBreakTimer.adBreakMinute2}
                 adBreakDuration={adBreakTimer.adBreakDuration}
+                adBreakDuration2={adBreakTimer.adBreakDuration2}
                 isTimerRunning={adBreakTimer.isTimerRunning}
                 onMinuteChange={adBreakTimer.setAdBreakMinute}
                 onMinute2Change={adBreakTimer.setAdBreakMinute2}
                 onDurationChange={adBreakTimer.setAdBreakDuration}
+                onDuration2Change={adBreakTimer.setAdBreakDuration2}
                 onStartTimer={adBreakTimer.startTimer}
                 onStopTimer={adBreakTimer.stopTimer}
                 onManualAdBreak={adBreakTimer.manualAdBreak}

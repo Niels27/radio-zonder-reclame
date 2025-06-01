@@ -7,10 +7,12 @@ const AdBreakSettings = ({
   adBreakMinute,
   adBreakMinute2,
   adBreakDuration,
+  adBreakDuration2,
   isTimerRunning,
   onMinuteChange,
   onMinute2Change,
   onDurationChange,
+  onDuration2Change,
   onStartTimer,
   onStopTimer,
   onManualAdBreak,
@@ -65,11 +67,9 @@ const AdBreakSettings = ({
                   </span>
                 )}
               </div>
-            </div>
-
-            {isTimerRunning && (
+            </div>            {isTimerRunning && (
               <span className="text-xs text-gray-400">
-                Pauzes: {String(adBreakMinute).padStart(2, '0')}:00 & {String(adBreakMinute2).padStart(2, '0')}:00
+                Pauzes: {String(adBreakMinute).padStart(2, '0')}:00 ({adBreakDuration}min) & {String(adBreakMinute2).padStart(2, '0')}:00 ({adBreakDuration2}min)
               </span>
             )}
           </div>
@@ -86,7 +86,7 @@ const AdBreakSettings = ({
               }`}
               title={!isPlaylistValid ? 'Voer eerst een geldige playlist in' : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
             >
-              {isManualTestActive ? 'Stop Test' : 'Test Pauze'}
+              {isManualTestActive ? 'Stop Test' : 'Test Playlist'}
             </button>
             {!isTimerRunning ? (
               <button
@@ -127,7 +127,7 @@ const AdBreakSettings = ({
                   value={adBreakMinute}
                   onChange={(e) => {
                     let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 0;
+                    if (isNaN(value)) value = 25;
                     if (value > 59) value = 59;
                     if (value < 0) value = 0;
                     onMinuteChange(value);
@@ -142,7 +142,7 @@ const AdBreakSettings = ({
                   value={adBreakMinute2}
                   onChange={(e) => {
                     let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 30;
+                    if (isNaN(value)) value = 55;
                     if (value > 59) value = 59;
                     if (value < 0) value = 0;
                     onMinute2Change(value);
@@ -152,31 +152,46 @@ const AdBreakSettings = ({
                 />
               </div>
               <p className="text-xs text-gray-400 mt-2">
-                Elk uur op deze momenten
               </p>
-            </div>
-
-            {/* Duration Input */}
+            </div>            {/* Duration Input Section */}
             <div>
               <label className="block text-sm font-medium mb-3 text-gray-300">
-                Duur pauze (minuten)
+                Duur pauzes (minuten):
               </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={adBreakDuration}
-                onChange={(e) => {
-                  let value = parseInt(e.target.value);
-                  if (isNaN(value)) value = 1;
-                  if (value > 30) value = 30;
-                  if (value < 1) value = 1;
-                  onDurationChange(value);
-                }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-              />
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={adBreakDuration}
+                  onChange={(e) => {
+                    let value = parseInt(e.target.value);
+                    if (isNaN(value)) value = 1;
+                    if (value > 30) value = 30;
+                    if (value < 1) value = 1;
+                    onDurationChange(value);
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                  placeholder="Eerste pauze duur"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={adBreakDuration2}
+                  onChange={(e) => {
+                    let value = parseInt(e.target.value);
+                    if (isNaN(value)) value = 1;
+                    if (value > 30) value = 30;
+                    if (value < 1) value = 1;
+                    onDuration2Change(value);
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                  placeholder="Tweede pauze duur"
+                />
+              </div>
               <p className="text-xs text-gray-400 mt-2">
-                Duur van elke pauze
+              {/*  Duur van elke pauze (kan per pauze verschillen)*/}
               </p>
             </div>
 

@@ -163,13 +163,50 @@ export class StreamProxy {
       audio.src = url;
     });
   }
-
-  static async findWorkingStream(originalUrl, onProgress = null, stationName = null, cancellationToken = null) {
+  static async findWorkingStream(originalUrl, onProgress = null, stationName = null, cancellationToken = null, enableAdFreePriority = false) {
     console.log(`🔍 Finding working stream for: ${originalUrl}${stationName ? ` (${stationName})` : ''}`);
     
     // Check for cancellation at start
     if (cancellationToken?.cancel) {
       throw new Error('Connection canceled');
+    }
+
+    // NEW: Apply ad-free stream prioritization if enabled
+    if (enableAdFreePriority && stationName) {
+      console.log(`🚫 Ad-free prioritization enabled for: ${stationName}`);
+      
+      // Import AdSkipUtils dynamically to avoid circular dependency
+      const { AdSkipUtils } = await import('./adSkipUtils.js');
+      
+      // Get ad-free alternatives with original URL included
+      const adFreeUrls = AdSkipUtils.getAdFreeAlternatives(originalUrl, stationName);
+      
+      if (adFreeUrls.length > 0) {
+        console.log(`🚫 Found ${adFreeUrls.length} ad-free alternatives, testing them first...`);
+        onProgress?.(`Testing ${adFreeUrls.length} ad-free streams...`);
+        
+        for (let i = 0; i < adFreeUrls.length; i++) {
+          if (cancellationToken?.cancel) {
+            throw new Error('Connection canceled');
+          }
+          
+          const adFreeUrl = adFreeUrls[i];
+          
+          try {
+            console.log(`🚫 Testing ad-free URL ${i + 1}: ${adFreeUrl}`);
+            await this.testStreamUrl(adFreeUrl, 4000, cancellationToken);
+            console.log(`✅ Ad-free URL works: ${adFreeUrl}`);
+            return adFreeUrl;
+          } catch (error) {
+            if (error.message === 'Connection canceled') {
+              throw error;
+            }
+            console.log(`❌ Ad-free URL ${i + 1} failed: ${adFreeUrl} (${error.message})`);
+          }
+        }
+        
+        console.log(`⚠️ All ad-free alternatives failed, falling back to standard search...`);
+      }
     }
     
     // 1. FIRST: Try station definitions if available

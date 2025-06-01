@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { loadYouTubeAPI, createYouTubePlayer } from '../utils/youtubeUtils';
 import { StreamProxy } from '../utils/streamProxy.js';
 import { stationReportingService } from '../utils/stationReporting.js';
+import { AdSkipUtils } from '../utils/adSkipUtils.js';
 
 export const useAudioPlayer = () => {
   const [currentStation, setCurrentStation] = useState(null);
@@ -222,13 +223,58 @@ export const useAudioPlayer = () => {
     
     // Apply station overrides before processing - MOVE THIS UP
     const effectiveStationData = stationReportingService.getEffectiveStationData(stationData);
-    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);
-    
-    try {
-      // Only queue if ad break is active AND timer is running
-      if (window.isAdBreakActive && window.queueStationSwitch && window.isTimerRunning) {
-        console.log('🎵 Ad break active - queueing station switch');
+    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);    try {      // Handle ad break logic - AGGRESSIVE APPROACH
+      if (window.isAdBreakActive && window.queueStationSwitch) {
+        console.log('🎵 Ad break is active - ANY interaction should start playlist aggressively');
+        console.log('🎵 Current state:', { 
+          isPlaying, 
+          currentStation: currentStation?.name, 
+          currentSource, 
+          isRadioPausedForAdBreak,
+          playlistUrl: window.playlistUrl 
+        });
+        
+        // ALWAYS queue the station selection
         window.queueStationSwitch(effectiveStationData);
+        
+        // AGGRESSIVE PLAYLIST STARTING: If ad break badge is showing, ALWAYS start playlist
+        // regardless of previous radio state or shouldPlayPlaylistDuringAdBreak flag
+        const playlistUrl = window.playlistUrl;
+        if (playlistUrl) {
+          try {
+            const playlistId = playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+            if (playlistId) {
+              console.log('🎵 AGGRESSIVE: Starting playlist during active ad break - ID:', playlistId);
+              
+              await playPlaylist(playlistId, {
+                shuffle: window.playlistShuffle || false,
+                repeat: 'all'
+              });
+              
+              console.log('🎵 AGGRESSIVE: Playlist started successfully during ad break');
+              
+              if (window.addNotification) {
+                window.addNotification(`🎵 Playlist gestart - ${effectiveStationData.name} in wachtrij`, 'info', 3000);
+              }
+            } else {
+              console.error('🎵 Could not extract playlist ID from URL:', playlistUrl);
+              if (window.addNotification) {
+                window.addNotification(`❌ Ongeldig playlist URL formaat`, 'error', 3000);
+              }
+            }
+          } catch (error) {
+            console.error('🎵 Failed to start playlist during ad break:', error);
+            if (window.addNotification) {
+              window.addNotification(`❌ Kon playlist niet starten: ${error.message}`, 'error', 3000);
+            }
+          }
+        } else {
+          // No playlist URL configured
+          console.warn('🎵 No playlist URL configured during ad break');
+          if (window.addNotification) {
+            window.addNotification(`📻 ${effectiveStationData.name} in wachtrij - geen playlist geconfigureerd`, 'warning', 3000);
+          }
+        }
         return;
       }
       
@@ -262,8 +308,7 @@ export const useAudioPlayer = () => {
         clearTimeout(timeoutId);
         return;
       }
-      
-      const workingUrl = await StreamProxy.findWorkingStream(
+        const workingUrl = await StreamProxy.findWorkingStream(
         effectiveStationData.url,
         (progress) => {
           // Check if canceled during progress updates
@@ -275,7 +320,8 @@ export const useAudioPlayer = () => {
           setLoadingProgress(progress);
         },
         effectiveStationData.name,
-        connectionAttempt // Pass the cancellation token
+        connectionAttempt, // Pass the cancellation token
+        true // Enable ad-free prioritization
       );
       
       // Clear timeout since we found a working URL
@@ -287,8 +333,7 @@ export const useAudioPlayer = () => {
         console.log('🚫 Connection attempt canceled before setting audio source');
         return;
       }
-      
-      console.log('🎵 Setting audio source to:', workingUrl);
+        console.log('🎵 Setting audio source to:', workingUrl);
       audioRef.current.src = workingUrl;
       audioRef.current.volume = volume; // Set volume before playing
       
@@ -300,6 +345,17 @@ export const useAudioPlayer = () => {
       setLoadingProgress('');
       setCurrentConnectionAttempt(null);
       setCurrentSource('radio');
+      
+      // Check if we should offer pre-roll skip button
+      if (AdSkipUtils.shouldOfferPrerollSkip(workingUrl, effectiveStationData.name)) {
+        console.log('🚫 Offering pre-roll skip for:', effectiveStationData.name);
+        AdSkipUtils.createPrerollSkipButton(audioRef.current, () => {
+          console.log('⏭️ Pre-roll skipped for:', effectiveStationData.name);
+          if (window.addNotification) {
+            window.addNotification('⏭️ Pre-roll reclame overgeslagen', 'success', 2000);
+          }
+        });
+      }
       
     } catch (error) {
       // Clear timeout on error
@@ -468,9 +524,11 @@ export const useAudioPlayer = () => {
       setIsTransitioning(false);
     }
   }, [currentSource, currentStation, isTransitioning]);
-
   const playPlaylist = useCallback(async (playlistId, options = {}) => {
-    if (!playlistId) return;
+    if (!playlistId) {
+      console.error('🎵 playPlaylist called without playlistId');
+      return;
+    }
     
     if (isTransitioning) {
       console.log('🎵 Currently transitioning, ignoring playlist play request');
@@ -478,6 +536,9 @@ export const useAudioPlayer = () => {
     }
     
     console.log('🎵 Starting playlist - FORCING source switch');
+    console.log('🎵 Playlist ID:', playlistId);
+    console.log('🎵 Options:', options);
+    
     setIsTransitioning(true);
     setIsLoading(true);
     setError(null);
@@ -492,12 +553,14 @@ export const useAudioPlayer = () => {
         pauseRadioForAdBreak();
         await new Promise(resolve => setTimeout(resolve, 400));
       }
-      
-      await loadYouTubeAPI();
+        await loadYouTubeAPI();
+      console.log('🎵 YouTube API loaded successfully');
       
       if (!youtubePlayerRef.current) {
+        console.log('🎵 Creating new YouTube player');
         let youtubeDiv = document.getElementById('youtube-player');
         if (!youtubeDiv) {
+          console.log('🎵 Creating YouTube player div');
           youtubeDiv = document.createElement('div');
           youtubeDiv.id = 'youtube-player';
           youtubeDiv.style.display = 'none';
@@ -606,8 +669,31 @@ export const useAudioPlayer = () => {
     }
     setIsPlaying(false);
   }, [currentSource]);
-
   const resumeAudio = useCallback(() => {
+    // Check if ad break is active and force playlist if needed
+    if (window.isAdBreakActive && window.playlistUrl) {
+      console.log('🎵 Resume during ad break - ensuring playlist is playing');
+      
+      const playlistId = window.playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+      if (playlistId && (!youtubePlayerRef.current || currentSource !== 'playlist')) {
+        // Playlist not loaded or not current source - start it
+        try {
+          playPlaylist(playlistId, {
+            shuffle: window.playlistShuffle || false,
+            repeat: 'all'
+          });
+          
+          if (window.addNotification) {
+            window.addNotification('🎵 Playlist gestart tijdens reclamepauze', 'info', 2000);
+          }
+          return;
+        } catch (error) {
+          console.error('Failed to start playlist during resume:', error);
+        }
+      }
+    }
+    
+    // Normal resume logic
     if (currentSource === 'radio' && audioRef.current) {
       audioRef.current.play().catch(() => {
         setError('Failed to resume radio');
@@ -616,15 +702,36 @@ export const useAudioPlayer = () => {
       youtubePlayerRef.current.playVideo();
     }
     setIsPlaying(true);
-  }, [currentSource]);
-
+  }, [currentSource, playPlaylist]);
   const togglePlayPause = useCallback(() => {
     if (isPlaying) {
       pauseAudio();
     } else {
+      // If ad break is active and no source is playing, force playlist
+      if (window.isAdBreakActive && !currentSource && window.playlistUrl) {
+        console.log('🎵 Play button during ad break with no source - forcing playlist');
+        
+        const playlistId = window.playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+        if (playlistId) {
+          try {
+            playPlaylist(playlistId, {
+              shuffle: window.playlistShuffle || false,
+              repeat: 'all'
+            });
+            
+            if (window.addNotification) {
+              window.addNotification('🎵 Playlist gestart tijdens reclamepauze', 'info', 2000);
+            }
+            return;
+          } catch (error) {
+            console.error('Failed to start playlist from play button:', error);
+          }
+        }
+      }
+      
       resumeAudio();
     }
-  }, [isPlaying, pauseAudio, resumeAudio]);
+  }, [isPlaying, pauseAudio, resumeAudio, currentSource, playPlaylist]);
 
   const toggleShuffle = useCallback((enabled) => {
     if (youtubePlayerRef.current) {
