@@ -2,16 +2,20 @@
 
 A minimalistic web application that plays Dutch radio stations and automatically switches to user playlists during ad breaks.
 
+🌐 **Live Demo**: [https://niels27.github.io/no-ads-radio-project/](https://niels27.github.io/no-ads-radio-project/)
+
 ## Features
 
 - **Most Dutch Radio Stations**: NPO Radio 1, NPO Radio 2, 3FM, Radio 538, Sky Radio, Q-music, Radio Veronica, SLAM!, 100% NL and many more
 - **Automatic Ad Break Detection**: Timer-based system that switches to your playlist during ad breaks
-- **YouTube Playlist Integration**: Use YouTube playlists as ad break replacement content
+- **YouTube & Spotify Integration**: Use YouTube playlists or Spotify playlists as ad break replacement content
+- **Random Playlist Generator**: Built-in dice button for random playlist selection
 - **Customizable Timing**: Adjust ad break intervals and duration
 - **Clean, Dark UI**: Minimalistic design with responsive grid layout
 - **Keyboard Controls**: Spacebar to play/pause
 - **Volume Control**: Integrated volume slider
 - **Persistent Settings**: Your preferences are saved locally
+- **Production Logging**: Smart console logging that's disabled in production builds
 
 ## Tech Stack
 
@@ -50,6 +54,27 @@ npm run build
 ```
 
 The built files will be in the `dist` directory.
+
+### GitHub Pages Deployment
+
+This project is configured for automatic deployment to GitHub Pages:
+
+1. **Automatic Deployment**: Every push to the `main` branch automatically triggers a GitHub Actions workflow that builds and deploys the site
+2. **Manual Deployment**: You can also trigger deployment manually from the Actions tab in your GitHub repository
+3. **Build Command**: The deployment uses `npm run build:github` which sets the correct base path for GitHub Pages
+
+#### Setting Up GitHub Pages (if starting fresh):
+
+1. **Repository Settings**: Go to your GitHub repository settings
+2. **Pages Section**: Navigate to "Pages" in the left sidebar
+3. **Source**: Select "GitHub Actions" as the source
+4. **Domain**: Your site will be available at `https://yourusername.github.io/repository-name/`
+
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) automatically:
+- Installs Node.js and dependencies
+- Builds the project with the correct base path
+- Deploys to GitHub Pages
+- Sets up proper permissions and environment
 
 ## Usage
 
