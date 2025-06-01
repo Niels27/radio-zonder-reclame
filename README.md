@@ -4,7 +4,7 @@ A minimalistic web application that plays Dutch radio stations and automatically
 
 ## Features
 
-- **9 Dutch Radio Stations**: NPO Radio 1, NPO Radio 2, 3FM, Radio 538, Sky Radio, Q-music, Radio Veronica, SLAM!, and 100% NL
+- **Most Dutch Radio Stations**: NPO Radio 1, NPO Radio 2, 3FM, Radio 538, Sky Radio, Q-music, Radio Veronica, SLAM!, 100% NL and many more
 - **Automatic Ad Break Detection**: Timer-based system that switches to your playlist during ad breaks
 - **YouTube Playlist Integration**: Use YouTube playlists as ad break replacement content
 - **Customizable Timing**: Adjust ad break intervals and duration
@@ -102,19 +102,6 @@ The application uses a timer-based system to simulate ad breaks:
 - Ad break settings (timing, playlist URL) are saved
 - All settings persist between browser sessions
 
-## Radio Stations
-
-| Station | Description | Stream Quality |
-|---------|-------------|----------------|
-| NPO Radio 1 | Nieuws, sport en achtergrond | High |
-| NPO Radio 2 | De beste muziek en verhalen | High |
-| 3FM | Alternative, indie en nieuwe muziek | High |
-| Radio 538 | Hitradio voor Nederland | High |
-| Sky Radio | The Greatest Hits | High |
-| Q-music | Q sounds better | Medium |
-| Radio Veronica | Rock & Pop Classics | Medium |
-| SLAM! | Dance & Electronic | Medium |
-| 100% NL | Nederlandse hits | Medium |
 
 ## Troubleshooting
 
@@ -145,7 +132,7 @@ The application uses a timer-based system to simulate ad breaks:
 
 ## Future Enhancements
 
-- [ ] Spotify playlist integration
+- [x] Spotify playlist integration
 - [ ] Real ad detection using audio analysis
 - [ ] More radio stations
 - [ ] Custom playlist creation
