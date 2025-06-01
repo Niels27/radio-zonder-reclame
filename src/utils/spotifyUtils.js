@@ -2,8 +2,8 @@
 
 // Spotify API Configuration
 const SPOTIFY_CONFIG = {
-  clientId: import.meta.env?.VITE_SPOTIFY_CLIENT_ID || '',
-  redirectUri: `${window.location.origin}/callback`,
+  clientId:  '67703322b3fe4c27aa42f10e3d067b84',
+  redirectUri: `${window.location.origin}/radio-zonder-reclame/callback`,
   scopes: [
     'playlist-read-private',
     'playlist-read-collaborative', 

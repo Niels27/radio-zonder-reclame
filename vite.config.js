@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   // GitHub Pages deployment configuration
-  base: '/no-ads-radio-project/',
+  base: '/radio-zonder-reclame/',
   define: {
     // Ensure import.meta.env.PROD is available
     '__PROD__': JSON.stringify(process.env.NODE_ENV === 'production')

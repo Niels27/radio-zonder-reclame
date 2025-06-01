@@ -5,13 +5,13 @@
   "type": "module",
   "description": "A minimalistic web application that plays Dutch radio stations and automatically switches to user playlists during ad breaks",
   "author": "Niels",
-  "homepage": "https://niels27.github.io/no-ads-radio-project/",
+  "homepage": "https://niels27.github.io/radio-zonder-reclame/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Niels27/no-ads-radio-project.git"
+    "url": "https://github.com/Niels27/radio-zonder-reclame.git"
   },
   "bugs": {
-    "url": "https://github.com/Niels27/no-ads-radio-project/issues"
+    "url": "https://github.com/Niels27/radio-zonder-reclame/issues"
   },
   "scripts": {
     "dev": "vite",
