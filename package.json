@@ -16,12 +16,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:github": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "deploy": "npm run build && npm run preview",
-    "build:github": "vite build --base=/no-ads-radio-project/",
-    "deploy:github": "npm run build:github && echo 'Build completed for GitHub Pages'",
-    "predeploy": "npm run build:github",
     "test:build": "npm run build && npm run preview"
   },
   "dependencies": {
