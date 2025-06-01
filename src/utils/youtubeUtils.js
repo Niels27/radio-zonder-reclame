@@ -29,40 +29,80 @@ export const validatePlaylistUrl = async (url) => {
       error: 'Ongeldig YouTube afspeellijst URL formaat',
       thumbnail: null,
       title: null,
+      name: null,
       videoCount: null
     };
   }
 
   try {
-    // Try to fetch playlist info to validate it exists and is accessible
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`);
+    // Try to fetch basic playlist info first using oembed
+    const oembedResponse = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`);
     
-    if (response.ok) {
-      const data = await response.json();
+    if (oembedResponse.ok) {
+      const oembedData = await oembedResponse.json();
+      
+      // Try to get more detailed info by scraping the playlist page
+      try {
+        const pageResponse = await fetch(`https://www.youtube.com/playlist?list=${playlistId}`, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        if (pageResponse.ok) {
+          const pageText = await pageResponse.text();
+          
+          // Extract playlist title from page
+          const titleMatch = pageText.match(/<title>([^<]+)<\/title>/);
+          const playlistTitle = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : oembedData.title;
+          
+          // Extract thumbnail - try to get a better one
+          const thumbnailMatch = pageText.match(/"thumbnails":\[{"url":"([^"]+)"/);
+          const thumbnail = thumbnailMatch ? thumbnailMatch[1] : oembedData.thumbnail_url;
+          
+          return {
+            isValid: true,
+            playlistId,
+            error: null,
+            thumbnail: thumbnail,
+            title: playlistTitle,
+            name: playlistTitle,
+            videoCount: null
+          };
+        }
+      } catch (pageError) {
+        console.warn('Could not fetch detailed playlist info:', pageError);
+      }
+      
+      // Fallback to oembed data
       return {
         isValid: true,
         playlistId,
         error: null,
-        thumbnail: data.thumbnail_url || `https://img.youtube.com/vi/${playlistId}/mqdefault.jpg`,
-        title: data.title,
-        videoCount: null // oembed doesn't provide video count
+        thumbnail: oembedData.thumbnail_url,
+        title: oembedData.title,
+        name: oembedData.title,
+        videoCount: null
       };
-    } else if (response.status === 401 || response.status === 403) {
+    } else if (oembedResponse.status === 401 || oembedResponse.status === 403) {
       return {
         isValid: false,
         playlistId,
         error: 'Afspeellijst is privé of niet toegankelijk',
         thumbnail: null,
         title: null,
+        name: null,
         videoCount: null
       };
-    } else if (response.status === 404) {
+    } else if (oembedResponse.status === 404) {
       return {
         isValid: false,
         playlistId,
         error: 'Afspeellijst bestaat niet',
         thumbnail: null,
         title: null,
+        name: null,
         videoCount: null
       };
     } else {
@@ -72,6 +112,7 @@ export const validatePlaylistUrl = async (url) => {
         error: 'Kan afspeellijst niet valideren',
         thumbnail: null,
         title: null,
+        name: null,
         videoCount: null
       };
     }
@@ -83,6 +124,7 @@ export const validatePlaylistUrl = async (url) => {
       error: 'Netwerkfout bij validatie van afspeellijst',
       thumbnail: null,
       title: null,
+      name: null,
       videoCount: null
     };
   }

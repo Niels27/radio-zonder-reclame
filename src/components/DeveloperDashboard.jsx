@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { stationReportingService } from '../utils/stationReporting';
 import { getAllStations, getPopularStations } from '../utils/allDutchStations';
+import { getIsProduction, restoreConsole, setManualProductionMode } from '../utils/logger';
 
 const DeveloperDashboard = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('reports');
@@ -10,10 +11,10 @@ const DeveloperDashboard = ({ onClose }) => {
   const [overrides, setOverrides] = useState({});
   const [selectedStation, setSelectedStation] = useState(null);
   const [editingOverride, setEditingOverride] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [allStations, setAllStations] = useState([]);
+  const [filterStatus, setFilterStatus] = useState('all');  const [allStations, setAllStations] = useState([]);
   const [stationSearch, setStationSearch] = useState('');
   const [testingStation, setTestingStation] = useState(null);
+  const [loggingEnabled, setLoggingEnabled] = useState(!getIsProduction());
 
   useEffect(() => {
     loadData();
@@ -213,8 +214,7 @@ return (
                     style={{ color: activeTab === 'overrides' ? undefined : '#000' }}
                 >
                     🔧 URL Overrides
-                </button>
-                <button
+                </button>                <button
                     onClick={() => setActiveTab('recent')}
                     className={`px-6 py-3 font-medium ${
                         activeTab === 'recent'
@@ -224,6 +224,17 @@ return (
                     style={{ color: activeTab === 'recent' ? undefined : '#000' }}
                 >
                     🕒 Recent Activity
+                </button>
+                <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`px-6 py-3 font-medium ${
+                        activeTab === 'settings'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-black hover:text-gray-900'
+                    }`}
+                    style={{ color: activeTab === 'settings' ? undefined : '#000' }}
+                >
+                    ⚙️ Dev Settings
                 </button>
             </div>
 

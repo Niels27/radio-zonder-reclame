@@ -6,6 +6,18 @@ import { loadYouTubeAPI, createYouTubePlayer } from '../utils/youtubeUtils';
 import { StreamProxy } from '../utils/streamProxy.js';
 import { stationReportingService } from '../utils/stationReporting.js';
 import { AdSkipUtils } from '../utils/adSkipUtils.js';
+// Add Spotify imports
+import { 
+  initializeSpotifyPlayer, 
+  playSpotifyPlaylist, 
+  pauseSpotify, 
+  resumeSpotify, 
+  nextSpotifyTrack, 
+  setSpotifyVolume, 
+  setSpotifyShuffleMode,
+  isSpotifyAuthenticated,
+  getSpotifyPlaybackState
+} from '../utils/spotifyUtils';
 
 export const useAudioPlayer = () => {
   const [currentStation, setCurrentStation] = useState(null);
@@ -21,9 +33,13 @@ export const useAudioPlayer = () => {
   const [isTransitioning, setIsTransitioning] = useState(false); // Prevent overlapping transitions
   const [connectionTimeout, setConnectionTimeout] = useState(null);
   const [currentConnectionAttempt, setCurrentConnectionAttempt] = useState(null);
+  // Add Spotify-specific state
+  const [currentPlaylistProvider, setCurrentPlaylistProvider] = useState('youtube'); // 'youtube' or 'spotify'
+  const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
 
   const audioRef = useRef(null);
   const youtubePlayerRef = useRef(null);
+  const spotifyPlayerRef = useRef(null); // Add Spotify player ref
   const timeoutRef = useRef(null);
   const connectionTimeoutRef = useRef(null);
 
@@ -145,6 +161,34 @@ export const useAudioPlayer = () => {
     };
   }, []); // Empty dependency array ensures this runs only once on mount and cleans up on unmount
 
+  // Initialize Spotify player when authenticated
+  useEffect(() => {
+    const initSpotify = async () => {
+      if (isSpotifyAuthenticated() && !spotifyPlayerReady) {
+        try {
+          console.log('🎵 Initializing Spotify player...');
+          setIsLoading(true);
+          setLoadingProgress('Spotify verbinding maken...');
+          
+          const player = await initializeSpotifyPlayer();
+          spotifyPlayerRef.current = player;
+          setSpotifyPlayerReady(true);
+          
+          console.log('🎵 Spotify player ready');
+          setIsLoading(false);
+          setLoadingProgress('');
+        } catch (error) {
+          console.error('Failed to initialize Spotify player:', error);
+          setError('Kon Spotify player niet initialiseren: ' + error.message);
+          setIsLoading(false);
+          setLoadingProgress('');
+        }
+      }
+    };
+
+    initSpotify();
+  }, [spotifyPlayerReady]);
+
   // NUCLEAR RESET - Completely stop everything and reset all states
   const abortConnection = useCallback(() => {
     console.log('🛑 NUCLEAR RESET - Stopping everything');
@@ -173,14 +217,22 @@ export const useAudioPlayer = () => {
       audioRef.current.src = '';
       audioRef.current.load(); // Reset the audio element
     }
-    
-    // Force stop YouTube
+      // Force stop YouTube
     if (youtubePlayerRef.current) {
       try {
         youtubePlayerRef.current.pauseVideo();
         youtubePlayerRef.current.stopVideo();
       } catch (error) {
         console.warn('Could not stop YouTube player:', error);
+      }
+    }
+    
+    // Force stop Spotify
+    if (spotifyPlayerRef.current) {
+      try {
+        pauseSpotify();
+      } catch (error) {
+        console.warn('Could not stop Spotify player:', error);
       }
     }
     
@@ -449,7 +501,6 @@ export const useAudioPlayer = () => {
       setIsTransitioning(false);
     }
   }, [isRadioPausedForAdBreak, pausedRadioStation, volume, isTransitioning, playRadio]);
-
   // Update volume when it changes - ALSO apply to currently playing audio
   useEffect(() => {
     console.log('🔊 Updating volume to:', volume);
@@ -470,8 +521,18 @@ export const useAudioPlayer = () => {
         console.warn('Could not set YouTube volume:', error);
       }
     }
-  }, [volume, currentSource, isPlaying]);
-
+    
+    // Update Spotify volume
+    if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current && currentSource === 'playlist') {
+      const spotifyVolume = Math.round(volume * 100);
+      try {
+        setSpotifyVolume(spotifyVolume);
+        console.log('🔊 Set Spotify volume to:', spotifyVolume);
+      } catch (error) {
+        console.warn('Could not set Spotify volume:', error);
+      }
+    }
+  }, [volume, currentSource, isPlaying, currentPlaylistProvider]);
   // FORCE STOP ALL AUDIO - Nuclear option
   const forceStopAllAudio = useCallback(() => {
     console.log('🛑 FORCE STOPPING ALL AUDIO');
@@ -489,6 +550,15 @@ export const useAudioPlayer = () => {
         youtubePlayerRef.current.pauseVideo();
       } catch (error) {
         console.warn('Could not stop YouTube player:', error);
+      }
+    }
+    
+    // Stop Spotify
+    if (spotifyPlayerRef.current) {
+      try {
+        pauseSpotify();
+      } catch (error) {
+        console.warn('Could not stop Spotify player:', error);
       }
     }
     
@@ -523,8 +593,7 @@ export const useAudioPlayer = () => {
     } else {
       setIsTransitioning(false);
     }
-  }, [currentSource, currentStation, isTransitioning]);
-  const playPlaylist = useCallback(async (playlistId, options = {}) => {
+  }, [currentSource, currentStation, isTransitioning]);  const playPlaylist = useCallback(async (playlistId, options = {}) => {
     if (!playlistId) {
       console.error('🎵 playPlaylist called without playlistId');
       return;
@@ -534,9 +603,13 @@ export const useAudioPlayer = () => {
       console.log('🎵 Currently transitioning, ignoring playlist play request');
       return;
     }
+
+    // Determine provider from options or use current setting
+    const provider = options.provider || currentPlaylistProvider;
     
     console.log('🎵 Starting playlist - FORCING source switch');
     console.log('🎵 Playlist ID:', playlistId);
+    console.log('🎵 Provider:', provider);
     console.log('🎵 Options:', options);
     
     setIsTransitioning(true);
@@ -552,76 +625,99 @@ export const useAudioPlayer = () => {
       if (audioRef.current && !audioRef.current.paused) {
         pauseRadioForAdBreak();
         await new Promise(resolve => setTimeout(resolve, 400));
-      }
-        await loadYouTubeAPI();
-      console.log('🎵 YouTube API loaded successfully');
-      
-      if (!youtubePlayerRef.current) {
-        console.log('🎵 Creating new YouTube player');
-        let youtubeDiv = document.getElementById('youtube-player');
-        if (!youtubeDiv) {
-          console.log('🎵 Creating YouTube player div');
-          youtubeDiv = document.createElement('div');
-          youtubeDiv.id = 'youtube-player';
-          youtubeDiv.style.display = 'none';
-          youtubeDiv.style.position = 'absolute';
-          youtubeDiv.style.top = '-9999px';
-          youtubeDiv.style.left = '-9999px';
-          document.body.appendChild(youtubeDiv);
-        }
+      }      if (provider === 'spotify') {
+        console.log('🎵 Starting Spotify playlist');
         
-        youtubePlayerRef.current = await createYouTubePlayer('youtube-player', playlistId, {
-          playerVars: {
-            autoplay: 1,
-            loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
-            shuffle: options.shuffle ? 1 : 0
-          },
-          onReady: (event) => {
-            const targetVolume = Math.round(volume * 100);
-            event.target.setVolume(targetVolume);
-            console.log('🔊 Set YouTube volume on ready:', targetVolume);
-            setIsLoading(false);
-          },
-          onStateChange: (event) => {
-            if (event.data === window.YT.PlayerState.PLAYING) {
+        if (!spotifyPlayerReady || !spotifyPlayerRef.current) {
+          throw new Error('Spotify player not ready. Please login to Spotify first.');
+        }
+
+        setLoadingProgress('Spotify playlist starten...');
+        await playSpotifyPlaylist(playlistId, options.shuffle || false);
+        
+        // Set volume for Spotify
+        await setSpotifyVolume(volume * 100);
+        
+        setCurrentPlaylistProvider('spotify');
+        console.log('🎵 Spotify playlist started successfully');
+        
+      } else {
+        // YouTube implementation
+        await loadYouTubeAPI();
+        console.log('🎵 YouTube API loaded successfully');
+        
+        if (!youtubePlayerRef.current) {
+          console.log('🎵 Creating new YouTube player');
+          let youtubeDiv = document.getElementById('youtube-player');
+          if (!youtubeDiv) {
+            console.log('🎵 Creating YouTube player div');
+            youtubeDiv = document.createElement('div');
+            youtubeDiv.id = 'youtube-player';
+            youtubeDiv.style.display = 'none';
+            youtubeDiv.style.position = 'absolute';
+            youtubeDiv.style.top = '-9999px';
+            youtubeDiv.style.left = '-9999px';
+            document.body.appendChild(youtubeDiv);
+          }
+          
+          youtubePlayerRef.current = await createYouTubePlayer('youtube-player', playlistId, {
+            playerVars: {
+              autoplay: 1,
+              loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
+              shuffle: options.shuffle ? 1 : 0
+            },
+            onReady: (event) => {
               const targetVolume = Math.round(volume * 100);
               event.target.setVolume(targetVolume);
-              setIsPlaying(true);
+              console.log('🔊 Set YouTube volume on ready:', targetVolume);
               setIsLoading(false);
-              console.log('🎵 YouTube playlist now playing at volume:', targetVolume);
-            } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
-              setIsPlaying(false);
+            },
+            onStateChange: (event) => {
+              if (event.data === window.YT.PlayerState.PLAYING) {
+                const targetVolume = Math.round(volume * 100);
+                event.target.setVolume(targetVolume);
+                setIsPlaying(true);
+                setIsLoading(false);
+                console.log('🎵 YouTube playlist now playing at volume:', targetVolume);
+              } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
+                setIsPlaying(false);
+              }
+            },
+            onError: (event) => {
+              console.error('YouTube player error:', event);
+              setError('Kon YouTube playlist niet laden');
+              setIsLoading(false);
+              setIsTransitioning(false);
             }
-          },
-          onError: (event) => {
-            console.error('YouTube player error:', event);
-            setError('Kon YouTube playlist niet laden');
+          });
+        } else {
+          youtubePlayerRef.current.setVolume(0);
+          youtubePlayerRef.current.loadPlaylist({
+            listType: 'playlist',
+            list: playlistId,
+            shuffle: options.shuffle ? 1 : 0
+          });
+          
+          setTimeout(() => {
+            if (youtubePlayerRef.current && youtubePlayerRef.current.setVolume) {
+              const targetVolume = Math.round(volume * 100);
+              youtubePlayerRef.current.setVolume(targetVolume);
+            }
             setIsLoading(false);
-            setIsTransitioning(false);
-          }
-        });
-      } else {
-        youtubePlayerRef.current.setVolume(0);
-        youtubePlayerRef.current.loadPlaylist({
-          listType: 'playlist',
-          list: playlistId,
-          shuffle: options.shuffle ? 1 : 0
-        });
+          }, 500);
+        }
         
-        setTimeout(() => {
-          if (youtubePlayerRef.current && youtubePlayerRef.current.setVolume) {
-            const targetVolume = Math.round(volume * 100);
-            youtubePlayerRef.current.setVolume(targetVolume);
-          }
-          setIsLoading(false);
-        }, 500);
+        setCurrentPlaylistProvider('youtube');
       }
       
       setIsPlaying(true);
       
     } catch (error) {
-      console.error('Failed to load YouTube playlist:', error);
-      setError('Failed to load YouTube playlist');
+      console.error('Failed to load playlist:', error);
+      const errorMessage = provider === 'spotify' 
+        ? `Kon Spotify playlist niet laden: ${error.message}`
+        : 'Kon YouTube playlist niet laden';
+      setError(errorMessage);
       setIsPlaying(false);
       // Reset source if playlist fails
       setCurrentSource(null);
@@ -660,15 +756,18 @@ export const useAudioPlayer = () => {
       connectionTimeoutRef.current = null;
     }
   }, [currentConnectionAttempt]);
-
   const pauseAudio = useCallback(() => {
     if (currentSource === 'radio' && audioRef.current) {
       audioRef.current.pause();
-    } else if (currentSource === 'playlist' && youtubePlayerRef.current) {
-      youtubePlayerRef.current.pauseVideo();
+    } else if (currentSource === 'playlist') {
+      if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
+        pauseSpotify();
+      } else if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
+        youtubePlayerRef.current.pauseVideo();
+      }
     }
     setIsPlaying(false);
-  }, [currentSource]);
+  }, [currentSource, currentPlaylistProvider]);
   const resumeAudio = useCallback(() => {
     // Check if ad break is active and force playlist if needed
     if (window.isAdBreakActive && window.playlistUrl) {
@@ -688,21 +787,24 @@ export const useAudioPlayer = () => {
           }
           return;
         } catch (error) {
-          console.error('Failed to start playlist during resume:', error);
+          console.error('Failed to start playlist tijdens resume:', error);
         }
       }
     }
-    
-    // Normal resume logic
+      // Normal resume logic
     if (currentSource === 'radio' && audioRef.current) {
       audioRef.current.play().catch(() => {
         setError('Failed to resume radio');
       });
-    } else if (currentSource === 'playlist' && youtubePlayerRef.current) {
-      youtubePlayerRef.current.playVideo();
+    } else if (currentSource === 'playlist') {
+      if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
+        resumeSpotify();
+      } else if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
+        youtubePlayerRef.current.playVideo();
+      }
     }
     setIsPlaying(true);
-  }, [currentSource, playPlaylist]);
+  }, [currentSource, currentPlaylistProvider, playPlaylist]);
   const togglePlayPause = useCallback(() => {
     if (isPlaying) {
       pauseAudio();
@@ -732,18 +834,23 @@ export const useAudioPlayer = () => {
       resumeAudio();
     }
   }, [isPlaying, pauseAudio, resumeAudio, currentSource, playPlaylist]);
-
   const toggleShuffle = useCallback((enabled) => {
-    if (youtubePlayerRef.current) {
+    if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
+      try {
+        setSpotifyShuffleMode(enabled);
+        console.log(`Spotify shuffle ${enabled ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        console.error('Error toggling Spotify shuffle:', error);
+      }
+    } else if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
       try {
         youtubePlayerRef.current.setShuffle(enabled);
-        console.log(`Shuffle ${enabled ? 'enabled' : 'disabled'}`);
+        console.log(`YouTube shuffle ${enabled ? 'enabled' : 'disabled'}`);
       } catch (error) {
-        console.error('Error toggling shuffle:', error);
+        console.error('Error toggling YouTube shuffle:', error);
       }
     }
-  }, []);
-
+  }, [currentPlaylistProvider]);
   return {
     currentStation,
     isPlaying,
@@ -761,6 +868,7 @@ export const useAudioPlayer = () => {
     setVolume,
     setError,
     youtubePlayerRef,
+    spotifyPlayerRef,
     toggleShuffle,
     pauseRadioForAdBreak,
     resumeRadioFromAdBreak,
@@ -769,6 +877,8 @@ export const useAudioPlayer = () => {
     forceStopAllAudio,
     connectionTimeout,
     abortConnection,
-    stopRadio
+    stopRadio,
+    currentPlaylistProvider,
+    spotifyPlayerReady
   };
 };
