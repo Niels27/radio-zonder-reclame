@@ -1,0 +1,13 @@
+AddType application/javascript .js
+AddType text/css .css
+AddType application/json .json
+AddType image/svg+xml .svg
+
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Handle client-side routing
+RewriteEngine On
+RewriteRule ^(?!.*\.).*$ /index.html [L]

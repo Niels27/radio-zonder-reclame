@@ -2,8 +2,18 @@
 
 // Spotify API Configuration
 const getRedirectUri = () => {
-  const baseUri = `${window.location.origin}/radio-zonder-reclame/callback.html`;
-  console.log('Spotify redirect URI:', baseUri);
+  // Ensure consistent redirect URI format
+  const origin = window.location.origin;
+  const path = '/radio-zonder-reclame/callback.html';
+  const baseUri = `${origin}${path}`;
+  
+  console.log('🔧 Spotify Redirect URI Details:');
+  console.log('  - Origin:', origin);
+  console.log('  - Path:', path);
+  console.log('  - Full URI:', baseUri);
+  console.log('  - Protocol:', window.location.protocol);
+  console.log('  - Hostname:', window.location.hostname);
+  
   return baseUri;
 };
 
@@ -78,12 +88,11 @@ export const getSpotifyAuthUrl = async () => {
   // Store for later use
   localStorage.setItem('spotify_auth_state', state);
   localStorage.setItem('spotify_code_verifier', codeVerifier);
-  
-  const params = new URLSearchParams({
+    const params = new URLSearchParams({
     response_type: 'code',
     client_id: SPOTIFY_CONFIG.clientId,
     scope: SPOTIFY_CONFIG.scopes,
-    redirect_uri: SPOTIFY_CONFIG.redirectUri,
+    redirect_uri: getRedirectUri(), // Use the function directly
     state: state,
     code_challenge_method: 'S256',
     code_challenge: codeChallenge,
@@ -152,12 +161,42 @@ export const loginToSpotify = () => {
           } catch (error) {
             console.error('❌ Token exchange failed:', error);
             reject(error);
-          }
-        } else if (event.data.type === 'SPOTIFY_AUTH_ERROR') {
+          }        } else if (event.data.type === 'SPOTIFY_AUTH_ERROR') {
           clearInterval(pollTimer);
           window.removeEventListener('message', messageHandler);
           popup.close();
-          reject(new Error(event.data.error || 'Authentication failed'));
+          
+          // Enhanced error handling for redirect URI issues
+          const error = event.data.error;
+          const errorDescription = event.data.errorDescription || '';
+          
+          console.error('🔧 Spotify Auth Error Details:');
+          console.error('  - Error:', error);
+          console.error('  - Description:', errorDescription);
+          console.error('  - Current redirect URI:', getRedirectUri());
+          
+          // Check for specific redirect URI error
+          if (error === 'invalid_client' || errorDescription.toLowerCase().includes('redirect_uri') || errorDescription.toLowerCase().includes('redirect uri')) {
+            console.error('🚨 REDIRECT URI ERROR DETECTED!');
+            console.error('🔧 This is likely because the production redirect URI is not configured in the Spotify Developer Dashboard.');
+            console.error('🔧 To fix this issue:');
+            console.error('   1. Go to https://developer.spotify.com/dashboard');
+            console.error('   2. Find your app with Client ID: 67703322b3fe4c27aa42f10e3d067b84');
+            console.error('   3. Click "Edit Settings"');
+            console.error('   4. Add this redirect URI:', getRedirectUri());
+            console.error('🔧 For detailed instructions, visit: ' + window.location.origin + '/radio-zonder-reclame/spotify-fix.html');
+            
+            // Create a more informative error message
+            const helpUrl = `${window.location.origin}/radio-zonder-reclame/spotify-fix.html`;
+            const detailedError = new Error(`Spotify redirect URI not configured. Visit ${helpUrl} for detailed fix instructions.`);
+            detailedError.code = 'INVALID_REDIRECT_URI';
+            detailedError.helpUrl = helpUrl;
+            detailedError.originalError = error;
+            detailedError.originalDescription = errorDescription;
+            reject(detailedError);
+          } else {
+            reject(new Error(errorDescription || error || 'Authentication failed'));
+          }
         }
       };
       

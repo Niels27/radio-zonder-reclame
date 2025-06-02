@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Redirect URI Diagnostic</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1db954, #191414);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            text-align: center;
+            color: #1db954;
+            margin-bottom: 30px;
+        }
+        .diagnostic-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border-left: 4px solid #1db954;
+        }
+        .url-display {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            margin: 10px 0;
+            border: 1px solid #1db954;
+        }
+        .copy-btn {
+            background: #1db954;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+        .copy-btn:hover {
+            background: #1ed760;
+        }
+        .instructions {
+            background: rgba(30, 144, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #1e90ff;
+            margin-top: 20px;
+        }
+        .warning {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 4px solid #ffc107;
+            color: #ffc107;
+        }
+        ul {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Spotify Redirect URI Diagnostic Tool</h1>
+        
+        <div class="diagnostic-section">
+            <h3>Current Environment Details</h3>
+            <div id="environment-details"></div>
+        </div>
+        
+        <div class="diagnostic-section">
+            <h3>Required Redirect URIs for Spotify Dashboard</h3>
+            <div id="redirect-uris"></div>
+        </div>
+        
+        <div class="diagnostic-section warning">
+            <h3>⚠️ Common Issues</h3>
+            <ul>
+                <li><strong>Case Sensitivity:</strong> Spotify redirect URIs are case-sensitive</li>
+                <li><strong>Trailing Slashes:</strong> Must match exactly (with or without trailing slash)</li>
+                <li><strong>Protocol:</strong> Must use HTTPS for production, HTTP for localhost</li>
+                <li><strong>Port Numbers:</strong> Include port if non-standard (not 80/443)</li>
+            </ul>
+        </div>
+          <div class="diagnostic-section">
+            <h3>🧪 Live Spotify API Test</h3>
+            <p>Test the actual Spotify authentication flow to see exact error details:</p>
+            <button id="test-spotify-auth" class="copy-btn" style="padding: 15px 30px; font-size: 16px; margin-right: 10px;">
+                🔍 Test Spotify Authentication
+            </button>
+            <button id="test-current-config" class="copy-btn" style="padding: 15px 30px; font-size: 16px; background: #ffc107;">
+                ⚙️ Check Current Config
+            </button>
+            <div id="test-results" style="margin-top: 20px;"></div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 How to Fix the Redirect URI Issue</h3>
+            <ol>
+                <li>Go to <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1db954;">Spotify Developer Dashboard</a></li>
+                <li>Find your app with Client ID: <code>67703322b3fe4c27aa42f10e3d067b84</code></li>
+                <li>Click "Edit Settings"</li>
+                <li>In the "Redirect URIs" section, add ALL the URIs listed above</li>
+                <li>Click "Save" to apply the changes</li>
+                <li>Wait a few minutes for the changes to propagate</li>
+                <li>Test the Spotify functionality again</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Get current environment details
+        const envDetails = document.getElementById('environment-details');
+        const redirectUris = document.getElementById('redirect-uris');
+        
+        // Collect environment information
+        const origin = window.location.origin;
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+        const pathname = window.location.pathname;
+        const isSecure = window.isSecureContext;
+        
+        // Generate the redirect URI that would be used
+        const callbackPath = '/radio-zonder-reclame/callback.html';
+        const redirectUri = `${origin}${callbackPath}`;
+        
+        // Alternative URIs to consider
+        const alternativeUris = [
+            `${protocol}//${hostname}${port ? ':' + port : ''}${callbackPath}`,
+            `https://${hostname}${callbackPath}`,
+            `http://${hostname}${callbackPath}`,
+            `https://niels27.github.io/radio-zonder-reclame/callback.html`,
+            `http://localhost:4173/radio-zonder-reclame/callback.html`,
+            `http://127.0.0.1:4173/radio-zonder-reclame/callback.html`,
+            `https://127.0.0.1:4174/radio-zonder-reclame/callback.html`
+        ];
+        
+        // Remove duplicates
+        const uniqueUris = [...new Set([redirectUri, ...alternativeUris])];
+        
+        // Display environment details
+        envDetails.innerHTML = `
+            <p><strong>Origin:</strong> <span class="url-display">${origin}</span></p>
+            <p><strong>Protocol:</strong> ${protocol}</p>
+            <p><strong>Hostname:</strong> ${hostname}</p>
+            <p><strong>Port:</strong> ${port || 'default'}</p>
+            <p><strong>Pathname:</strong> ${pathname}</p>
+            <p><strong>Secure Context:</strong> ${isSecure ? '✅ Yes' : '❌ No'}</p>
+            <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+        `;
+        
+        // Display redirect URIs
+        let uriHtml = '<p><strong>Add these URIs to your Spotify app configuration:</strong></p>';
+        uniqueUris.forEach((uri, index) => {
+            const isCurrentEnvironment = uri === redirectUri;
+            uriHtml += `
+                <div style="margin: 10px 0;">
+                    <div class="url-display" style="${isCurrentEnvironment ? 'border-color: #ffc107; background: rgba(255, 193, 7, 0.1);' : ''}">
+                        ${uri}
+                        ${isCurrentEnvironment ? ' <strong style="color: #ffc107;">← Current Environment</strong>' : ''}
+                        <button class="copy-btn" onclick="copyToClipboard('${uri}')">Copy</button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        redirectUris.innerHTML = uriHtml;
+        
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Show temporary feedback
+                const originalText = event.target.textContent;
+                event.target.textContent = 'Copied!';
+                event.target.style.background = '#28a745';
+                setTimeout(() => {
+                    event.target.textContent = originalText;
+                    event.target.style.background = '#1db954';
+                }, 1000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Copied to clipboard!');
+            });
+        }
+        
+        window.copyToClipboard = copyToClipboard;
+          console.log('🔧 Spotify Diagnostic Tool Loaded');
+        console.log('Current redirect URI would be:', redirectUri);
+        console.log('All recommended URIs:', uniqueUris);
+
+        // Live Spotify API Testing
+        document.getElementById('test-spotify-auth').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<div class="url-display">🔄 Testing Spotify authentication flow...</div>';
+
+            try {
+                // Test the actual Spotify auth URL generation
+                const testRedirectUri = `${origin}/radio-zonder-reclame/callback.html`;
+                const clientId = '67703322b3fe4c27aa42f10e3d067b84';
+                
+                const authParams = new URLSearchParams({
+                    response_type: 'code',
+                    client_id: clientId,
+                    scope: 'playlist-read-private playlist-read-collaborative streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state',
+                    redirect_uri: testRedirectUri,
+                    state: 'test-state-' + Date.now(),
+                    show_dialog: 'true'
+                });
+
+                const authUrl = `https://accounts.spotify.com/authorize?${authParams.toString()}`;
+                
+                resultsDiv.innerHTML = `
+                    <div class="url-display">
+                        <strong>🔍 Test Results:</strong><br>
+                        <strong>Redirect URI being tested:</strong> ${testRedirectUri}<br>
+                        <strong>Client ID:</strong> ${clientId}<br>
+                        <strong>Environment:</strong> ${hostname}<br><br>
+                        <a href="${authUrl}" target="_blank" style="color: #1db954; text-decoration: underline;">
+                            🚀 Click here to test Spotify authorization
+                        </a><br>
+                        <small style="color: #888;">This will open Spotify's auth page. Check console for any errors.</small>
+                    </div>
+                `;
+
+                console.log('🔧 Test auth URL generated:', authUrl);
+                console.log('🔧 Redirect URI in test:', testRedirectUri);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="url-display" style="border-color: #e22134;">❌ Error testing: ${error.message}</div>`;
+                console.error('❌ Test error:', error);
+            }
+        });
+
+        // Check current configuration
+        document.getElementById('test-current-config').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('test-results');
+            
+            // Simulate the exact redirect URI generation logic from the app
+            const appRedirectUri = `${window.location.origin}/radio-zonder-reclame/callback.html`;
+            
+            resultsDiv.innerHTML = `
+                <div class="url-display">
+                    <strong>⚙️ Current Configuration Analysis:</strong><br><br>
+                    <strong>App would use:</strong> ${appRedirectUri}<br>
+                    <strong>Current page origin:</strong> ${window.location.origin}<br>
+                    <strong>Current page hostname:</strong> ${window.location.hostname}<br>
+                    <strong>Current page protocol:</strong> ${window.location.protocol}<br>
+                    <strong>Secure context:</strong> ${window.isSecureContext ? '✅ Yes' : '❌ No'}<br><br>
+                    <strong>Comparison with working local:</strong><br>
+                    Local working: <code>https://127.0.0.1:4174/radio-zonder-reclame/callback.html</code><br>
+                    Production: <code>${appRedirectUri}</code><br><br>
+                    ${appRedirectUri === 'https://127.0.0.1:4174/radio-zonder-reclame/callback.html' 
+                        ? '✅ URIs match - should work' 
+                        : '⚠️ URIs differ - this might be the issue'}
+                </div>
+            `;
+
+            console.log('⚙️ Configuration check completed');
+            console.log('App redirect URI:', appRedirectUri);
+        });
+    </script>
+</body>
+</html>
