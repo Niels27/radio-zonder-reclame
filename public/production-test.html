@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Deployment Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .success { background: #1db954; }
+        .error { background: #e22134; }
+        .warning { background: #ff9500; }
+        .info { background: #1e90ff; }
+        button {
+            background: #1db954;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #1ed760; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Production Deployment Test</h1>
+    <p>Testing the radio-zonder-reclame application deployment and functionality</p>
+
+    <div class="test-section">
+        <h3>🌐 Environment Information</h3>
+        <div id="env-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📱 Application Loading</h3>
+        <div id="app-status"></div>
+        <button onclick="testAppLoad()">Test App Load</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🎵 Spotify Integration</h3>
+        <div id="spotify-status"></div>
+        <button onclick="testSpotifyRedirect()">Test Spotify Redirect URI</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📺 YouTube Integration</h3>
+        <div id="youtube-status"></div>
+        <button onclick="testYouTubeAPI()">Test YouTube API</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📻 Radio Streams</h3>
+        <div id="radio-status"></div>
+        <button onclick="testRadioStreams()">Test Radio Streams</button>
+    </div>
+
+    <script>
+        // Display environment information
+        function displayEnvInfo() {
+            const envInfo = document.getElementById('env-info');
+            envInfo.innerHTML = `
+                <div class="status info">URL: ${window.location.href}</div>
+                <div class="status info">Origin: ${window.location.origin}</div>
+                <div class="status info">Protocol: ${window.location.protocol}</div>
+                <div class="status info">Host: ${window.location.host}</div>
+                <div class="status info">Secure Context: ${window.isSecureContext}</div>
+                <div class="status info">User Agent: ${navigator.userAgent.substring(0, 80)}...</div>
+            `;
+        }
+
+        // Test application loading
+        function testAppLoad() {
+            const status = document.getElementById('app-status');
+            status.innerHTML = '<div class="status info">Testing app load...</div>';
+
+            // Try to fetch the main app
+            fetch('/radio-zonder-reclame/')
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                })
+                .then(html => {
+                    // Check if it's the built version (should contain asset references)
+                    if (html.includes('assets/index-') && html.includes('.js')) {
+                        status.innerHTML = '<div class="status success">✅ App loads successfully (built version)</div>';
+                    } else if (html.includes('src/main.jsx')) {
+                        status.innerHTML = '<div class="status error">❌ App serving source files instead of built version</div>';
+                    } else {
+                        status.innerHTML = '<div class="status warning">⚠️ App loads but structure unclear</div>';
+                    }
+                })
+                .catch(error => {
+                    status.innerHTML = `<div class="status error">❌ App failed to load: ${error.message}</div>`;
+                });
+        }
+
+        // Test Spotify redirect URI
+        function testSpotifyRedirect() {
+            const status = document.getElementById('spotify-status');
+            const redirectUri = `${window.location.origin}/radio-zonder-reclame/callback.html`;
+            
+            status.innerHTML = `
+                <div class="status info">Testing Spotify redirect URI: ${redirectUri}</div>
+            `;
+
+            // Test if callback page exists
+            fetch('/radio-zonder-reclame/callback.html')
+                .then(response => {
+                    if (response.ok) {
+                        status.innerHTML += '<div class="status success">✅ Callback page exists</div>';
+                        
+                        // Test Spotify authorization URL construction
+                        const spotifyAuthUrl = new URL('https://accounts.spotify.com/authorize');
+                        spotifyAuthUrl.searchParams.set('client_id', '67703322b3fe4c27aa42f10e3d067b84');
+                        spotifyAuthUrl.searchParams.set('response_type', 'code');
+                        spotifyAuthUrl.searchParams.set('redirect_uri', redirectUri);
+                        spotifyAuthUrl.searchParams.set('scope', 'playlist-read-private streaming user-read-email');
+                        
+                        status.innerHTML += `<div class="status info">Spotify Auth URL: ${spotifyAuthUrl.href}</div>`;
+                    } else {
+                        status.innerHTML += '<div class="status error">❌ Callback page not found</div>';
+                    }
+                })
+                .catch(error => {
+                    status.innerHTML += `<div class="status error">❌ Callback test failed: ${error.message}</div>`;
+                });
+        }
+
+        // Test YouTube API
+        function testYouTubeAPI() {
+            const status = document.getElementById('youtube-status');
+            status.innerHTML = '<div class="status info">Testing YouTube API...</div>';
+
+            // Test YouTube API script loading
+            const script = document.createElement('script');
+            script.src = 'https://www.youtube.com/iframe_api';
+            
+            window.onYouTubeIframeAPIReady = () => {
+                status.innerHTML += '<div class="status success">✅ YouTube API loaded successfully</div>';
+                
+                // Test playlist validation
+                const testPlaylistId = 'PLrAl6rWaHcXWJNxF5SL3xKf-0TvNtJJcU'; // A test playlist
+                fetch(`https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/playlist?list=${testPlaylistId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        status.innerHTML += '<div class="status success">✅ YouTube playlist validation works</div>';
+                    })
+                    .catch(error => {
+                        status.innerHTML += '<div class="status warning">⚠️ YouTube playlist validation blocked (CORS)</div>';
+                    });
+            };
+
+            script.onerror = () => {
+                status.innerHTML += '<div class="status error">❌ YouTube API failed to load</div>';
+            };
+
+            document.head.appendChild(script);
+        }
+
+        // Test radio streams
+        function testRadioStreams() {
+            const status = document.getElementById('radio-status');
+            status.innerHTML = '<div class="status info">Testing radio streams...</div>';
+
+            // Test a few common Dutch radio streams
+            const testStreams = [
+                { name: 'NPO Radio 1', url: 'https://icecast.omroep.nl/radio1-bb-mp3' },
+                { name: 'NPO Radio 2', url: 'https://icecast.omroep.nl/radio2-bb-mp3' },
+                { name: '538', url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO538.mp3' }
+            ];
+
+            let testsCompleted = 0;
+            const testResults = {};
+
+            testStreams.forEach(stream => {
+                const audio = new Audio();
+                audio.crossOrigin = 'anonymous';
+                
+                const timeout = setTimeout(() => {
+                    testResults[stream.name] = 'timeout';
+                    testsCompleted++;
+                    if (testsCompleted === testStreams.length) {
+                        displayRadioResults();
+                    }
+                }, 5000);
+
+                audio.addEventListener('canplay', () => {
+                    clearTimeout(timeout);
+                    testResults[stream.name] = 'success';
+                    testsCompleted++;
+                    if (testsCompleted === testStreams.length) {
+                        displayRadioResults();
+                    }
+                });
+
+                audio.addEventListener('error', (e) => {
+                    clearTimeout(timeout);
+                    testResults[stream.name] = 'error';
+                    testsCompleted++;
+                    if (testsCompleted === testStreams.length) {
+                        displayRadioResults();
+                    }
+                });
+
+                audio.src = stream.url;
+            });
+
+            function displayRadioResults() {
+                let resultHtml = '';
+                for (const [name, result] of Object.entries(testResults)) {
+                    const className = result === 'success' ? 'success' : result === 'timeout' ? 'warning' : 'error';
+                    const icon = result === 'success' ? '✅' : result === 'timeout' ? '⏱️' : '❌';
+                    resultHtml += `<div class="status ${className}">${icon} ${name}: ${result}</div>`;
+                }
+                status.innerHTML = resultHtml;
+            }
+        }
+
+        // Initialize
+        displayEnvInfo();
+        
+        // Auto-run basic tests
+        setTimeout(() => {
+            testAppLoad();
+        }, 1000);
+
+        // Display current timestamp
+        document.body.innerHTML += `<div style="margin-top: 20px; opacity: 0.7; font-size: 12px;">Test run at: ${new Date().toISOString()}</div>`;
+    </script>
+</body>
+</html>
