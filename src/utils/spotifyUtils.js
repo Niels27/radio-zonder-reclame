@@ -2,7 +2,7 @@
 
 // Spotify API Configuration
 const SPOTIFY_CONFIG = {
-  clientId:  '67703322b3fe4c27aa42f10e3d067b84',
+  clientId: '67703322b3fe4c27aa42f10e3d067b84',
   redirectUri: `${window.location.origin}/radio-zonder-reclame/callback.html`,
   scopes: [
     'playlist-read-private',
@@ -15,6 +15,15 @@ const SPOTIFY_CONFIG = {
     'user-modify-playback-state'
   ].join(' ')
 };
+
+// Debug logging for environment detection
+console.log('🔧 Spotify Config Debug:', {
+  origin: window.location.origin,
+  redirectUri: SPOTIFY_CONFIG.redirectUri,
+  isHTTPS: window.location.protocol === 'https:',
+  isDevelopment: window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost',
+  isProduction: window.location.hostname === 'niels27.github.io'
+});
 
 // Global Spotify Web Playback SDK variables
 let spotifyPlayer = null;
@@ -92,60 +101,84 @@ export const getSpotifyAuthUrl = async () => {
  */
 export const loginToSpotify = () => {
   return new Promise(async (resolve, reject) => {
-    const authUrl = await getSpotifyAuthUrl();
-    const popup = window.open(
-      authUrl,
-      'spotifyLogin',
-      'width=600,height=700,scrollbars=yes,resizable=yes'
-    );
+    // Check if we're in a secure context (HTTPS or localhost)
+    if (!window.isSecureContext && window.location.protocol !== 'https:') {
+      reject(new Error('Spotify authentication requires HTTPS. Please use a secure connection.'));
+      return;
+    }
 
-    // Poll for popup closure or message
-    const pollTimer = setInterval(() => {
-      try {
-        if (popup.closed) {
-          clearInterval(pollTimer);
-          reject(new Error('Login cancelled by user'));
-        }
-      } catch (error) {
-        // Cross-origin error is expected, ignore
-      }
-    }, 1000);
-
-    // Listen for messages from popup
-    const messageHandler = async (event) => {
-      if (event.origin !== window.location.origin) return;
+    try {
+      const authUrl = await getSpotifyAuthUrl();
+      console.log('🎵 Opening Spotify auth popup:', authUrl);
       
-      if (event.data.type === 'SPOTIFY_AUTH_SUCCESS') {
-        clearInterval(pollTimer);
-        window.removeEventListener('message', messageHandler);
-        popup.close();
-        
+      const popup = window.open(
+        authUrl,
+        'spotifyLogin',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        reject(new Error('Popup blocked. Please allow popups for this site.'));
+        return;
+      }
+
+      // Poll for popup closure or message
+      const pollTimer = setInterval(() => {
         try {
-          // Exchange code for token using PKCE
-          const tokenData = await exchangeCodeForToken(event.data.code, event.data.state);
-          resolve({ success: true, token: tokenData.accessToken });
+          if (popup.closed) {
+            clearInterval(pollTimer);
+            reject(new Error('Login cancelled by user'));
+          }
         } catch (error) {
-          reject(error);
+          // Cross-origin error is expected, ignore
         }
-      } else if (event.data.type === 'SPOTIFY_AUTH_ERROR') {
+      }, 1000);
+
+      // Listen for messages from popup
+      const messageHandler = async (event) => {
+        // Allow messages from Spotify and our own domain
+        if (event.origin !== window.location.origin && !event.origin.includes('spotify.com')) {
+          console.warn('Ignoring message from unexpected origin:', event.origin);
+          return;
+        }
+        
+        if (event.data.type === 'SPOTIFY_AUTH_SUCCESS') {
+          clearInterval(pollTimer);
+          window.removeEventListener('message', messageHandler);
+          popup.close();
+          
+          try {
+            console.log('🎵 Auth success, exchanging code for token...');
+            // Exchange code for token using PKCE
+            const tokenData = await exchangeCodeForToken(event.data.code, event.data.state);
+            resolve({ success: true, token: tokenData.accessToken });
+          } catch (error) {
+            console.error('❌ Token exchange failed:', error);
+            reject(error);
+          }
+        } else if (event.data.type === 'SPOTIFY_AUTH_ERROR') {
+          clearInterval(pollTimer);
+          window.removeEventListener('message', messageHandler);
+          popup.close();
+          reject(new Error(event.data.error || 'Authentication failed'));
+        }
+      };
+      
+      window.addEventListener('message', messageHandler);
+      
+      // Timeout after 5 minutes
+      setTimeout(() => {
         clearInterval(pollTimer);
         window.removeEventListener('message', messageHandler);
-        popup.close();
-        reject(new Error(event.data.error || 'Authentication failed'));
-      }
-    };
-    
-    window.addEventListener('message', messageHandler);
-    
-    // Timeout after 5 minutes
-    setTimeout(() => {
-      clearInterval(pollTimer);
-      window.removeEventListener('message', messageHandler);
-      if (!popup.closed) {
-        popup.close();
-      }
-      reject(new Error('Authentication timeout'));
-    }, 300000);
+        if (!popup.closed) {
+          popup.close();
+        }
+        reject(new Error('Authentication timeout - please try again'));
+      }, 300000);
+    } catch (error) {
+      console.error('❌ Spotify login error:', error);
+      reject(error);
+    }
   });
 };
 
