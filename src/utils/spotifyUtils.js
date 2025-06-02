@@ -16,25 +16,6 @@ const SPOTIFY_CONFIG = {
   ].join(' ')
 };
 
-// Debug logging for environment detection
-console.log('🔧 Spotify Config Debug:', {
-  origin: window.location.origin,
-  redirectUri: SPOTIFY_CONFIG.redirectUri,
-  isHTTPS: window.location.protocol === 'https:',
-  isDevelopment: window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost',
-  isProduction: window.location.hostname === 'niels27.github.io'
-});
-
-// Expected redirect URIs for Spotify Dashboard:
-// - https://niels27.github.io/radio-zonder-reclame/callback.html (production)
-// - https://127.0.0.1:4174/radio-zonder-reclame/callback.html (local HTTPS)
-// - https://localhost:4174/radio-zonder-reclame/callback.html (local HTTPS alternative)
-console.log('📋 Required Spotify redirect URIs in dashboard:', [
-  'https://niels27.github.io/radio-zonder-reclame/callback.html',
-  'https://127.0.0.1:4174/radio-zonder-reclame/callback.html', 
-  'https://localhost:4174/radio-zonder-reclame/callback.html'
-]);
-
 // Global Spotify Web Playback SDK variables
 let spotifyPlayer = null;
 let spotifyDeviceId = null;
