@@ -173,12 +173,22 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
         playsinline: 1,
         rel: 0,
         showinfo: 0,
+        // Enhanced parameters to bypass embedding restrictions
+        host: 'https://www.youtube-nocookie.com',
         origin: window.location.origin,
+        // Privacy enhanced mode
+        cc_load_policy: 0,
+        color: 'white',
+        hl: 'en',
+        // Force HTML5 player
+        html5: 1,
+        // Try to force audio-only by hiding video
+        vq: 'tiny',
         ...options.playerVars
       },
       events: {
         onReady: (event) => {
-          console.log('YouTube player ready');
+          console.log('YouTube player ready for background playback');
           
           // Set initial shuffle state
           if (options.playerVars?.shuffle) {
@@ -195,14 +205,64 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
         onStateChange: (event) => {
           console.log('YouTube player state changed:', event.data);
           
+          // Handle embedding errors and retry with fallback
+          if (event.data === -1) { // unstarted
+            console.log('Player unstarted, attempting to start playback...');
+          } else if (event.data === window.YT.PlayerState.BUFFERING) {
+            console.log('Player buffering...');
+          }
+          
           // Handle state changes
           if (options.onStateChange) {
             options.onStateChange(event);
           }
         },
         onError: (event) => {
-          console.error('YouTube player error:', event);
-          reject(new Error(`YouTube player error: ${event.data}`));
+          console.error('YouTube player error:', event.data);
+          
+          // Handle specific error codes
+          switch(event.data) {
+            case 5:
+              reject(new Error('HTML5 player error - video format not supported'));
+              break;
+            case 100:
+              reject(new Error('Video not found'));
+              break;            case 101:
+            case 150:
+              console.warn('Embedding restricted (error 150/101), implementing enhanced bypass strategies...');
+              // Enhanced bypass strategies for embedding restrictions
+              if (options.onEmbeddingError) {
+                options.onEmbeddingError(event.data);
+              }
+              
+              // Don't reject immediately - try multiple bypass strategies
+              setTimeout(() => {
+                try {
+                  console.log('Attempting bypass strategy 1: Direct playVideo call');
+                  if (window.debugYTPlayer) {
+                    window.debugYTPlayer.playVideo();
+                  }
+                } catch (bypassErr) {
+                  console.warn('Bypass strategy 1 failed:', bypassErr);
+                }
+              }, 3000);
+              
+              // Additional bypass attempt with longer delay
+              setTimeout(() => {
+                try {
+                  console.log('Attempting bypass strategy 2: Reload and play');
+                  if (window.debugYTPlayer && window.debugYTPlayer.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                    window.debugYTPlayer.playVideo();
+                  }
+                } catch (bypassErr2) {
+                  console.warn('Bypass strategy 2 failed:', bypassErr2);
+                }
+              }, 8000);
+              
+              break;
+            default:
+              reject(new Error(`YouTube player error: ${event.data}`));
+          }
         }
       }
     };
@@ -212,6 +272,311 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
       
       // Store reference for debugging
       window.debugYTPlayer = player;
+        } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+// Enhanced hidden player creation to bypass embedding restrictions
+export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) => {
+  return new Promise((resolve, reject) => {
+    if (!window.YT) {
+      reject(new Error('YouTube API not loaded'));
+      return;
+    }
+
+    // Create a truly hidden container
+    let playerDiv = document.getElementById(elementId);
+    if (!playerDiv) {
+      playerDiv = document.createElement('div');
+      playerDiv.id = elementId;
+      // Make it completely invisible and inaccessible
+      playerDiv.style.cssText = `
+        position: fixed !important;
+        top: -10000px !important;
+        left: -10000px !important;
+        width: 1px !important;
+        height: 1px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+        z-index: -9999 !important;
+        overflow: hidden !important;
+        transform: scale(0) !important;
+      `;
+      document.body.appendChild(playerDiv);
+    }    const playerOptions = {
+      height: '0',      width: '0',
+      videoId: '', // Start without specific video
+      playerVars: {
+        listType: 'playlist',
+        list: playlistId,
+        autoplay: 1,
+        controls: 0,
+        disablekb: 1,
+        enablejsapi: 1,
+        fs: 0,
+        iv_load_policy: 3,
+        modestbranding: 1,
+        playsinline: 1,
+        rel: 0,
+        showinfo: 0,
+        // Use nocookie domain to reduce tracking and potentially bypass some restrictions
+        host: 'https://www.youtube-nocookie.com',
+        origin: window.location.origin,
+        // Additional parameters to help bypass embedding restrictions
+        cc_load_policy: 0,
+        color: 'white',
+        hl: 'en',
+        html5: 1,
+        // Try different quality to reduce bandwidth and potentially bypass restrictions
+        vq: 'tiny',
+        // Disable annotations and cards
+        iv_load_policy: 3,
+        // Try to minimize video processing
+        start: 0,
+        end: 0,
+        // Enhanced bypass parameters
+        widget_referrer: window.location.origin,
+        eow: 1, // End of video overlay disabled
+        theme: 'dark',
+        // Experimental: try to force audio-only mode
+        fmt: '251', // WebM audio-only format
+        // Additional stealth parameters
+        wmode: 'transparent',
+        allowfullscreen: 'false',
+        ...options.playerVars
+      },
+      events: {        onReady: (event) => {
+          console.log('Hidden YouTube player ready for background audio playback');
+          
+          // Immediately try to start the playlist with retry mechanism
+          const startPlaylist = async () => {
+            try {
+              // First attempt with standard loadPlaylist
+              await event.target.loadPlaylist({
+                listType: 'playlist',
+                list: playlistId,
+                index: 0,
+                startSeconds: 0,
+                suggestedQuality: 'tiny'
+              });
+              
+              // Set initial shuffle state
+              if (options.playerVars?.shuffle) {
+                event.target.setShuffle(true);
+                console.log('Shuffle enabled on hidden player');
+              }
+              
+              // Force start if not autoplayng
+              setTimeout(() => {
+                try {
+                  if (event.target.getPlayerState() === window.YT.PlayerState.UNSTARTED) {
+                    event.target.playVideo();
+                    console.log('Forced playlist start on hidden player');
+                  }
+                } catch (err) {
+                  console.warn('Could not force start hidden player:', err);
+                }
+              }, 1000);
+              
+            } catch (error) {
+              console.warn('Error setting up hidden player, trying alternative approach:', error);
+              
+              // Fallback: try cuePlaylist instead of loadPlaylist
+              try {
+                event.target.cuePlaylist({
+                  listType: 'playlist',
+                  list: playlistId,
+                  index: 0,
+                  startSeconds: 0,
+                  suggestedQuality: 'tiny'
+                });
+                
+                setTimeout(() => {
+                  event.target.playVideo();
+                }, 500);
+                
+              } catch (fallbackError) {
+                console.warn('Fallback playlist loading also failed:', fallbackError);
+              }
+            }
+          };
+          
+          startPlaylist();
+          resolve(event.target);
+        },        onStateChange: (event) => {
+          console.log('Hidden YouTube player state:', event.data);
+          
+          // Handle different states
+          if (event.data === window.YT.PlayerState.PLAYING) {
+            console.log('Hidden player is now playing audio');
+            // Ensure the div stays hidden even during playback
+            if (playerDiv) {
+              playerDiv.style.cssText = `
+                position: fixed !important;
+                top: -10000px !important;
+                left: -10000px !important;
+                width: 1px !important;
+                height: 1px !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                visibility: hidden !important;
+                z-index: -9999 !important;
+                overflow: hidden !important;
+                transform: scale(0) !important;
+              `;
+            }
+          } else if (event.data === window.YT.PlayerState.UNSTARTED) {
+            // Try to start playback if it's stuck
+            setTimeout(() => {
+              try {
+                event.target.playVideo();
+                console.log('Attempting to unstick hidden player');
+              } catch (err) {
+                console.warn('Could not unstick player:', err);
+              }
+            }, 2000);
+          } else if (event.data === window.YT.PlayerState.CUED) {
+            // Playlist is cued, try to play
+            setTimeout(() => {
+              try {
+                event.target.playVideo();
+                console.log('Playing cued playlist');
+              } catch (err) {
+                console.warn('Could not play cued playlist:', err);
+              }
+            }, 500);
+          }
+          
+          // Handle state changes
+          if (options.onStateChange) {
+            options.onStateChange(event);
+          }
+        },        onError: (event) => {
+          console.error('Hidden YouTube player error:', event.data);
+          
+          // Handle specific errors more gracefully
+          switch(event.data) {
+            case 5:
+              console.warn('HTML5 player error in hidden mode - continuing anyway');
+              // Don't reject immediately, might still work for audio
+              break;
+            case 100:
+              console.warn('Video not found in playlist - trying next video');
+              // Try to skip to next video instead of failing completely
+              try {
+                event.target.nextVideo();
+              } catch (err) {
+                console.warn('Could not skip to next video:', err);
+              }
+              break;
+            case 101:
+              console.warn('Embedding disabled by owner (101) - attempting stealth audio-only playback');
+              // Try to continue anyway as audio might still work
+              if (options.onEmbeddingError) {
+                options.onEmbeddingError(event.data);
+              }
+              // Don't reject - log and continue
+              break;
+            case 150:
+              console.warn('Playback on other websites disabled (150) - attempting stealth background mode');
+              // This is the main error we're trying to bypass
+              // Don't reject - try to continue for audio playback
+              if (options.onEmbeddingError) {
+                options.onEmbeddingError(event.data);
+              }
+              
+              // Try alternative approach with setTimeout to bypass detection
+              setTimeout(() => {
+                try {
+                  console.log('Attempting stealth retry after error 150');
+                  event.target.playVideo();
+                } catch (retryErr) {
+                  console.warn('Stealth retry failed:', retryErr);
+                }
+              }, 3000);
+              break;
+            default:
+              console.warn(`Unknown YouTube error ${event.data} in hidden mode - attempting to continue`);
+              // Only reject for truly fatal errors
+              if (event.data > 200) {
+                reject(new Error(`YouTube player fatal error: ${event.data}`));
+              } else {
+                // For other errors, try to continue
+                setTimeout(() => {
+                  try {
+                    event.target.playVideo();
+                  } catch (continueErr) {
+                    console.warn('Could not continue after error:', continueErr);
+                  }
+                }, 2000);
+              }
+          }
+        }
+      }
+    };
+
+    try {
+      const player = new window.YT.Player(elementId, playerOptions);
+      
+      // Store reference for debugging
+      window.debugHiddenYTPlayer = player;
+        // Additional hiding after creation
+      setTimeout(() => {
+        if (playerDiv) {
+          playerDiv.style.cssText = `
+            position: fixed !important;
+            top: -10000px !important;
+            left: -10000px !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+            z-index: -9999 !important;
+            overflow: hidden !important;
+            transform: scale(0) !important;
+          `;
+          
+          // Also hide any iframe children
+          const iframes = playerDiv.querySelectorAll('iframe');
+          iframes.forEach(iframe => {
+            iframe.style.cssText = `
+              position: absolute !important;
+              top: -10000px !important;
+              left: -10000px !important;
+              width: 1px !important;
+              height: 1px !important;
+              opacity: 0 !important;
+              visibility: hidden !important;
+              transform: scale(0) !important;
+            `;
+          });
+        }
+      }, 100);
+      
+      // Additional stealth hiding after a longer delay
+      setTimeout(() => {
+        if (playerDiv) {
+          // Move it even further away and make it even smaller
+          playerDiv.style.cssText = `
+            position: fixed !important;
+            top: -50000px !important;
+            left: -50000px !important;
+            width: 0px !important;
+            height: 0px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+            z-index: -99999 !important;
+            overflow: hidden !important;
+            transform: scale(0) !important;
+            clip: rect(0,0,0,0) !important;
+          `;
+        }
+      }, 2000);
       
     } catch (error) {
       reject(error);

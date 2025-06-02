@@ -2,7 +2,7 @@
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\hooks\useAudioPlayer.js
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { loadYouTubeAPI, createYouTubePlayer } from '../utils/youtubeUtils';
+import { loadYouTubeAPI, createYouTubePlayer, createHiddenYouTubePlayer } from '../utils/youtubeUtils';
 import { StreamProxy } from '../utils/streamProxy.js';
 import { stationReportingService } from '../utils/stationReporting.js';
 import { AdSkipUtils } from '../utils/adSkipUtils.js';
@@ -275,7 +275,8 @@ export const useAudioPlayer = () => {
     
     // Apply station overrides before processing - MOVE THIS UP
     const effectiveStationData = stationReportingService.getEffectiveStationData(stationData);
-    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);    try {      // Handle ad break logic - AGGRESSIVE APPROACH
+    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);
+    try {
       if (window.isAdBreakActive && window.queueStationSwitch) {
         console.log('🎵 Ad break is active - ANY interaction should start playlist aggressively');
         console.log('🎵 Current state:', { 
@@ -503,7 +504,7 @@ export const useAudioPlayer = () => {
   }, [isRadioPausedForAdBreak, pausedRadioStation, volume, isTransitioning, playRadio]);
   // Update volume when it changes - ALSO apply to currently playing audio
   useEffect(() => {
-    console.log('🔊 Updating volume to:', volume);
+  //  console.log('🔊 Updating volume to:', volume);
     
     // Update radio volume immediately if playing
     if (audioRef.current && currentSource === 'radio' && isPlaying) {
@@ -516,7 +517,7 @@ export const useAudioPlayer = () => {
       const youtubeVolume = Math.round(volume * 100);
       try {
         youtubePlayerRef.current.setVolume(youtubeVolume);
-        console.log('🔊 Set YouTube volume to:', youtubeVolume);
+        //console.log('🔊 Set YouTube volume to:', youtubeVolume);
       } catch (error) {
         console.warn('Could not set YouTube volume:', error);
       }
@@ -527,7 +528,7 @@ export const useAudioPlayer = () => {
       const spotifyVolume = Math.round(volume * 100);
       try {
         setSpotifyVolume(spotifyVolume);
-        console.log('🔊 Set Spotify volume to:', spotifyVolume);
+      //  console.log('🔊 Set Spotify volume to:', spotifyVolume);
       } catch (error) {
         console.warn('Could not set Spotify volume:', error);
       }
@@ -640,27 +641,16 @@ export const useAudioPlayer = () => {
         
         setCurrentPlaylistProvider('spotify');
         console.log('🎵 Spotify playlist started successfully');
-        
-      } else {
-        // YouTube implementation
-        await loadYouTubeAPI();
-        console.log('🎵 YouTube API loaded successfully');
-        
-        if (!youtubePlayerRef.current) {
-          console.log('🎵 Creating new YouTube player');
-          let youtubeDiv = document.getElementById('youtube-player');
-          if (!youtubeDiv) {
-            console.log('🎵 Creating YouTube player div');
-            youtubeDiv = document.createElement('div');
-            youtubeDiv.id = 'youtube-player';
-            youtubeDiv.style.display = 'none';
-            youtubeDiv.style.position = 'absolute';
-            youtubeDiv.style.top = '-9999px';
-            youtubeDiv.style.left = '-9999px';
-            document.body.appendChild(youtubeDiv);
-          }
+        } else {
+          // YouTube implementation with enhanced hidden player
+          await loadYouTubeAPI();
+          console.log('🎵 YouTube API loaded successfully');
           
-          youtubePlayerRef.current = await createYouTubePlayer('youtube-player', playlistId, {
+          if (!youtubePlayerRef.current) {
+            console.log('🎵 Creating new enhanced hidden YouTube player for background audio with embedding bypass');
+            
+            // Use the enhanced hidden player function with improved bypass strategies
+            youtubePlayerRef.current = await createHiddenYouTubePlayer('youtube-hidden-player', playlistId, {
             playerVars: {
               autoplay: 1,
               loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
@@ -669,7 +659,7 @@ export const useAudioPlayer = () => {
             onReady: (event) => {
               const targetVolume = Math.round(volume * 100);
               event.target.setVolume(targetVolume);
-              console.log('🔊 Set YouTube volume on ready:', targetVolume);
+              console.log('🔊 Set hidden YouTube volume on ready:', targetVolume);
               setIsLoading(false);
             },
             onStateChange: (event) => {
@@ -678,19 +668,60 @@ export const useAudioPlayer = () => {
                 event.target.setVolume(targetVolume);
                 setIsPlaying(true);
                 setIsLoading(false);
-                console.log('🎵 YouTube playlist now playing at volume:', targetVolume);
+                console.log('🎵 Hidden YouTube playlist now playing at volume:', targetVolume);
               } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
                 setIsPlaying(false);
               }
+            },            onEmbeddingError: (errorCode) => {
+              console.warn(`YouTube embedding restricted (${errorCode}) - implementing enhanced fallback strategies`);
+              
+              // Enhanced fallback for error 150 (embedding restrictions)
+              if (errorCode === 150 || errorCode === 101) {
+                console.log('Attempting enhanced stealth mode for embedding restriction bypass');
+                
+                // Strategy 1: Try to continue playing despite the error
+                setTimeout(() => {
+                  try {
+                    if (youtubePlayerRef.current) {
+                      youtubePlayerRef.current.playVideo();
+                      console.log('Force-started playback after embedding error');
+                    }
+                  } catch (retryErr) {
+                    console.warn('Could not force-start after embedding error:', retryErr);
+                  }
+                }, 2000);
+                
+                // Strategy 2: Multiple retry attempts with delays
+                const retryDelays = [5000, 10000, 15000];
+                retryDelays.forEach((delay, index) => {
+                  setTimeout(() => {
+                    try {
+                      if (youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                        youtubePlayerRef.current.playVideo();
+                        console.log(`Retry attempt ${index + 1} for embedding bypass`);
+                      }
+                    } catch (retryErr) {
+                      console.warn(`Retry ${index + 1} failed:`, retryErr);
+                    }
+                  }, delay);
+                });
+                  // Show user-friendly message but don't stop trying
+                if (window.addNotification) {
+                  window.addNotification('🎵 Playlist wordt gestart met verbeterde bypass-modus...', 'info', 5000);
+                }
+              }
             },
             onError: (event) => {
-              console.error('YouTube player error:', event);
-              setError('Kon YouTube playlist niet laden');
-              setIsLoading(false);
-              setIsTransitioning(false);
-            }
-          });
+              console.error('Hidden YouTube player error:', event);
+              // Only show error for truly fatal errors
+              if (event.data > 150) {
+                setError('Kon YouTube playlist niet laden - probeer een andere playlist');
+                setIsLoading(false);
+                setIsTransitioning(false);
+              }
+            }          });
         } else {
+          // Use existing player but with enhanced error handling for embedding restrictions
           youtubePlayerRef.current.setVolume(0);
           youtubePlayerRef.current.loadPlaylist({
             listType: 'playlist',

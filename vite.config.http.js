@@ -1,9 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import fs from 'fs'
-import path from 'path'
 
-// https://vite.dev/config/
+// HTTP configuration for testing YouTube functionality
 export default defineConfig({
   plugins: [react()],
   // GitHub Pages deployment configuration
@@ -27,7 +25,8 @@ export default defineConfig({
       }
     },
     // Generate source maps for debugging (optional, remove if you want smaller builds)
-    sourcemap: false,    // Ensure proper asset handling
+    sourcemap: false,
+    // Ensure proper asset handling
     rollupOptions: {
       output: {
         // Ensure consistent asset naming
@@ -37,13 +36,10 @@ export default defineConfig({
       }
     }
   },
-  // Development server configuration
+  // Development server configuration - HTTP ONLY
   server: {
-    https: {
-      key: fs.readFileSync(path.resolve(__dirname, '127.0.0.1-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, '127.0.0.1.pem'))
-    },
-    host: '127.0.0.1',
+    // No HTTPS configuration for testing
+    host: 'localhost', // Use localhost instead of 127.0.0.1
     port: 4174,
     open: '/radio-zonder-reclame/'
   },
