@@ -155,15 +155,13 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
     if (!window.YT) {
       reject(new Error('YouTube API not loaded'));
       return;
-    }
-
-    const playerOptions = {
+    }    const playerOptions = {
       height: '1',
       width: '1',
       playerVars: {
         listType: 'playlist',
         list: playlistId,
-        autoplay: 1,
+        autoplay: 0, // Disable autoplay to reduce tracking
         controls: 0,
         disablekb: 1,
         enablejsapi: 1,
@@ -309,10 +307,9 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
     }    const playerOptions = {
       height: '0',      width: '0',
       videoId: '', // Start without specific video
-      playerVars: {
-        listType: 'playlist',
+      playerVars: {        listType: 'playlist',
         list: playlistId,
-        autoplay: 1,
+        autoplay: 0, // Disable autoplay to reduce tracking spam
         controls: 0,
         disablekb: 1,
         enablejsapi: 1,
@@ -362,11 +359,9 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
                 startSeconds: 0,
                 suggestedQuality: 'tiny'
               });
-              
-              // Set initial shuffle state
+                // Set initial shuffle state
               if (options.playerVars?.shuffle) {
                 event.target.setShuffle(true);
-                console.log('Shuffle enabled on hidden player');
               }
               
               // Force start if not autoplayng
@@ -374,10 +369,9 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
                 try {
                   if (event.target.getPlayerState() === window.YT.PlayerState.UNSTARTED) {
                     event.target.playVideo();
-                    console.log('Forced playlist start on hidden player');
                   }
                 } catch (err) {
-                  console.warn('Could not force start hidden player:', err);
+                  // Silently handle errors to reduce spam
                 }
               }, 1000);
               
@@ -407,11 +401,13 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
           startPlaylist();
           resolve(event.target);
         },        onStateChange: (event) => {
-          console.log('Hidden YouTube player state:', event.data);
+          // Reduce logging spam - only log important states
+          if (event.data === window.YT.PlayerState.PLAYING || event.data === window.YT.PlayerState.PAUSED) {
+            // Only log playing/paused states for debugging
+          }
           
           // Handle different states
           if (event.data === window.YT.PlayerState.PLAYING) {
-            console.log('Hidden player is now playing audio');
             // Ensure the div stays hidden even during playback
             if (playerDiv) {
               playerDiv.style.cssText = `
@@ -462,26 +458,22 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
             case 5:
               console.warn('HTML5 player error in hidden mode - continuing anyway');
               // Don't reject immediately, might still work for audio
-              break;
-            case 100:
-              console.warn('Video not found in playlist - trying next video');
-              // Try to skip to next video instead of failing completely
+              break;            case 100:
+              // Silently handle video not found and try next
               try {
                 event.target.nextVideo();
               } catch (err) {
-                console.warn('Could not skip to next video:', err);
+                // Silent handling
               }
               break;
             case 101:
-              console.warn('Embedding disabled by owner (101) - attempting stealth audio-only playback');
-              // Try to continue anyway as audio might still work
+              // Silently handle embedding disabled and continue
               if (options.onEmbeddingError) {
                 options.onEmbeddingError(event.data);
               }
-              // Don't reject - log and continue
               break;
             case 150:
-              console.warn('Playback on other websites disabled (150) - attempting stealth background mode');
+              // Silently handle playback restrictions
               // This is the main error we're trying to bypass
               // Don't reject - try to continue for audio playback
               if (options.onEmbeddingError) {

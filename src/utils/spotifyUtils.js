@@ -1,9 +1,15 @@
 // src/utils/spotifyUtils.js - Spotify Web API integration utilities
 
 // Spotify API Configuration
+const getRedirectUri = () => {
+  const baseUri = `${window.location.origin}/radio-zonder-reclame/callback.html`;
+  console.log('Spotify redirect URI:', baseUri);
+  return baseUri;
+};
+
 const SPOTIFY_CONFIG = {
   clientId: '67703322b3fe4c27aa42f10e3d067b84',
-  redirectUri: `${window.location.origin}/radio-zonder-reclame/callback.html`,
+  get redirectUri() { return getRedirectUri(); },
   scopes: [
     'playlist-read-private',
     'playlist-read-collaborative', 
