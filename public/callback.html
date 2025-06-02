@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Authorization</title>
+</head>
+<body>
+    <div id="status">Processing authorization...</div>
+    <script>
+        console.log('Callback page loaded');
+        console.log('Current URL:', window.location.href);
+        
+        // Extract parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+        
+        console.log('Parsed params:', { code, state, error, errorDescription });
+        
+        if (error) {
+            document.getElementById('status').textContent = `Error: ${error} - ${errorDescription || 'Unknown error'}`;
+            
+            // Send error to parent window
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'SPOTIFY_AUTH_ERROR',
+                    error: error,
+                    errorDescription: errorDescription
+                }, window.location.origin);
+            }
+        } else if (code) {
+            document.getElementById('status').textContent = 'Authorization successful! Processing...';
+            
+            // Send success to parent window
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'SPOTIFY_AUTH_SUCCESS',
+                    code: code,
+                    state: state
+                }, window.location.origin);
+            }
+        } else {
+            document.getElementById('status').textContent = 'No authorization code or error found in URL';
+            console.error('No authorization code or error found');
+        }
+        
+        // Close popup after a short delay
+        setTimeout(() => {
+            window.close();
+        }, 2000);
+    </script>
+</body>
+</html>

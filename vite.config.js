@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -34,7 +36,16 @@ export default defineConfig({
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js'
       }
-    }
+    }  },
+  // Development server configuration
+  server: {
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, '127.0.0.1-key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, '127.0.0.1.pem'))
+    },
+    host: '127.0.0.1',
+    port: 4174,
+    open: '/radio-zonder-reclame/'
   },
   // Preview configuration (for local testing of production build)
   preview: {

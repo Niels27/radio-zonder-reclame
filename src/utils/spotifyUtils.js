@@ -3,7 +3,7 @@
 // Spotify API Configuration
 const SPOTIFY_CONFIG = {
   clientId:  '67703322b3fe4c27aa42f10e3d067b84',
-  redirectUri: `${window.location.origin}/radio-zonder-reclame/callback`,
+  redirectUri: `${window.location.origin}/radio-zonder-reclame/callback.html`,
   scopes: [
     'playlist-read-private',
     'playlist-read-collaborative', 
@@ -40,11 +40,38 @@ export const initializeSpotifyAuth = () => {
 };
 
 /**
- * Generate Spotify authorization URL
+ * Generate code verifier and challenge for PKCE
  */
-export const getSpotifyAuthUrl = () => {
+const generateCodeVerifier = () => {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode.apply(null, array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+};
+
+const generateCodeChallenge = async (verifier) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+};
+
+/**
+ * Generate Spotify authorization URL with PKCE
+ */
+export const getSpotifyAuthUrl = async () => {
   const state = generateRandomString(16);
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  
+  // Store for later use
   localStorage.setItem('spotify_auth_state', state);
+  localStorage.setItem('spotify_code_verifier', codeVerifier);
   
   const params = new URLSearchParams({
     response_type: 'code',
@@ -52,6 +79,8 @@ export const getSpotifyAuthUrl = () => {
     scope: SPOTIFY_CONFIG.scopes,
     redirect_uri: SPOTIFY_CONFIG.redirectUri,
     state: state,
+    code_challenge_method: 'S256',
+    code_challenge: codeChallenge,
     show_dialog: 'true'
   });
   
@@ -62,8 +91,8 @@ export const getSpotifyAuthUrl = () => {
  * Handle Spotify login popup
  */
 export const loginToSpotify = () => {
-  return new Promise((resolve, reject) => {
-    const authUrl = getSpotifyAuthUrl();
+  return new Promise(async (resolve, reject) => {
+    const authUrl = await getSpotifyAuthUrl();
     const popup = window.open(
       authUrl,
       'spotifyLogin',
@@ -75,12 +104,7 @@ export const loginToSpotify = () => {
       try {
         if (popup.closed) {
           clearInterval(pollTimer);
-          // Check if token was stored during popup flow
-          if (spotifyAccessToken) {
-            resolve({ success: true, token: spotifyAccessToken });
-          } else {
-            reject(new Error('Login cancelled by user'));
-          }
+          reject(new Error('Login cancelled by user'));
         }
       } catch (error) {
         // Cross-origin error is expected, ignore
@@ -88,7 +112,7 @@ export const loginToSpotify = () => {
     }, 1000);
 
     // Listen for messages from popup
-    const messageHandler = (event) => {
+    const messageHandler = async (event) => {
       if (event.origin !== window.location.origin) return;
       
       if (event.data.type === 'SPOTIFY_AUTH_SUCCESS') {
@@ -96,14 +120,13 @@ export const loginToSpotify = () => {
         window.removeEventListener('message', messageHandler);
         popup.close();
         
-        spotifyAccessToken = event.data.accessToken;
-        spotifyTokenExpiry = event.data.expiryTime;
-        
-        // Store in localStorage
-        localStorage.setItem('spotify_access_token', spotifyAccessToken);
-        localStorage.setItem('spotify_token_expiry', spotifyTokenExpiry.toString());
-        
-        resolve({ success: true, token: spotifyAccessToken });
+        try {
+          // Exchange code for token using PKCE
+          const tokenData = await exchangeCodeForToken(event.data.code, event.data.state);
+          resolve({ success: true, token: tokenData.accessToken });
+        } catch (error) {
+          reject(error);
+        }
       } else if (event.data.type === 'SPOTIFY_AUTH_ERROR') {
         clearInterval(pollTimer);
         window.removeEventListener('message', messageHandler);
@@ -127,17 +150,21 @@ export const loginToSpotify = () => {
 };
 
 /**
- * Exchange authorization code for access token
+ * Exchange authorization code for access token using PKCE
  */
 export const exchangeCodeForToken = async (code, state) => {
   const storedState = localStorage.getItem('spotify_auth_state');
+  const codeVerifier = localStorage.getItem('spotify_code_verifier');
   
   if (state !== storedState) {
     throw new Error('State mismatch error');
   }
   
+  if (!codeVerifier) {
+    throw new Error('Code verifier not found');
+  }
+  
   try {
-    // Note: In production, this should be done on your backend to keep client_secret secure
     const response = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -148,7 +175,7 @@ export const exchangeCodeForToken = async (code, state) => {
         code: code,
         redirect_uri: SPOTIFY_CONFIG.redirectUri,
         client_id: SPOTIFY_CONFIG.clientId,
-        // client_secret: 'your-client-secret', // Should be handled on backend
+        code_verifier: codeVerifier
       })
     });
     
@@ -164,6 +191,10 @@ export const exchangeCodeForToken = async (code, state) => {
     // Store tokens
     localStorage.setItem('spotify_access_token', spotifyAccessToken);
     localStorage.setItem('spotify_token_expiry', spotifyTokenExpiry.toString());
+    
+    // Clean up PKCE data
+    localStorage.removeItem('spotify_code_verifier');
+    localStorage.removeItem('spotify_auth_state');
     
     return {
       accessToken: spotifyAccessToken,
@@ -427,6 +458,7 @@ export const clearSpotifyAuth = () => {
   localStorage.removeItem('spotify_access_token');
   localStorage.removeItem('spotify_token_expiry');
   localStorage.removeItem('spotify_auth_state');
+  localStorage.removeItem('spotify_code_verifier');
   
   if (spotifyPlayer) {
     spotifyPlayer.disconnect();
