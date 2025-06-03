@@ -29,6 +29,41 @@
 
 import { getIsProduction, getIsYouTubeProductionMode } from './logger.js';
 
+// Network request filtering for production to prevent ERR_BLOCKED_BY_CLIENT spam
+const isNetworkRequestBlocked = (url) => {
+  // Common blocked request patterns in production that cause ERR_BLOCKED_BY_CLIENT
+  const blockedPatterns = [
+    'doubleclick.net',
+    'googleadservices.com',
+    'googlesyndication.com',
+    'google-analytics.com',
+    'googletagmanager.com',
+    'facebook.com/tr/',
+    'connect.facebook.net',
+    'ads.yahoo.com',
+    'bing.com/ads/',
+    'amazon-adsystem.com',
+    '/pagead/',
+    '/ads/',
+    '/tracking/',
+    '/analytics/',
+    '/pixel',
+    'scorecardresearch.com'
+  ];
+  
+  return blockedPatterns.some(pattern => url.includes(pattern));
+};
+
+// Enhanced fetch wrapper that prevents blocked requests in production
+const safeFetch = async (url, options = {}) => {
+  // In production, skip requests that are likely to be blocked
+  if (getIsProduction() && isNetworkRequestBlocked(url)) {
+    throw new Error('Request blocked to prevent ERR_BLOCKED_BY_CLIENT');
+  }
+  
+  return fetch(url, options);
+};
+
 // YouTube error tracking to prevent spam
 const errorTracker = new Map();
 const ERROR_SPAM_THRESHOLD = 3; // Max times to log same error
@@ -124,17 +159,15 @@ export const validatePlaylistUrl = async (url) => {
       videoCount: null
     };
   }
-
   try {
     // Try to fetch basic playlist info first using oembed
-    const oembedResponse = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`);
+    const oembedResponse = await safeFetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`);
     
     if (oembedResponse.ok) {
       const oembedData = await oembedResponse.json();
-      
-      // Try to get more detailed info by scraping the playlist page
+        // Try to get more detailed info by scraping the playlist page
       try {
-        const pageResponse = await fetch(`https://www.youtube.com/playlist?list=${playlistId}`, {
+        const pageResponse = await safeFetch(`https://www.youtube.com/playlist?list=${playlistId}`, {
           method: 'GET',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -220,7 +253,7 @@ export const validatePlaylistUrl = async (url) => {
   }
 };
 
-// Load YouTube iframe API
+// Load YouTube iframe API with enhanced error handling for production
 export const loadYouTubeAPI = () => {
   return new Promise((resolve) => {
     if (window.YT && window.YT.Player) {
@@ -228,15 +261,47 @@ export const loadYouTubeAPI = () => {
       return;
     }
 
-    // Create script tag for YouTube API
+    // Enhanced production error handling for YouTube API loading
+    const handleYouTubeAPIError = (error) => {
+      if (getIsProduction()) {
+        // In production, handle YouTube API errors more gracefully
+        logError('YouTube API loading failed in production', error);
+        
+        // Try alternative approach or provide fallback
+        setTimeout(() => {
+          if (!window.YT || !window.YT.Player) {
+            logError('YouTube API still not available after retry attempt');
+          }
+        }, 5000);
+      }
+    };
+
+    // Create script tag for YouTube API with enhanced error handling
     const script = document.createElement('script');
     script.src = 'https://www.youtube.com/iframe_api';
+    script.onerror = handleYouTubeAPIError;
+    script.onload = () => {
+      logInfo('YouTube API script loaded successfully');
+    };
+    
+    // Add referrer policy to prevent some blocking issues
+    script.referrerPolicy = 'no-referrer-when-downgrade';
+    
     document.head.appendChild(script);
 
     // Set up callback for when API is ready
     window.onYouTubeIframeAPIReady = () => {
+      logInfo('YouTube iframe API fully ready');
       resolve();
     };
+    
+    // Fallback timeout in case API never loads
+    setTimeout(() => {
+      if (!window.YT || !window.YT.Player) {
+        logWarn('YouTube API loading timeout - attempting to continue anyway');
+        resolve(); // Don't block indefinitely
+      }
+    }, 15000);
   });
 };
 

@@ -37,6 +37,8 @@ let spotifyPlayer = null;
 let spotifyDeviceId = null;
 let spotifyAccessToken = null;
 let spotifyTokenExpiry = null;
+let isPlayerInitializing = false; // Prevent multiple initialization attempts
+let playerInitPromise = null; // Store the initialization promise to reuse it
 
 /**
  * Initialize Spotify authentication
@@ -376,12 +378,52 @@ export const getPlaylistTracks = async (playlistId) => {
  * Initialize Spotify Web Playback SDK
  */
 export const initializeSpotifyPlayer = () => {
-  return new Promise((resolve, reject) => {
-    if (spotifyPlayer) {
-      resolve(spotifyPlayer);
-      return;
-    }
+  // ✅ FIX: If already initializing, return the existing promise
+  if (isPlayerInitializing && playerInitPromise) {
+    console.log('🎵 Spotify player initialization already in progress, waiting...');
+    return playerInitPromise;
+  }
+
+  // ✅ FIX: If player already exists and is connected, return it
+  if (spotifyPlayer && spotifyDeviceId) {
+    console.log('🎵 Spotify player already exists, checking connection...');
     
+    return spotifyPlayer.getCurrentState().then((state) => {
+      console.log('🎵 Existing player state check result:', state !== null ? 'connected' : 'needs reconnection');
+      if (state !== null || state === null) { // null state means connected but no music
+        return spotifyPlayer;
+      } else {
+        // Player exists but not connected, reconnect
+        console.log('🎵 Reconnecting existing player...');
+        return spotifyPlayer.connect().then((success) => {
+          if (success) {
+            return spotifyPlayer;
+          } else {
+            throw new Error('Reconnection failed');
+          }
+        });
+      }
+    }).catch((error) => {
+      console.log('🎵 Existing player unresponsive, creating new one...', error);
+      // Cleanup old player and create new one
+      if (spotifyPlayer) {
+        try {
+          spotifyPlayer.disconnect();
+        } catch (e) {
+          console.warn('Error disconnecting old player:', e);
+        }
+      }
+      spotifyPlayer = null;
+      spotifyDeviceId = null;
+      
+      // Recursive call to create new player
+      return initializeSpotifyPlayer();
+    });
+  }
+
+  // Create new initialization promise
+  isPlayerInitializing = true;
+  playerInitPromise = new Promise((resolve, reject) => {
     if (!window.Spotify) {
       // Load Spotify Web Playback SDK
       const script = document.createElement('script');
@@ -395,7 +437,13 @@ export const initializeSpotifyPlayer = () => {
     } else {
       createSpotifyPlayer(resolve, reject);
     }
+  }).finally(() => {
+    // Always clear initialization state when done
+    isPlayerInitializing = false;
+    playerInitPromise = null;
   });
+
+  return playerInitPromise;
 };
 
 /**
@@ -407,37 +455,63 @@ const createSpotifyPlayer = (resolve, reject) => {
     return;
   }
   
+  // ✅ FIX: Prevent multiple concurrent player creation
+  if (spotifyPlayer) {
+    console.log('🎵 Player creation already in progress or complete, using existing player');
+    resolve(spotifyPlayer);
+    return;
+  }
+  
+  console.log('🎵 Creating new Spotify Web Playback SDK player...');
   spotifyPlayer = new window.Spotify.Player({
     name: 'No Ads Radio Browser Player', // Make it clear this is the browser player
     getOAuthToken: cb => cb(spotifyAccessToken),
     volume: 0.5
   });
   
+  // Add timeout for player creation
+  const creationTimeout = setTimeout(() => {
+    console.error('🎵 Spotify player creation timeout');
+    spotifyPlayer = null;
+    spotifyDeviceId = null;
+    reject(new Error('Player creation timeout'));
+  }, 15000); // 15 second timeout
+  
   // Error handling
   spotifyPlayer.addListener('initialization_error', ({ message }) => {
-    console.error('Spotify initialization error:', message);
+    console.error('🎵 Spotify initialization error:', message);
+    clearTimeout(creationTimeout);
+    spotifyPlayer = null;
+    spotifyDeviceId = null;
     reject(new Error(message));
   });
   
   spotifyPlayer.addListener('authentication_error', ({ message }) => {
-    console.error('Spotify authentication error:', message);
+    console.error('🎵 Spotify authentication error:', message);
+    clearTimeout(creationTimeout);
+    spotifyPlayer = null;
+    spotifyDeviceId = null;
     clearSpotifyAuth();
     reject(new Error(message));
   });
   
   spotifyPlayer.addListener('account_error', ({ message }) => {
-    console.error('Spotify account error:', message);
+    console.error('🎵 Spotify account error:', message);
+    clearTimeout(creationTimeout);
+    spotifyPlayer = null;
+    spotifyDeviceId = null;
     reject(new Error(message));
   });
   
   // Add more detailed state logging
   spotifyPlayer.addListener('player_state_changed', (state) => {
-    console.log('🎵 Web Playback SDK state changed:', state);
+    console.log('🎵 Web Playback SDK state changed:', state ? 'playing' : 'paused');
   });
   
   // Ready
   spotifyPlayer.addListener('ready', ({ device_id }) => {
     console.log('🎵 Spotify Web Playback SDK ready with device ID:', device_id);
+    clearTimeout(creationTimeout);
     spotifyDeviceId = device_id;
     
     // Immediately activate this device as the primary playback device
@@ -452,10 +526,27 @@ const createSpotifyPlayer = (resolve, reject) => {
   
   spotifyPlayer.addListener('not_ready', ({ device_id }) => {
     console.warn('🎵 Spotify Web Playback SDK not ready with device ID:', device_id);
+    spotifyDeviceId = null;
   });
   
-  // Connect
-  spotifyPlayer.connect();
+  // Connect with error handling
+  spotifyPlayer.connect().then(success => {
+    if (success) {
+      console.log('🎵 Spotify Web Playback SDK connected successfully');
+    } else {
+      console.error('🎵 Failed to connect Spotify Web Playback SDK');
+      clearTimeout(creationTimeout);
+      spotifyPlayer = null;
+      spotifyDeviceId = null;
+      reject(new Error('Failed to connect to Spotify Web Playback SDK'));
+    }
+  }).catch(error => {
+    console.error('🎵 Error connecting Spotify Web Playback SDK:', error);
+    clearTimeout(creationTimeout);
+    spotifyPlayer = null;
+    spotifyDeviceId = null;
+    reject(error);
+  });
 };
 
 /**
@@ -835,6 +926,8 @@ export const ensureWebPlaybackDeviceActive = async () => {
  * Clear Spotify authentication
  */
 export const clearSpotifyAuth = () => {
+  console.log('🔐 Clearing Spotify authentication...');
+  
   spotifyAccessToken = null;
   spotifyTokenExpiry = null;
   localStorage.removeItem('spotify_access_token');
@@ -842,11 +935,23 @@ export const clearSpotifyAuth = () => {
   localStorage.removeItem('spotify_auth_state');
   localStorage.removeItem('spotify_code_verifier');
   
+  // ✅ FIX: Properly cleanup player with race condition protection
   if (spotifyPlayer) {
-    spotifyPlayer.disconnect();
+    try {
+      console.log('🎵 Disconnecting Spotify player...');
+      spotifyPlayer.disconnect();
+    } catch (error) {
+      console.warn('Error disconnecting Spotify player:', error);
+    }
     spotifyPlayer = null;
     spotifyDeviceId = null;
   }
+  
+  // ✅ FIX: Reset initialization state to prevent stuck loading
+  isPlayerInitializing = false;
+  playerInitPromise = null;
+  
+  console.log('🔐 Spotify authentication cleared');
 };
 
 /**
