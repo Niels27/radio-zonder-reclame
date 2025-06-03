@@ -19,7 +19,6 @@
 }
 
 @layer components {
-
   /* Radio card styles */
   .radio-card {
     @apply bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg p-2 cursor-pointer transition-all duration-200 transform hover:scale-105;
@@ -193,29 +192,381 @@
 
   /* Volume slider styles */
   .volume-slider {
-    @apply appearance-none bg-gray-600 h-2 rounded-lg outline-none;
-    background: linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--volume-percent, 0%), #4b5563 var(--volume-percent, 0%), #4b5563 100%);
+    height: 8px;
+    width: 120px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 8px;
+    background: linear-gradient(
+      to right,
+      #3b82f6 0%,
+      #3b82f6 var(--volume-percent, 0%),
+      #374151 var(--volume-percent, 0%),
+      #374151 100%
+    );
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+   
   }
 
+  .volume-slider:hover {
+    height: 10px;
+  
+    transform: translateY(-1px);
+  }
+
+  .volume-slider:active {
+    transform: translateY(1px) scale(0.98);
+ 
+  }
+
+  /* Webkit Thumb Styling */
   .volume-slider::-webkit-slider-thumb {
-    @apply appearance-none w-4 h-4 bg-blue-500 rounded-full cursor-pointer shadow-lg;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #60a5fa, #3b82f6);
     border: 2px solid #ffffff;
-  }
-
-  .volume-slider::-moz-range-thumb {
-    @apply w-4 h-4 bg-blue-500 rounded-full cursor-pointer border-0 shadow-lg;
-    border: 2px solid #ffffff;
+   
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
   }
 
   .volume-slider:hover::-webkit-slider-thumb {
-    @apply bg-blue-400 transform scale-110;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(145deg, #93c5fd, #2563eb);
+
+    transform: scale(1.05);
+  }
+
+  .volume-slider:active::-webkit-slider-thumb {
+    background: linear-gradient(145deg, #2563eb, #1d4ed8);
+   
+    transform: scale(0.95);
+  }
+
+  /* Firefox Thumb Styling */
+  .volume-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    background: linear-gradient(145deg, #60a5fa, #3b82f6);
+  
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .volume-slider:hover::-moz-range-thumb {
-    @apply bg-blue-400 transform scale-110;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(145deg, #93c5fd, #2563eb);
+ 
+    transform: scale(1.05);
   }
 
-  @layer utilities {
+  .volume-slider:active::-moz-range-thumb {
+    background: linear-gradient(145deg, #2563eb, #1d4ed8);
+  
+    transform: scale(0.95);
+  }
+
+  /* Volume Level Indicator Glow */
+  .volume-slider.volume-high {
+    background: linear-gradient(
+      to right,
+      #10b981 0%,
+      #10b981 var(--volume-percent, 0%),
+      #374151 var(--volume-percent, 0%),
+      #374151 100%
+    );
+  
+  }
+
+  .volume-slider.volume-medium {
+    background: linear-gradient(
+      to right,
+      #f59e0b 0%,
+      #f59e0b var(--volume-percent, 0%),
+      #374151 var(--volume-percent, 0%),
+      #374151 100%
+    );
+
+  }
+
+  .volume-slider.volume-low {
+    background: linear-gradient(
+      to right,
+      #ef4444 0%,
+      #ef4444 var(--volume-percent, 0%),
+      #374151 var(--volume-percent, 0%),
+      #374151 100%
+    );
+ 
+  }
+
+  /* Volume Change Animation */
+  .volume-slider.volume-changing {
+    animation: volumePulse 0.3s ease-out;
+  }
+
+  @keyframes volumePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02) translateY(-1px); }
+    100% { transform: scale(1); }
+  }
+
+  /* Volume Display Tooltip */
+  .volume-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .volume-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: linear-gradient(145deg, #1f2937, #111827);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .volume-tooltip:after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1f2937;
+  }
+
+  .volume-container:hover .volume-tooltip,
+  .volume-container.volume-changing .volume-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-12px);
+  }
+
+  /* Banner Wave Animation - Updated for slower, text-preserving effects */
+  .banner-container {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .banner-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 300%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(59, 130, 246, 0.3) 25%,
+      rgba(147, 51, 234, 0.4) 50%,
+      rgba(59, 130, 246, 0.3) 75%,
+      transparent
+    );
+    transform: skewX(-15deg);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    z-index: 1;
+  }
+
+  .banner-container:hover::before {
+    animation: waveSlide 6s ease-in-out infinite; /* Doubled from 3s to 6s */
+    opacity: 1;
+  }
+
+  .banner-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -100%;
+    width: 300%;
+    height: 100%;
+    background: linear-gradient(
+      -90deg,
+      transparent,
+      rgba(147, 51, 234, 0.2) 25%,
+      rgba(59, 130, 246, 0.3) 50%,
+      rgba(147, 51, 234, 0.2) 75%,
+      transparent
+    );
+    transform: skewX(15deg);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    z-index: 1;
+    animation-delay: 3s; /* Doubled from 1.5s to 3s */
+  }
+
+  .banner-container:hover::after {
+    animation: waveSlideReverse 6s ease-in-out infinite; /* Doubled from 3s to 6s */
+    animation-delay: 3s; /* Doubled from 1.5s to 3s */
+    opacity: 1;
+  }
+
+  @keyframes waveSlide {
+    0% {
+      left: -100%;
+      transform: skewX(-15deg) scaleY(1);
+    }
+    25% {
+      transform: skewX(-15deg) scaleY(1.1);
+    }
+    50% {
+      left: 0%;
+      transform: skewX(-15deg) scaleY(0.9);
+    }
+    75% {
+      transform: skewX(-15deg) scaleY(1.05);
+    }
+    100% {
+      left: 100%;
+      transform: skewX(-15deg) scaleY(1);
+    }
+  }
+
+  @keyframes waveSlideReverse {
+    0% {
+      right: -100%;
+      transform: skewX(15deg) scaleY(1);
+    }
+    25% {
+      transform: skewX(15deg) scaleY(0.9);
+    }
+    50% {
+      right: 0%;
+      transform: skewX(15deg) scaleY(1.1);
+    }
+    75% {
+      transform: skewX(15deg) scaleY(0.95);
+    }
+    100% {
+      right: 100%;
+      transform: skewX(15deg) scaleY(1);
+    }
+  }
+
+  /* Banner Text Effects - REMOVED hover animations to preserve text */
+  .banner-text {
+    position: relative;
+    z-index: 2;
+    /* Removed all hover-triggered transforms and animations */
+  }
+
+  .banner-title {
+    /* Removed hover-triggered gradient animations */
+    /* Text remains static and unaffected by wave animations */
+  }
+
+  /* Enhanced Background Animation - Slower timing */
+  .banner-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      45deg,
+      #1e3a8a,
+      #581c87,
+      #1e40af,
+      #7c3aed,
+      #1e3a8a
+    );
+    background-size: 400% 400%;
+    transition: all 0.5s ease-in-out;
+    z-index: 0;
+  }
+
+  .banner-container:hover .banner-background {
+    animation: gradientWave 8s ease-in-out infinite; /* Doubled from 4s to 8s */
+    background-size: 600% 600%;
+  }
+
+  @keyframes gradientWave {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    25% {
+      background-position: 100% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    75% {
+      background-position: 0% 100%;
+    }
+  }
+
+  /* Shimmer Effect - Slower timing */
+  .banner-shimmer {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transform: skewX(-25deg);
+    transition: all 0.8s ease-in-out;
+    z-index: 3;
+    opacity: 0;
+  }
+
+  .banner-container:hover .banner-shimmer {
+    left: 100%;
+    opacity: 1;
+    animation: shimmerSweep 4s ease-in-out infinite; /* Doubled from 2s to 4s */
+    animation-delay: 1s; /* Doubled from 0.5s to 1s */
+  }
+
+  @keyframes shimmerSweep {
+    0% {
+      left: -100%;
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+
+  /* ...existing code... */
+}
+
+@layer utilities {
     .radio-accent {
       @apply bg-blue-600;
     }
@@ -235,4 +586,4 @@
     .radio-hover {
       @apply bg-gray-700;
     }
-  }}
+  }

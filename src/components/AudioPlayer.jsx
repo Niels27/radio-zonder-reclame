@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ReportStationButton from './ReportStationButton';
 
 // components/AudioPlayer.jsx - Show playlist thumbnail and info
@@ -22,6 +22,9 @@ const AudioPlayer = ({
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
+  const [isVolumeChanging, setIsVolumeChanging] = useState(false);
+  const [showVolumeTooltip, setShowVolumeTooltip] = useState(false);
+  const volumeTimeoutRef = useRef(null);
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -63,7 +66,40 @@ const AudioPlayer = ({
     if (newVolume === 0 && !isMuted) {
       setIsMuted(true);
     }
+    
+    // Trigger volume change animation
+    setIsVolumeChanging(true);
+    setShowVolumeTooltip(true);
+    
+    // Clear existing timeout
+    if (volumeTimeoutRef.current) {
+      clearTimeout(volumeTimeoutRef.current);
+    }
+    
+    // Reset animation and hide tooltip after delay
+    volumeTimeoutRef.current = setTimeout(() => {
+      setIsVolumeChanging(false);
+      setShowVolumeTooltip(false);
+    }, 1000);
   };
+
+  // Handle scroll wheel on volume slider
+  const handleVolumeWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05; // Invert scroll direction for intuitive feel
+    const newVolume = Math.max(0, Math.min(1, volume + delta));
+    handleVolumeSliderChange(newVolume);
+  };
+
+  // Get volume level class for styling
+  const getVolumeLevel = () => {
+    if (volume >= 0.7) return 'volume-high';
+    if (volume >= 0.3) return 'volume-medium';
+    return 'volume-low';
+  };
+
+  // Format volume percentage for display
+  const getVolumePercent = () => Math.round(volume * 100);
 
   // Update muted state when volume changes externally
   useEffect(() => {
@@ -114,6 +150,15 @@ const AudioPlayer = ({
 
   // Add validation check
   const isPlaylistValid = playlistInfo?.isValid;
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (volumeTimeoutRef.current) {
+        clearTimeout(volumeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="bg-gray-900 border-b border-gray-700 p-4">
@@ -259,8 +304,8 @@ const AudioPlayer = ({
               )
             )}
 
-            {/* Volume Control */}
-            <div className="flex items-center space-x-3">
+            {/* Enhanced Volume Control */}
+            <div className={`volume-container ${isVolumeChanging ? 'volume-changing' : ''}`}>
               <button
                 onClick={handleVolumeIconClick}
                 className="hover:text-white transition-colors"
@@ -268,15 +313,29 @@ const AudioPlayer = ({
               >
                 {getVolumeIcon()}
               </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(e) => handleVolumeSliderChange(parseFloat(e.target.value))}
-                className="volume-slider w-24"
-              />
+              
+              <div className="relative">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={volume}
+                  onChange={(e) => handleVolumeSliderChange(parseFloat(e.target.value))}
+                  onWheel={handleVolumeWheel}
+                  onMouseEnter={() => setShowVolumeTooltip(true)}
+                  onMouseLeave={() => !isVolumeChanging && setShowVolumeTooltip(false)}
+                  className={`volume-slider ${getVolumeLevel()} ${isVolumeChanging ? 'volume-changing' : ''}`}
+                  style={{
+                    '--volume-percent': `${getVolumePercent()}%`
+                  }}
+                />
+                
+                {/* Volume Tooltip */}
+                <div className={`volume-tooltip ${showVolumeTooltip ? 'opacity-100' : 'opacity-0'}`}>
+                  {getVolumePercent()}%
+                </div>
+              </div>
             </div>
           </div>
         </div>        {/* Error Message */}

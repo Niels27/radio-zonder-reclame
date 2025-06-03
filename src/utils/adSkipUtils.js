@@ -318,7 +318,7 @@ export class AdSkipUtils {
     }
 
     button.addEventListener('click', () => {
-      this.skipPreroll(audioElement, 15); // Skip 30 seconds
+      this.skipPreroll(audioElement, 20); // Skip 20 seconds
       onSkip?.();
       this.removePrerollSkipButton(button);
     });

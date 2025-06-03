@@ -3,9 +3,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export const useAdBreakTimer = (audioPlayer) => {
-  const [adBreakMinute, setAdBreakMinute] = useState(27);
-  const [adBreakMinute2, setAdBreakMinute2] = useState(57);
+export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
+  const [adBreakMinute, setAdBreakMinute] = useState(28);
+  const [adBreakMinute2, setAdBreakMinute2] = useState(58);
   const [adBreakDuration, setAdBreakDuration] = useState(5);
   const [adBreakDuration2, setAdBreakDuration2] = useState(7);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -57,12 +57,17 @@ export const useAdBreakTimer = (audioPlayer) => {
     }
     return `${seconds}s`;
   }, []);
-
-  // Extract playlist ID from URL
+  // Extract playlist ID from URL - updated to handle both YouTube and Spotify
   const extractPlaylistId = (url) => {
-    const regex = /[?&]list=([^#\&\?]*)/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
+    if (playlistProvider === 'spotify') {
+      // For Spotify, the URL is actually the playlist ID
+      return url;
+    } else {
+      // For YouTube, extract from URL
+      const regex = /[?&]list=([^#\&\?]*)/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    }
   };
   // End an ad break - DEFINE FIRST
   const endAdBreak = useCallback(() => {
@@ -72,8 +77,7 @@ export const useAdBreakTimer = (audioPlayer) => {
     setEnforcingAdBreak(false);
     setShouldPlayPlaylistDuringAdBreak(false); // Reset playlist flag
     window.isAdBreakActive = false;
-    
-    if (adBreakTimeoutRef.current) {
+      if (adBreakTimeoutRef.current) {
       clearTimeout(adBreakTimeoutRef.current);
       adBreakTimeoutRef.current = null;
     }
@@ -84,6 +88,21 @@ export const useAdBreakTimer = (audioPlayer) => {
         audioPlayer.youtubePlayerRef.current.pauseVideo();
       } catch (error) {
         console.warn('Could not pause YouTube player:', error);
+      }
+    }
+    
+    // Stop Spotify player
+    if (audioPlayer.spotifyPlayerRef?.current) {
+      try {
+        // Import pauseSpotify function
+        import('../utils/spotifyUtils').then(({ pauseSpotify }) => {
+          pauseSpotify();
+          console.log('🎵 Spotify player paused on ad break end');
+        }).catch(error => {
+          console.warn('Could not pause Spotify player:', error);
+        });
+      } catch (error) {
+        console.warn('Could not pause Spotify player:', error);
       }
     }
     
@@ -146,15 +165,15 @@ export const useAdBreakTimer = (audioPlayer) => {
     adBreakTimeoutRef.current = setTimeout(() => {
       endAdBreak();
     }, duration * 60 * 1000);
-    
-    if (isRadioPlaying) {
+      if (isRadioPlaying) {
       // Radio is playing - start the playlist
       try {
         const playlistId = extractPlaylistId(playlistUrl);
         if (playlistId) {
           await audioPlayer.playPlaylist(playlistId, {
             shuffle: playlistShuffle,
-            repeat: 'all'
+            repeat: 'all',
+            provider: playlistProvider
           });
           
           console.log(`🎵 Playing YouTube playlist for ${duration} minutes`);
@@ -218,11 +237,11 @@ export const useAdBreakTimer = (audioPlayer) => {
     if (isRadioPlaying) {
       // Radio is playing - start the playlist
       try {
-        const playlistId = extractPlaylistId(playlistUrl);
-        if (playlistId) {
+        const playlistId = extractPlaylistId(playlistUrl);        if (playlistId) {
           await audioPlayer.playPlaylist(playlistId, {
             shuffle: playlistShuffle,
-            repeat: 'all'
+            repeat: 'all',
+            provider: playlistProvider
           });
           
           console.log(`🎵 Playing YouTube playlist for ${remainingMinutes} minutes`);
@@ -324,33 +343,74 @@ export const useAdBreakTimer = (audioPlayer) => {
     const now = new Date();
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
-      console.log(`🕐 Timer started at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
+    
+    console.log(`🕐 Timer started at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
     console.log(`🎯 Ad break windows: ${adBreakMinute}:00-${adBreakMinute + adBreakDuration}:00 and ${adBreakMinute2}:00-${adBreakMinute2 + adBreakDuration2}:00`);
     
-    // Check if we're currently in ANY ad break window
-    const isInFirstAdBreakWindow = (
-      currentMinute >= adBreakMinute && 
-      currentMinute < adBreakMinute + adBreakDuration
-    );
+    // Helper function to check if current time is within an ad break window (handles hour boundary)
+    const checkAdBreakWindow = (startMinute, duration) => {
+      const endMinute = startMinute + duration;
+      
+      if (endMinute <= 60) {
+        // Ad break doesn't cross hour boundary
+        return currentMinute >= startMinute && currentMinute < endMinute;
+      } else {
+        // Ad break crosses hour boundary (e.g., 59 + 5 = 64, so goes to minute 4 of next hour)
+        return currentMinute >= startMinute || currentMinute < (endMinute - 60);
+      }
+    };
     
-    const isInSecondAdBreakWindow = (
-      currentMinute >= adBreakMinute2 && 
-      currentMinute < adBreakMinute2 + adBreakDuration2
-    );
-      if (isInFirstAdBreakWindow || isInSecondAdBreakWindow) {
-      // Calculate remaining time properly
-      let activeBreakMinute = isInFirstAdBreakWindow ? adBreakMinute : adBreakMinute2;
-      let activeBreakDuration = isInFirstAdBreakWindow ? adBreakDuration : adBreakDuration2;
-      let elapsedMinutes = currentMinute - activeBreakMinute;
-      let elapsedSeconds = currentSecond;
-      let totalElapsedSeconds = (elapsedMinutes * 60) + elapsedSeconds;
-      let totalBreakSeconds = activeBreakDuration * 60;
-      let remainingSeconds = totalBreakSeconds - totalElapsedSeconds;
+    // Helper function to calculate remaining time (handles hour boundary)
+    const calculateRemainingTime = (startMinute, duration) => {
+      const endMinute = startMinute + duration;
+      let elapsedMinutes, elapsedSeconds, totalElapsedSeconds, totalBreakSeconds, remainingSeconds;
       
-      console.log(`🎯 In ad break window! Elapsed: ${Math.floor(totalElapsedSeconds/60)}m${totalElapsedSeconds%60}s, Remaining: ${Math.floor(remainingSeconds/60)}m${remainingSeconds%60}s`);
+      if (endMinute <= 60) {
+        // Ad break doesn't cross hour boundary
+        elapsedMinutes = currentMinute - startMinute;
+        elapsedSeconds = currentSecond;
+        totalElapsedSeconds = (elapsedMinutes * 60) + elapsedSeconds;
+      } else {
+        // Ad break crosses hour boundary
+        if (currentMinute >= startMinute) {
+          // We're in the same hour as the start
+          elapsedMinutes = currentMinute - startMinute;
+          elapsedSeconds = currentSecond;
+          totalElapsedSeconds = (elapsedMinutes * 60) + elapsedSeconds;
+        } else {
+          // We're in the next hour
+          elapsedMinutes = (60 - startMinute) + currentMinute;
+          elapsedSeconds = currentSecond;
+          totalElapsedSeconds = (elapsedMinutes * 60) + elapsedSeconds;
+        }
+      }
       
-      if (remainingSeconds > 0) {
-        let remainingMinutes = Math.ceil(remainingSeconds / 60);
+      totalBreakSeconds = duration * 60;
+      remainingSeconds = totalBreakSeconds - totalElapsedSeconds;
+      
+      return {
+        totalElapsedSeconds,
+        remainingSeconds,
+        elapsedMinutes: Math.floor(totalElapsedSeconds / 60),
+        elapsedSecondsOnly: totalElapsedSeconds % 60
+      };
+    };
+    
+    // Check if we're currently in ANY ad break window
+    const isInFirstAdBreakWindow = checkAdBreakWindow(adBreakMinute, adBreakDuration);
+    const isInSecondAdBreakWindow = checkAdBreakWindow(adBreakMinute2, adBreakDuration2);
+    
+    if (isInFirstAdBreakWindow || isInSecondAdBreakWindow) {
+      // Determine which ad break we're in
+      const activeBreakMinute = isInFirstAdBreakWindow ? adBreakMinute : adBreakMinute2;
+      const activeBreakDuration = isInFirstAdBreakWindow ? adBreakDuration : adBreakDuration2;
+      
+      const timeInfo = calculateRemainingTime(activeBreakMinute, activeBreakDuration);
+      
+      console.log(`🎯 In ad break window! Elapsed: ${timeInfo.elapsedMinutes}m${timeInfo.elapsedSecondsOnly}s, Remaining: ${Math.floor(timeInfo.remainingSeconds/60)}m${timeInfo.remainingSeconds%60}s`);
+      
+      if (timeInfo.remainingSeconds > 0) {
+        const remainingMinutes = Math.ceil(timeInfo.remainingSeconds / 60);
         console.log(`🎵 Starting ad break with ${remainingMinutes} minutes remaining`);
         startAdBreakWithRemainingTime(remainingMinutes);
       } else {
@@ -363,7 +423,8 @@ export const useAdBreakTimer = (audioPlayer) => {
       const nextBreakTime = getNextAdBreakTime();
       setNextAdBreakIn(formatTimeRemaining(nextBreakTime));
     }
-      if (window.addNotification) {
+    
+    if (window.addNotification) {
       window.addNotification(`🎵 Timer geactiveerd - pauzes elk uur op minuut ${adBreakMinute} (${adBreakDuration}min) en ${adBreakMinute2} (${adBreakDuration2}min)`, 'success', 4000);
     }
   }, [playlistUrl, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startAdBreakWithRemainingTime, getNextAdBreakTime, formatTimeRemaining]);
@@ -396,13 +457,27 @@ export const useAdBreakTimer = (audioPlayer) => {
       setCurrentAdBreakTimeLeft(null);
       setShouldPlayPlaylistDuringAdBreak(false); // Reset playlist flag
       window.isAdBreakActive = false;
-      
-      // Stop YouTube player
+        // Stop YouTube player
       if (audioPlayer.youtubePlayerRef?.current) {
         try {
           audioPlayer.youtubePlayerRef.current.pauseVideo();
         } catch (error) {
           console.warn('Could not pause YouTube player:', error);
+        }
+      }
+      
+      // Stop Spotify player
+      if (audioPlayer.spotifyPlayerRef?.current) {
+        try {
+          // Import pauseSpotify function
+          import('../utils/spotifyUtils').then(({ pauseSpotify }) => {
+            pauseSpotify();
+            console.log('🎵 Spotify player paused on timer stop');
+          }).catch(error => {
+            console.warn('Could not pause Spotify player:', error);
+          });
+        } catch (error) {
+          console.warn('Could not pause Spotify player:', error);
         }
       }
       
@@ -469,12 +544,26 @@ export const useAdBreakTimer = (audioPlayer) => {
       console.log('🎵 Stopping manual ad break test');
       setIsManualTestActive(false);
       setShouldPlayPlaylistDuringAdBreak(false); // Reset playlist flag
-      
-      if (audioPlayer.youtubePlayerRef?.current) {
+        if (audioPlayer.youtubePlayerRef?.current) {
         try {
           audioPlayer.youtubePlayerRef.current.pauseVideo();
         } catch (error) {
           console.warn('Could not stop YouTube player:', error);
+        }
+      }
+      
+      // Stop Spotify player
+      if (audioPlayer.spotifyPlayerRef?.current) {
+        try {
+          // Import pauseSpotify function
+          import('../utils/spotifyUtils').then(({ pauseSpotify }) => {
+            pauseSpotify();
+            console.log('🎵 Spotify player paused on manual test stop');
+          }).catch(error => {
+            console.warn('Could not pause Spotify player:', error);
+          });
+        } catch (error) {
+          console.warn('Could not pause Spotify player:', error);
         }
       }
       
@@ -490,12 +579,12 @@ export const useAdBreakTimer = (audioPlayer) => {
       console.log('🎵 Starting manual ad break test');
       setIsManualTestActive(true);
       setShouldPlayPlaylistDuringAdBreak(true); // Manual tests always play playlist
-      
-      const playlistId = extractPlaylistId(playlistUrl);
+        const playlistId = extractPlaylistId(playlistUrl);
       if (playlistId) {
         audioPlayer.playPlaylist(playlistId, {
           shuffle: playlistShuffle,
-          repeat: 'all'
+          repeat: 'all',
+          provider: playlistProvider
         });
         
         if (window.addNotification) {

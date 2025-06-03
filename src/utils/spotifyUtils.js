@@ -408,7 +408,7 @@ const createSpotifyPlayer = (resolve, reject) => {
   }
   
   spotifyPlayer = new window.Spotify.Player({
-    name: 'No Ads Radio Player',
+    name: 'No Ads Radio Browser Player', // Make it clear this is the browser player
     getOAuthToken: cb => cb(spotifyAccessToken),
     volume: 0.5
   });
@@ -430,15 +430,90 @@ const createSpotifyPlayer = (resolve, reject) => {
     reject(new Error(message));
   });
   
+  // Add more detailed state logging
+  spotifyPlayer.addListener('player_state_changed', (state) => {
+    console.log('🎵 Web Playback SDK state changed:', state);
+  });
+  
   // Ready
   spotifyPlayer.addListener('ready', ({ device_id }) => {
-    console.log('Spotify player ready with device ID:', device_id);
+    console.log('🎵 Spotify Web Playback SDK ready with device ID:', device_id);
     spotifyDeviceId = device_id;
-    resolve(spotifyPlayer);
+    
+    // Immediately activate this device as the primary playback device
+    activateWebPlaybackDevice().then(() => {
+      console.log('🎵 Browser device activated successfully');
+      resolve(spotifyPlayer);
+    }).catch((error) => {
+      console.warn('🎵 Could not activate browser device, but player is ready:', error);
+      resolve(spotifyPlayer); // Still resolve since player is ready
+    });
+  });
+  
+  spotifyPlayer.addListener('not_ready', ({ device_id }) => {
+    console.warn('🎵 Spotify Web Playback SDK not ready with device ID:', device_id);
   });
   
   // Connect
   spotifyPlayer.connect();
+};
+
+/**
+ * Activate the Web Playback SDK device as the primary device
+ */
+const activateWebPlaybackDevice = async () => {
+  if (!spotifyDeviceId || !spotifyAccessToken) {
+    throw new Error('Device ID or access token not available');
+  }
+  
+  console.log('🎵 Activating Web Playback SDK device:', spotifyDeviceId);
+  
+  try {
+    // First, transfer playback to our device to make it active
+    const transferResponse = await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${spotifyAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        device_ids: [spotifyDeviceId],
+        play: false // Don't start playing immediately
+      })
+    });
+    
+    if (transferResponse.ok) {
+      console.log('🎵 Playback transferred to Web Playback SDK device');
+      
+      // Wait a moment for the transfer to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verify the device is now active
+      const stateResponse = await fetch('https://api.spotify.com/v1/me/player', {
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`
+        }
+      });
+      
+      if (stateResponse.ok) {
+        const playerState = await stateResponse.json();
+        if (playerState.device && playerState.device.id === spotifyDeviceId) {
+          console.log('🎵 Web Playback SDK device is now the active device');
+          return true;
+        } else {
+          console.warn('🎵 Device transfer may not have completed. Current device:', playerState.device?.name);
+        }
+      }
+    } else if (transferResponse.status === 404) {
+      console.warn('🎵 No available devices for transfer (404) - this is normal for new sessions');
+    } else {
+      console.warn('🎵 Device transfer failed:', transferResponse.status);
+    }
+  } catch (error) {
+    console.warn('🎵 Error activating Web Playback device:', error);
+  }
+  
+  return false;
 };
 
 /**
@@ -450,7 +525,25 @@ export const playSpotifyPlaylist = async (playlistId, shuffle = false) => {
   }
   
   try {
-    // Start playback on our device
+    // ✅ FIX: Ensure Web Playback SDK is the active device and ready
+    console.log('🎵 Ensuring Web Playback SDK is active and ready...');
+    
+    // First check if our Web Playback SDK player is still connected
+    const currentState = await spotifyPlayer.getCurrentState();
+    if (!currentState) {
+      console.log('🎵 Web Playback SDK has no state, attempting to reconnect...');
+      await spotifyPlayer.connect();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // Force device activation to ensure browser playback
+    await activateWebPlaybackDevice();
+    
+    // Additional wait to ensure device transfer is complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Now try to start playback using the Web API targeting our specific device
+    console.log('🎵 Starting playlist playback on Web Playback SDK device...');
     const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
       method: 'PUT',
       headers: {
@@ -464,7 +557,54 @@ export const playSpotifyPlaylist = async (playlistId, shuffle = false) => {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to start playback: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Spotify API Error:', {
+        status: response.status,
+        error: errorData
+      });
+      
+      if (response.status === 403) {
+        // ✅ FIX: Better 403 error handling for Premium users
+        if (errorData.error?.reason === 'PREMIUM_REQUIRED') {
+          throw new Error('Spotify Premium vereist voor deze functie.');
+        } else if (errorData.error?.message?.includes('Player command failed: Restriction violated')) {
+          throw new Error('Deze playlist kan niet worden afgespeeld. Mogelijk vanwege licentierestricties of regionale beperkingen.');
+        } else {
+          // Try alternative approach using Web Playback SDK directly
+          console.log('🎵 Web API failed, trying Web Playback SDK direct control...');
+          
+          try {
+            // Use the Web Playback SDK to start playback directly
+            await spotifyPlayer.resume();
+            
+            // Then use Web API to change to our playlist
+            const directPlayResponse = await fetch(`https://api.spotify.com/v1/me/player/play`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                context_uri: `spotify:playlist:${playlistId}`,
+                offset: { position: 0 }
+              })
+            });
+            
+            if (!directPlayResponse.ok) {
+              throw new Error('Kon playlist niet starten via directe SDK controle');
+            }
+            
+            console.log('🎵 Successfully started playlist via Web Playback SDK direct control');
+          } catch (sdkError) {
+            console.error('Web Playback SDK direct control also failed:', sdkError);
+            throw new Error('Spotify playback niet beschikbaar. Zorg ervoor dat je Spotify Premium hebt en probeer de pagina te herladen.');
+          }
+        }
+      } else if (response.status === 404) {
+        throw new Error('Spotify apparaat niet gevonden. Herlaad de pagina en probeer opnieuw.');
+      } else {
+        throw new Error(`Spotify API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      }
     }
     
     // Set shuffle if requested
@@ -472,6 +612,7 @@ export const playSpotifyPlaylist = async (playlistId, shuffle = false) => {
       await setSpotifyShuffleMode(true);
     }
     
+    console.log('🎵 Spotify playlist started successfully on Web Playback SDK');
     return true;
   } catch (error) {
     console.error('Error playing Spotify playlist:', error);
@@ -480,16 +621,120 @@ export const playSpotifyPlaylist = async (playlistId, shuffle = false) => {
 };
 
 /**
- * Control Spotify playback
+ * Control Spotify playback with null safety
  */
-export const pauseSpotify = () => spotifyPlayer?.pause();
-export const resumeSpotify = () => spotifyPlayer?.resume();
-export const nextSpotifyTrack = () => spotifyPlayer?.nextTrack();
-export const previousSpotifyTrack = () => spotifyPlayer?.previousTrack();
+export const pauseSpotify = async () => {
+  if (spotifyPlayer) {
+    try {
+      await spotifyPlayer.pause();
+      console.log('🎵 Spotify paused via Web Playback SDK');
+    } catch (error) {
+      console.warn('Could not pause via Web Playback SDK:', error);
+      // Fallback to Web API
+      try {
+        await fetch('https://api.spotify.com/v1/me/player/pause', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`
+          }
+        });
+        console.log('🎵 Spotify paused via Web API fallback');
+      } catch (apiError) {
+        console.error('Both SDK and API pause failed:', apiError);
+      }
+    }
+  }
+};
+
+export const resumeSpotify = async () => {
+  if (spotifyPlayer) {
+    try {
+      await spotifyPlayer.resume();
+      console.log('🎵 Spotify resumed via Web Playback SDK');
+    } catch (error) {
+      console.warn('Could not resume via Web Playback SDK:', error);
+      // Fallback to Web API
+      try {
+        await fetch('https://api.spotify.com/v1/me/player/play', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`
+          }
+        });
+        console.log('🎵 Spotify resumed via Web API fallback');
+      } catch (apiError) {
+        console.error('Both SDK and API resume failed:', apiError);
+      }
+    }
+  }
+};
+
+export const nextSpotifyTrack = async () => {
+  if (spotifyPlayer) {
+    try {
+      await spotifyPlayer.nextTrack();
+      console.log('🎵 Spotify next track via Web Playback SDK');
+    } catch (error) {
+      console.warn('Could not skip to next track via Web Playback SDK:', error);
+      // Fallback to Web API
+      try {
+        await fetch('https://api.spotify.com/v1/me/player/next', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`
+          }
+        });
+        console.log('🎵 Spotify next track via Web API fallback');
+      } catch (apiError) {
+        console.error('Both SDK and API next track failed:', apiError);
+      }
+    }
+  }
+};
+
+export const previousSpotifyTrack = async () => {
+  if (spotifyPlayer) {
+    try {
+      await spotifyPlayer.previousTrack();
+      console.log('🎵 Spotify previous track via Web Playback SDK');
+    } catch (error) {
+      console.warn('Could not skip to previous track via Web Playback SDK:', error);
+      // Fallback to Web API
+      try {
+        await fetch('https://api.spotify.com/v1/me/player/previous', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`
+          }
+        });
+        console.log('🎵 Spotify previous track via Web API fallback');
+      } catch (apiError) {
+        console.error('Both SDK and API previous track failed:', apiError);
+      }
+    }
+  }
+};
 
 export const setSpotifyVolume = async (volume) => {
-  if (spotifyPlayer) {
-    await spotifyPlayer.setVolume(volume / 100);
+  if (spotifyPlayer && typeof volume === 'number' && volume >= 0 && volume <= 100) {
+    try {
+      await spotifyPlayer.setVolume(volume / 100);
+      console.log('🔊 Spotify volume set via Web Playback SDK:', volume);
+    } catch (error) {
+      console.warn('Could not set volume via Web Playback SDK:', error);
+      // Fallback to Web API
+      try {
+        await fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${volume}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`
+          }
+        });
+        console.log('🔊 Spotify volume set via Web API fallback:', volume);
+      } catch (apiError) {
+        console.error('Both SDK and API volume control failed:', apiError);
+      }
+    }
   }
 };
 
@@ -509,13 +754,81 @@ export const setSpotifyShuffleMode = async (shuffle) => {
 };
 
 /**
- * Get current playback state
+ * Get current playback state with device information
  */
 export const getSpotifyPlaybackState = async () => {
   if (spotifyPlayer) {
-    return await spotifyPlayer.getCurrentState();
+    try {
+      const state = await spotifyPlayer.getCurrentState();
+      console.log('🎵 Web Playback SDK state:', state);
+      return state;
+    } catch (error) {
+      console.warn('Could not get state from Web Playback SDK:', error);
+      return null;
+    }
   }
   return null;
+};
+
+/**
+ * Check if our Web Playback SDK device is the active device
+ */
+export const isWebPlaybackDeviceActive = async () => {
+  if (!spotifyAccessToken) return false;
+  
+  try {
+    const response = await fetch('https://api.spotify.com/v1/me/player', {
+      headers: {
+        'Authorization': `Bearer ${spotifyAccessToken}`
+      }
+    });
+    
+    if (response.ok) {
+      const playerState = await response.json();
+      const isActive = playerState.device && playerState.device.id === spotifyDeviceId;
+      console.log('🎵 Web Playback device active check:', {
+        currentDevice: playerState.device?.name,
+        currentDeviceId: playerState.device?.id,
+        ourDeviceId: spotifyDeviceId,
+        isActive
+      });
+      return isActive;
+    } else if (response.status === 204) {
+      console.log('🎵 No active device found (204)');
+      return false;
+    }
+  } catch (error) {
+    console.warn('Error checking device status:', error);
+  }
+  
+  return false;
+};
+
+/**
+ * Force activation of Web Playback SDK device
+ */
+export const ensureWebPlaybackDeviceActive = async () => {
+  const isActive = await isWebPlaybackDeviceActive();
+  
+  if (!isActive) {
+    console.log('🎵 Web Playback device not active, forcing activation...');
+    await activateWebPlaybackDevice();
+    
+    // Wait and verify
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const nowActive = await isWebPlaybackDeviceActive();
+    
+    if (nowActive) {
+      console.log('🎵 Successfully activated Web Playback device');
+    } else {
+      console.warn('🎵 Failed to activate Web Playback device');
+    }
+    
+    return nowActive;
+  }
+  
+  console.log('🎵 Web Playback device already active');
+  return true;
 };
 
 /**
@@ -540,7 +853,32 @@ export const clearSpotifyAuth = () => {
  * Check if user is authenticated
  */
 export const isSpotifyAuthenticated = () => {
-  return !!(spotifyAccessToken && spotifyTokenExpiry && Date.now() < spotifyTokenExpiry);
+  // First check module-level variables
+  if (spotifyAccessToken && spotifyTokenExpiry && Date.now() < spotifyTokenExpiry) {
+    return true;
+  }
+  
+  // Fallback to localStorage check in case module variables aren't initialized
+  const token = localStorage.getItem('spotify_access_token');
+  const expiry = localStorage.getItem('spotify_token_expiry');
+  
+  if (token && expiry) {
+    const expiryTime = parseInt(expiry);
+    const isValid = Date.now() < expiryTime;
+    
+    // If valid, update module variables
+    if (isValid) {
+      spotifyAccessToken = token;
+      spotifyTokenExpiry = expiryTime;
+      return true;
+    } else {
+      // Token expired, clear everything
+      clearSpotifyAuth();
+      return false;
+    }
+  }
+  
+  return false;
 };
 
 /**
@@ -617,3 +955,39 @@ export const validateSpotifyPlaylist = async (playlistIdOrUrl) => {
 
 // Initialize on module load
 initializeSpotifyAuth();
+
+// ✅ FIX: Add device activation function
+export const activateSpotifyDevice = async () => {
+  if (!spotifyDeviceId || !spotifyAccessToken) {
+    console.warn('Cannot activate device: missing device ID or token');
+    return false;
+  }
+  
+  try {
+    console.log('🎵 Activating Spotify device...');
+    
+    // Transfer playback to our device
+    const response = await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${spotifyAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        device_ids: [spotifyDeviceId],
+        play: false
+      })
+    });
+    
+    if (response.ok || response.status === 404) {
+      console.log('✅ Spotify device activated successfully');
+      return true;
+    } else {
+      console.warn('Failed to activate device:', response.status);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error activating Spotify device:', error);
+    return false;
+  }
+};

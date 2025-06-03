@@ -10,16 +10,17 @@ import PlaylistProviderSelector from './components/PlaylistProviderSelector';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useAdBreakTimer } from './hooks/useAdBreakTimer';
 import { validatePlaylistUrl } from './utils/youtubeUtils';
+import { validateSpotifyPlaylist } from './utils/spotifyUtils';
 import LoadingIndicator from './components/LoadingIndicator';
 
 function App() {
-  const audioPlayer = useAudioPlayer();
-  const adBreakTimer = useAdBreakTimer(audioPlayer);
+  const [playlistProvider, setPlaylistProvider] = useState('youtube');
+  const audioPlayer = useAudioPlayer(playlistProvider);
+  const adBreakTimer = useAdBreakTimer(audioPlayer, playlistProvider);
   const [playlistInfo, setPlaylistInfo] = useState(null);
   const [isValidatingPlaylist, setIsValidatingPlaylist] = useState(false);
   const [isPlaylistInputHovered, setIsPlaylistInputHovered] = useState(false);
   const [showDeveloperDashboard, setShowDeveloperDashboard] = useState(false);
-  const [playlistProvider, setPlaylistProvider] = useState('youtube');
 
   // Load last played station on mount
   useEffect(() => {
@@ -64,7 +65,25 @@ function App() {
     window.playlistUrl = adBreakTimer.playlistUrl;
     window.playlistShuffle = adBreakTimer.playlistShuffle;
     window.shouldPlayPlaylistDuringAdBreak = adBreakTimer.shouldPlayPlaylistDuringAdBreak;
-  }, [adBreakTimer.isAdBreakActive, adBreakTimer.queueStationSwitch, adBreakTimer.isTimerRunning, adBreakTimer.playlistUrl, adBreakTimer.playlistShuffle, adBreakTimer.shouldPlayPlaylistDuringAdBreak]);
+    
+    // ✅ FIX: Expose audioPlayer for Spotify initialization and ensure spotifyPlayerReady is updated
+    window.audioPlayer = {
+      ...audioPlayer,
+      initializeSpotifyPlayer: audioPlayer.manualInitializeSpotifyPlayer
+    };
+
+    // Debug logging for state synchronization
+    console.log('🔄 Updating window.audioPlayer with spotifyPlayerReady:', audioPlayer.spotifyPlayerReady);
+  }, [
+    adBreakTimer.isAdBreakActive, 
+    adBreakTimer.queueStationSwitch, 
+    adBreakTimer.isTimerRunning, 
+    adBreakTimer.playlistUrl, 
+    adBreakTimer.playlistShuffle, 
+    adBreakTimer.shouldPlayPlaylistDuringAdBreak, 
+    audioPlayer,
+    audioPlayer.spotifyPlayerReady // ✅ FIX: Add specific dependency for spotifyPlayerReady
+  ]);
 
   const handleStationSelect = (station) => {
     // If ad break is active, the playRadio function will automatically queue it
@@ -83,7 +102,6 @@ function App() {
     //   }
     // }
   };
-
   // Validate playlist URL when it changes
   useEffect(() => {
     const validatePlaylist = async () => {
@@ -94,7 +112,26 @@ function App() {
 
       setIsValidatingPlaylist(true);
       try {
-        const info = await validatePlaylistUrl(adBreakTimer.playlistUrl);
+        let info;
+        
+        // Determine if this is a Spotify or YouTube playlist
+        if (playlistProvider === 'spotify') {
+          // For Spotify, the playlistUrl is actually the playlist ID
+          info = await validateSpotifyPlaylist(adBreakTimer.playlistUrl);
+          // Convert Spotify format to match the expected format
+          if (info.isValid) {
+            info = {
+              ...info,
+              title: info.name,
+              thumbnail: info.imageUrl,
+              videoCount: info.trackCount
+            };
+          }
+        } else {
+          // YouTube playlist validation
+          info = await validatePlaylistUrl(adBreakTimer.playlistUrl);
+        }
+        
         setPlaylistInfo(info);
       } catch (error) {
         setPlaylistInfo(null);
@@ -106,14 +143,24 @@ function App() {
 
     const timeoutId = setTimeout(validatePlaylist, 500); // Debounce validation
     return () => clearTimeout(timeoutId);
-  }, [adBreakTimer.playlistUrl]);
+  }, [adBreakTimer.playlistUrl, playlistProvider]);
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">        {/* Header Section */}        <div className="h-[140px] flex items-center justify-center bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 border-b border-gray-700 relative">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">
+        {/* Enhanced Header Section with Wave Animation */}
+        <div className="h-[140px] flex items-center justify-center border-b border-gray-700 relative banner-container">
+          {/* Animated Background */}
+          <div className="banner-background"></div>
+          
+          {/* Wave Animation Overlays - handled by CSS pseudo-elements */}
+          
+          {/* Shimmer Effect */}
+          <div className="banner-shimmer"></div>
+          
           {/* Hidden Developer Access - Triple click the top-right corner */}
           <div 
-            className="absolute top-5  right-10 w-5 h-5 cursor-pointer"
+            className="absolute top-5 right-10 w-5 h-5 cursor-pointer z-10"
             onClick={(e) => {
               if (e.detail === 3) { // Triple click
                 const password = prompt('Enter developer password:');
@@ -129,10 +176,11 @@ function App() {
                 }
               }
             }}
-           // title="Triple-click for developer access"
           />
-            <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          
+          {/* Banner Content */}
+          <div className="text-center banner-text">
+            <h1 className="text-3xl md:text-4xl font-bold mb-3 banner-title bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               Nederlandse Radio / Playlist Switcher
             </h1>
             <h2 className="text-2xl md:text-2xl font-semibold text-gray-300">
@@ -140,7 +188,6 @@ function App() {
             </h2>
             <p className="text-gray-400 mt-2 text-lg">
             </p>
-         
           </div>
         </div>
 

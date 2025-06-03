@@ -14,11 +14,17 @@
  * 1. Code flag: Set `manualProductionFlag = true` in this file
  * 2. Browser console: Call `window.enableLogging()` or `window.disableLogging()`
  * 3. Persistent setting: Uses localStorage to remember manual overrides
+ * 4. YouTube-specific: Call `window.setAggressiveYouTubeLogging(true)` for YouTube error reduction
  * 
  * DEBUGGING IN PRODUCTION:
  * - Call `window.enableLogging()` in browser console to restore logs
  * - Call `window.restoreConsole()` to restore for current session only
  * - Logs are preserved for errors by default (can be disabled by uncommenting line)
+ * 
+ * YOUTUBE ERROR SPAM PREVENTION:
+ * - YouTube production mode provides aggressive logging reduction
+ * - Prevents YouTube embedding errors from consuming RAM
+ * - Use `getIsYouTubeProductionMode()` in YouTube utilities
  * 
  * USAGE:
  * Import and call `initializeLogging()` early in main.jsx before any other code runs.
@@ -125,6 +131,18 @@ export const restoreConsole = () => {
 // Export current production status
 export const getIsProduction = () => isProduction;
 
+// YouTube-specific production mode check for aggressive logging reduction
+export const getIsYouTubeProductionMode = () => {
+  // In production or when specifically enabled, use aggressive YouTube logging reduction
+  return isProduction || localStorage.getItem('aggressiveYouTubeLogging') === 'true';
+};
+
+// Manual control for YouTube logging specifically
+export const setAggressiveYouTubeLogging = (enabled) => {
+  localStorage.setItem('aggressiveYouTubeLogging', enabled.toString());
+  console.log(`🎵 Aggressive YouTube logging ${enabled ? 'enabled' : 'disabled'} - refresh page to apply`);
+};
+
 // Export manual control
 export const setManualProductionMode = (enabled) => {
   // This would require a page refresh to take effect
@@ -149,6 +167,7 @@ if (typeof window !== 'undefined') {
   window.enableLogging = enableLogging;
   window.disableLogging = disableLogging;
   window.restoreConsole = restoreConsole;
+  window.setAggressiveYouTubeLogging = setAggressiveYouTubeLogging;
 }
 
 // Check for manual override from localStorage

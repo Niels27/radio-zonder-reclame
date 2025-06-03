@@ -31,9 +31,32 @@ const PlaylistProviderSelector = ({
   const [spotifyError, setSpotifyError] = useState(null);
   const [showPlaylistDropdown, setShowPlaylistDropdown] = useState(false);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [spotifyMode, setSpotifyMode] = useState('eigen'); // 'eigen' or 'openbare'
+  // Add local state to force re-render when Spotify player state changes
+  const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
   
   const dropdownRef = useRef(null);
   const playlistDropdownRef = useRef(null);
+
+  // Poll for Spotify player ready state to ensure UI updates
+  useEffect(() => {
+    let interval;
+    if (selectedProvider === 'spotify' && isSpotifyAuthenticated()) {
+      interval = setInterval(() => {
+        const currentReady = window.audioPlayer?.spotifyPlayerReady || false;
+        if (currentReady !== spotifyPlayerReady) {
+          console.log('🔄 Spotify player ready state changed:', currentReady);
+          setSpotifyPlayerReady(currentReady);
+        }
+      }, 500); // Check every 500ms
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [selectedProvider, spotifyPlayerReady]);
 
   const providers = [
     {
@@ -89,7 +112,6 @@ const PlaylistProviderSelector = ({
       loadSpotifyPlaylists();
     }
   };
-
   // Handle Spotify login
   const handleSpotifyLogin = async () => {
     setIsSpotifyLoginInProgress(true);
@@ -98,6 +120,16 @@ const PlaylistProviderSelector = ({
     try {
       await loginToSpotify();
       console.log('✅ Spotify login successful');
+        // ✅ FIX: Initialize Spotify player immediately after login
+      if (window.audioPlayer && window.audioPlayer.manualInitializeSpotifyPlayer) {
+        try {
+          console.log('🎵 Initializing Spotify player after successful login...');
+          await window.audioPlayer.manualInitializeSpotifyPlayer();
+        } catch (playerError) {
+          console.warn('Spotify player initialization failed, but login was successful:', playerError);
+        }
+      }
+      
       await loadSpotifyPlaylists();
       
       if (window.addNotification) {
@@ -172,8 +204,7 @@ const PlaylistProviderSelector = ({
         onValidatingChange(false);
       }
     }
-  };
-  // Handle random playlist selection
+  };  // Handle random playlist selection
   const handleRandomPlaylist = async () => {
     if (selectedProvider === 'youtube') {
       const randomPlaylist = getRandomYouTubePlaylist();
@@ -195,6 +226,17 @@ const PlaylistProviderSelector = ({
         window.addNotification(`🎲 Willekeurige playlist: ${randomPlaylist.name}`, 'info', 3000);
       }
     } else if (selectedProvider === 'spotify') {
+      // Check if user is authenticated first
+      if (!isSpotifyAuthenticated()) {
+        console.log('🔒 User not authenticated - triggering Spotify login');
+        if (window.addNotification) {
+          window.addNotification('🔒 Je bent nog niet ingelogd bij Spotify. Probeer eerst in te loggen.', 'warning', 4000);
+        }
+        // Trigger login
+        handleSpotifyLogin();
+        return;
+      }
+      
       const randomPlaylist = getRandomSpotifyPlaylist();
       onPlaylistUrlChange(randomPlaylist.url);
       setPlaylistSearchQuery(randomPlaylist.name);
@@ -270,7 +312,6 @@ const PlaylistProviderSelector = ({
     }
     return null;
   };
-
   return (
     <div className="space-y-3">
       {/* Combined Provider and URL Input in one line */}
@@ -279,15 +320,15 @@ const PlaylistProviderSelector = ({
           Afspeellijst:
         </label>
         <div className="flex space-x-2">
-          {/* Provider Dropdown - Fixed width */}
-          <div className="relative w-72" ref={dropdownRef}>
+          {/* Provider Dropdown - Compact width */}
+          <div className="relative w-40" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none flex items-center justify-between"
             >
               <div className="flex items-center space-x-2">
                 {selectedProviderInfo?.icon}
-                <span>{selectedProviderInfo?.name}</span>
+                <span className="text-sm">{selectedProviderInfo?.name}</span>
               </div>
               <svg 
                 className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} 
@@ -372,79 +413,113 @@ const PlaylistProviderSelector = ({
                 className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center justify-center"
                 title="Willekeurige afspeellijst"
               >
-          🎲
-              </button>
+          🎲              </button>
             </>
-          )}
-
-          {/* Search Input for Spotify */}
+          )}          {/* Spotify Input Section - Inline with provider selector */}
           {selectedProvider === 'spotify' && isSpotifyAuthenticated() && (
-            <div className="flex-1 relative" ref={playlistDropdownRef}>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={playlistSearchQuery}
-                  onChange={(e) => handlePlaylistSearch(e.target.value)}
-                  onFocus={() => setShowPlaylistDropdown(true)}
-                  placeholder="Typ om je afspeellijsten te zoeken..."
-                  className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                />
-                <button
-                  onClick={handleRandomPlaylist}
-                  className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center justify-center"
-                  title="Willekeurige afspeellijst"
-                >
-              🎲
-                </button>
-              </div>
-              
-              {/* Playlist Dropdown */}
-              {showPlaylistDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto">
-                  {loadingPlaylists ? (
-                    <div className="px-3 py-4 text-center text-gray-400">
-                      <svg className="animate-spin h-5 w-5 mx-auto" viewBox="0 0 24 24" fill="currentColor">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                      </svg>
-                      <div className="mt-2">Afspeellijsten laden...</div>
-                    </div>
-                  ) : filteredPlaylists.length > 0 ? (
-                    filteredPlaylists.map((playlist) => (
-                      <button
-                        key={playlist.id}
-                        onClick={() => handlePlaylistSelect(playlist)}
-                        className="w-full px-3 py-3 text-left hover:bg-gray-600 flex items-center space-x-3 border-b border-gray-600 last:border-b-0"
-                      >
-                        {playlist.imageUrl ? (
-                          <img 
-                            src={playlist.imageUrl} 
-                            alt={playlist.name}
-                            className="w-10 h-10 rounded object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-600 rounded flex items-center justify-center flex-shrink-0">
-                            <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                            </svg>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white font-medium truncate">{playlist.name}</div>
-                          <div className="text-xs text-gray-400">
-                            {playlist.trackCount} nummers • {playlist.owner}
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-4 text-center text-gray-400">
-                      {playlistSearchQuery ? 'Geen afspeellijsten gevonden' : 'Typ om te zoeken in je afspeellijsten'}
-                    </div>
-                  )}
+            <div className="flex-1">              {/* Spotify player status indicator */}
+              {selectedProvider === 'spotify' && isSpotifyAuthenticated() && !spotifyPlayerReady && (
+                <div className="mb-2 px-3 py-2 bg-yellow-900 border border-yellow-600 rounded-lg">
+                  <div className="flex items-center space-x-2 text-yellow-200">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    <span className="text-sm">Spotify player wordt geïnitialiseerd...</span>
+                  </div>
                 </div>
               )}
+              
+              {/* Input based on mode */}
+              {spotifyMode === 'eigen' ? (
+                <div className="relative" ref={playlistDropdownRef}>
+                  <input
+                    type="text"
+                    value={playlistSearchQuery}
+                    onChange={(e) => handlePlaylistSearch(e.target.value)}
+                    onFocus={() => setShowPlaylistDropdown(true)}                    placeholder="Typ om je afspeellijsten te zoeken..."
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    disabled={!spotifyPlayerReady}
+                  />
+                  
+                  {/* Playlist Dropdown */}
+                  {showPlaylistDropdown && spotifyPlayerReady && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto">
+                      {loadingPlaylists ? (
+                        <div className="px-3 py-4 text-center text-gray-400">
+                          <svg className="animate-spin h-5 w-5 mx-auto" viewBox="0 0 24 24" fill="currentColor">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                          </svg>
+                          <div className="mt-2">Afspeellijsten laden...</div>
+                        </div>
+                      ) : filteredPlaylists.length > 0 ? (
+                        filteredPlaylists.map((playlist) => (
+                          <button
+                            key={playlist.id}
+                            onClick={() => handlePlaylistSelect(playlist)}
+                            className="w-full px-3 py-3 text-left hover:bg-gray-600 flex items-center space-x-3 border-b border-gray-600 last:border-b-0"
+                          >
+                            {playlist.imageUrl ? (
+                              <img 
+                                src={playlist.imageUrl} 
+                                alt={playlist.name}
+                                className="w-10 h-10 rounded object-cover flex-shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-gray-600 rounded flex items-center justify-center flex-shrink-0">
+                                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-white font-medium truncate">{playlist.name}</div>
+                              <div className="text-xs text-gray-400">
+                                {playlist.trackCount} nummers • {playlist.owner}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-4 text-center text-gray-400">
+                          {playlistSearchQuery ? 'Geen afspeellijsten gevonden' : 'Typ om te zoeken in je afspeellijsten'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>              ) : (
+                /* Openbare mode - URL input */
+                <input
+                  type="text"
+                  value={playlistUrl}                  onChange={(e) => onPlaylistUrlChange(e.target.value)}
+                  placeholder="https://open.spotify.com/playlist/..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:bg-gray-800 disabled:cursor-not-allowed"
+                  disabled={!spotifyPlayerReady}
+                />
+              )}
             </div>
+          )}
+
+          {/* Mode Selector for Spotify - Moved to separate row */}
+          {selectedProvider === 'spotify' && isSpotifyAuthenticated() && (
+            <select
+              value={spotifyMode}
+              onChange={(e) => setSpotifyMode(e.target.value)}
+              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none text-sm"
+            >
+              <option value="eigen">Eigen playlists</option>
+              <option value="openbare">Openbare URL's</option>
+            </select>
+          )}          {/* Random Playlist Button for Spotify Openbare mode */}
+          {selectedProvider === 'spotify' && isSpotifyAuthenticated() && spotifyMode === 'openbare' && (
+            <button              onClick={handleRandomPlaylist}
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center"
+              title="Willekeurige afspeellijst"
+              disabled={!spotifyPlayerReady}
+            >
+              🎲
+            </button>
           )}
 
           {/* Spotify Login Button */}

@@ -36,15 +36,15 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js'
       }
     }
-  },
-  // Development server configuration
+  },  // Development server configuration
   server: {
     https: {
       key: fs.readFileSync(path.resolve(__dirname, '127.0.0.1-key.pem')),
       cert: fs.readFileSync(path.resolve(__dirname, '127.0.0.1.pem'))
     },
     host: '127.0.0.1',
-    port: 4174,
+    port: 4178,
+    strictPort: true,
     open: '/radio-zonder-reclame/'
   },
   // Preview configuration (for local testing of production build)

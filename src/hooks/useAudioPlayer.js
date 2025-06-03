@@ -16,10 +16,12 @@ import {
   setSpotifyVolume, 
   setSpotifyShuffleMode,
   isSpotifyAuthenticated,
-  getSpotifyPlaybackState
+  getSpotifyPlaybackState,
+  ensureWebPlaybackDeviceActive,
+  isWebPlaybackDeviceActive
 } from '../utils/spotifyUtils';
 
-export const useAudioPlayer = () => {
+export const useAudioPlayer = (playlistProvider = 'youtube') => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7); // Initial volume
@@ -37,17 +39,39 @@ export const useAudioPlayer = () => {
   const [currentPlaylistProvider, setCurrentPlaylistProvider] = useState('youtube'); // 'youtube' or 'spotify'
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
 
+  // Helper function to extract playlist ID based on provider
+  const extractPlaylistId = useCallback((playlistUrl, provider) => {
+    if (!playlistUrl) return null;
+    
+    if (provider === 'spotify') {
+      // For Spotify, the URL is already the playlist ID or we extract it from full URL
+      if (playlistUrl.includes('spotify.com/playlist/')) {
+        return playlistUrl.split('playlist/')[1].split('?')[0];
+      }
+      // If it's already just the ID, return it
+      return playlistUrl;
+    } else {
+      // For YouTube, extract from URL
+      return playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+    }
+  }, []);
+
   const audioRef = useRef(null);
   const youtubePlayerRef = useRef(null);
   const spotifyPlayerRef = useRef(null); // Add Spotify player ref
   const timeoutRef = useRef(null);
   const connectionTimeoutRef = useRef(null);
-
   // Refs to hold the latest state for use in event handlers of the initialization useEffect
   const currentStationRef = useRef(currentStation);
   const isIntentionalStopRef = useRef(isIntentionalStop);
   const isTransitioningRef = useRef(isTransitioning);
   const isPlayingRef = useRef(isPlaying); // To check current playing status in stalled event
+  // Sync playlist provider parameter with internal state
+  useEffect(() => {
+    setCurrentPlaylistProvider(playlistProvider);
+    // Also sync with global window state for consistency
+    window.playlistProvider = playlistProvider;
+  }, [playlistProvider]);
 
   useEffect(() => {
     currentStationRef.current = currentStation;
@@ -159,12 +183,9 @@ export const useAudioPlayer = () => {
       audio.pause(); 
       audio.src = ''; // Release resources
     };
-  }, []); // Empty dependency array ensures this runs only once on mount and cleans up on unmount
-
-  // Initialize Spotify player when authenticated
-  useEffect(() => {
-    const initSpotify = async () => {
-      if (isSpotifyAuthenticated() && !spotifyPlayerReady) {
+  }, []); // Empty dependency array ensures this runs only once on mount and cleans up on unmount  // Initialize Spotify player when authenticated
+  useEffect(() => {    const initSpotify = async () => {
+      if (isSpotifyAuthenticated() && !spotifyPlayerReady && !spotifyPlayerRef.current) {
         try {
           console.log('🎵 Initializing Spotify player...');
           setIsLoading(true);
@@ -172,22 +193,111 @@ export const useAudioPlayer = () => {
           
           const player = await initializeSpotifyPlayer();
           spotifyPlayerRef.current = player;
-          setSpotifyPlayerReady(true);
           
-          console.log('🎵 Spotify player ready');
-          setIsLoading(false);
-          setLoadingProgress('');
+          // ✅ FIX: Add Spotify player state listeners for UI feedback
+          player.addListener('player_state_changed', (state) => {
+            if (!state) return;
+            
+            console.log('🎵 Spotify player state changed:', state);
+            
+            // Update playing state based on Spotify player state
+            if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
+              setIsPlaying(!state.paused);
+              
+              if (state.paused) {
+                console.log('🎵 Spotify playback paused');
+              } else {
+                console.log('🎵 Spotify playback resumed');
+              }
+            }
+          });
+          
+          // ✅ FIX: Only set ready state when device is actually ready
+          player.addListener('ready', ({ device_id }) => {
+            console.log('🎵 Spotify player ready with device ID:', device_id);
+            setSpotifyPlayerReady(true);
+            setIsLoading(false);
+            setLoadingProgress('');
+            console.log('🎵 Spotify player fully ready for playback');
+          });
+          
+          player.addListener('not_ready', ({ device_id }) => {
+            console.log('🎵 Spotify player not ready with device ID:', device_id);
+            setSpotifyPlayerReady(false);
+          });
+          
+          // Don't set ready state here - wait for 'ready' event
+          console.log('🎵 Spotify player initialized, waiting for ready event...');
         } catch (error) {
           console.error('Failed to initialize Spotify player:', error);
           setError('Kon Spotify player niet initialiseren: ' + error.message);
           setIsLoading(false);
           setLoadingProgress('');
+          setSpotifyPlayerReady(false);
         }
       }
     };
 
     initSpotify();
-  }, [spotifyPlayerReady]);
+  }, [spotifyPlayerReady, currentSource, currentPlaylistProvider]);  // ✅ FIX: Add manual Spotify player initialization function
+  const manualInitializeSpotifyPlayer = useCallback(async () => {
+    if (isSpotifyAuthenticated()) {
+      console.log('🎵 Manually triggering Spotify player initialization...');
+      
+      try {
+        const player = await initializeSpotifyPlayer();
+        spotifyPlayerRef.current = player;
+        
+        // If player was already created and ready, immediately set ready state
+        if (player && !spotifyPlayerReady) {
+          console.log('🎵 Checking if player is already ready...');
+          
+          // Try to get current state to see if player is connected
+          try {
+            const state = await player.getCurrentState();
+            console.log('🎵 Manual init - current player state:', state);
+            
+            // If we can get state, the player is ready
+            if (state !== null || state === null) { // null state can also mean ready but no music
+              console.log('🎵 Player is already connected - setting ready immediately');
+              setSpotifyPlayerReady(true);
+            }
+          } catch (error) {
+            console.log('🎵 Player not yet ready, will wait for ready event:', error);
+          }
+        }
+        
+        // Always set up listeners for state changes
+        player.addListener('player_state_changed', (state) => {
+          if (!state) return;
+          
+          console.log('🎵 Spotify state change - Paused:', state.paused, 'Device:', state.device?.name);
+          
+          if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
+            setIsPlaying(!state.paused);
+          }
+        });
+        
+        player.addListener('ready', ({ device_id }) => {
+          console.log('🎵 Spotify player manually initialized and ready with device ID:', device_id);
+          console.log('🎵 Device name: No Ads Radio Browser Player');
+          setSpotifyPlayerReady(true);
+        });
+        
+        player.addListener('not_ready', ({ device_id }) => {
+          console.log('🎵 Spotify player not ready with device ID:', device_id);
+          setSpotifyPlayerReady(false);
+        });
+        
+        return player;
+      } catch (error) {
+        console.error('Manual Spotify player initialization failed:', error);
+        throw error;
+      }
+    }
+    
+    return spotifyPlayerRef.current;
+  }, [spotifyPlayerReady, currentSource, currentPlaylistProvider]);
 
   // NUCLEAR RESET - Completely stop everything and reset all states
   const abortConnection = useCallback(() => {
@@ -289,19 +399,18 @@ export const useAudioPlayer = () => {
         
         // ALWAYS queue the station selection
         window.queueStationSwitch(effectiveStationData);
-        
-        // AGGRESSIVE PLAYLIST STARTING: If ad break badge is showing, ALWAYS start playlist
+          // AGGRESSIVE PLAYLIST STARTING: If ad break badge is showing, ALWAYS start playlist
         // regardless of previous radio state or shouldPlayPlaylistDuringAdBreak flag
         const playlistUrl = window.playlistUrl;
         if (playlistUrl) {
           try {
-            const playlistId = playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+            const playlistId = extractPlaylistId(playlistUrl, playlistProvider);
             if (playlistId) {
               console.log('🎵 AGGRESSIVE: Starting playlist during active ad break - ID:', playlistId);
-              
-              await playPlaylist(playlistId, {
+                await playPlaylist(playlistId, {
                 shuffle: window.playlistShuffle || false,
-                repeat: 'all'
+                repeat: 'all',
+                provider: playlistProvider
               });
               
               console.log('🎵 AGGRESSIVE: Playlist started successfully during ad break');
@@ -629,8 +738,41 @@ export const useAudioPlayer = () => {
       }      if (provider === 'spotify') {
         console.log('🎵 Starting Spotify playlist');
         
+        // Enhanced Spotify ready check
+        if (!isSpotifyAuthenticated()) {
+          throw new Error('Please login to Spotify first to play playlists.');
+        }        // ✅ FIX: Wait for Spotify player to be ready if it's still initializing
         if (!spotifyPlayerReady || !spotifyPlayerRef.current) {
-          throw new Error('Spotify player not ready. Please login to Spotify first.');
+          console.log('🎵 Spotify player not ready, waiting for initialization...');
+          setLoadingProgress('Spotify player gereed maken...');
+          
+          // Wait up to 15 seconds for player to be ready
+          let retries = 0;
+          const maxRetries = 75; // 75 * 200ms = 15 seconds
+          
+          while ((!spotifyPlayerReady || !spotifyPlayerRef.current) && retries < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            retries++;
+            
+            if (retries % 10 === 0) { // Update progress every 2 seconds
+              setLoadingProgress(`Spotify player gereed maken... (${Math.round(retries/5)}s)`);
+              console.log(`🎵 Waiting for Spotify player... (${retries}/${maxRetries})`);
+            }
+          }
+          
+          if (!spotifyPlayerReady || !spotifyPlayerRef.current) {
+            throw new Error('Spotify player is nog niet klaar. Probeer over een paar seconden opnieuw of herlaad de pagina.');
+          }
+          
+          console.log('🎵 Spotify player is now ready!');
+        }
+
+        // ✅ NEW: Ensure Web Playback device is active before starting playlist
+        setLoadingProgress('Browser apparaat activeren...');
+        const deviceActive = await ensureWebPlaybackDeviceActive();
+        
+        if (!deviceActive) {
+          console.warn('🎵 Could not activate Web Playback device, trying anyway...');
         }
 
         setLoadingProgress('Spotify playlist starten...');
@@ -640,8 +782,10 @@ export const useAudioPlayer = () => {
         await setSpotifyVolume(volume * 100);
         
         setCurrentPlaylistProvider('spotify');
-        console.log('🎵 Spotify playlist started successfully');
-        } else {
+        setIsPlaying(true); // ✅ FIX: Set playing state after successful Spotify start
+        setIsLoading(false); // ✅ FIX: Clear loading state
+        console.log('🎵 Spotify playlist started successfully on Web Playback device');
+        }else {
           // YouTube implementation with enhanced hidden player
           await loadYouTubeAPI();
           console.log('🎵 YouTube API loaded successfully');
@@ -799,18 +943,18 @@ export const useAudioPlayer = () => {
     }
     setIsPlaying(false);
   }, [currentSource, currentPlaylistProvider]);
-  const resumeAudio = useCallback(() => {
-    // Check if ad break is active and force playlist if needed
+  const resumeAudio = useCallback(() => {    // Check if ad break is active and force playlist if needed
     if (window.isAdBreakActive && window.playlistUrl) {
       console.log('🎵 Resume during ad break - ensuring playlist is playing');
       
-      const playlistId = window.playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+      const playlistId = extractPlaylistId(window.playlistUrl, playlistProvider);
       if (playlistId && (!youtubePlayerRef.current || currentSource !== 'playlist')) {
         // Playlist not loaded or not current source - start it
         try {
           playPlaylist(playlistId, {
             shuffle: window.playlistShuffle || false,
-            repeat: 'all'
+            repeat: 'all',
+            provider: playlistProvider
           });
           
           if (window.addNotification) {
@@ -839,17 +983,17 @@ export const useAudioPlayer = () => {
   const togglePlayPause = useCallback(() => {
     if (isPlaying) {
       pauseAudio();
-    } else {
-      // If ad break is active and no source is playing, force playlist
+    } else {      // If ad break is active and no source is playing, force playlist
       if (window.isAdBreakActive && !currentSource && window.playlistUrl) {
         console.log('🎵 Play button during ad break with no source - forcing playlist');
         
-        const playlistId = window.playlistUrl.match(/[?&]list=([^#\&\?]*)/)?.[1];
+        const playlistId = extractPlaylistId(window.playlistUrl, playlistProvider);
         if (playlistId) {
           try {
             playPlaylist(playlistId, {
               shuffle: window.playlistShuffle || false,
-              repeat: 'all'
+              repeat: 'all',
+              provider: playlistProvider
             });
             
             if (window.addNotification) {
@@ -881,8 +1025,7 @@ export const useAudioPlayer = () => {
         console.error('Error toggling YouTube shuffle:', error);
       }
     }
-  }, [currentPlaylistProvider]);
-  return {
+  }, [currentPlaylistProvider]);  return {
     currentStation,
     isPlaying,
     volume,
@@ -910,6 +1053,7 @@ export const useAudioPlayer = () => {
     abortConnection,
     stopRadio,
     currentPlaylistProvider,
-    spotifyPlayerReady
+    spotifyPlayerReady,
+    manualInitializeSpotifyPlayer // ✅ FIX: Expose manual Spotify initialization
   };
 };

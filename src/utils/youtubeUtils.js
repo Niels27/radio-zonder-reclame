@@ -1,4 +1,95 @@
+/**
+ * YouTube Error Spam Reduction System
+ * 
+ * This module implements intelligent logging to prevent YouTube player errors from spamming 
+ * the console and consuming RAM. Key features:
+ * 
+ * AUTOMATIC LOGGING REDUCTION:
+ * - Uses production logging system from logger.js
+ * - YouTube-specific production mode for aggressive reduction
+ * - Error tracking prevents same error from logging repeatedly
+ * 
+ * ERROR SPAM PREVENTION:
+ * - Tracks error frequency and suppresses after threshold
+ * - Resets error counts after time intervals
+ * - Silent handling of common embedding errors (150, 101)
+ * 
+ * MANUAL CONTROL:
+ * - Call window.setAggressiveYouTubeLogging(true) to enable aggressive mode
+ * - Call window.enableLogging() to restore all YouTube logs for debugging
+ * - Settings persist in localStorage across sessions
+ * 
+ * PRODUCTION BEHAVIOR:
+ * - Only critical fatal/network/API errors are logged
+ * - State changes and retry attempts are silent
+ * - Embedding restriction errors are handled without logging
+ */
+
 // YouTube utility functions for playlist handling
+
+import { getIsProduction, getIsYouTubeProductionMode } from './logger.js';
+
+// YouTube error tracking to prevent spam
+const errorTracker = new Map();
+const ERROR_SPAM_THRESHOLD = 3; // Max times to log same error
+const ERROR_RESET_TIME = 30000; // Reset error count after 30 seconds
+
+// Smart logging functions that respect production mode and prevent spam
+const logInfo = (message, ...args) => {
+  if (!getIsYouTubeProductionMode()) {
+    console.log(`[YouTube] ${message}`, ...args);
+  }
+};
+
+const logWarn = (message, ...args) => {
+  const errorKey = `warn_${message}`;
+  if (!shouldLogError(errorKey)) return;
+  
+  if (!getIsYouTubeProductionMode()) {
+    console.warn(`[YouTube] ${message}`, ...args);
+  }
+};
+
+const logError = (message, ...args) => {
+  const errorKey = `error_${message}`;
+  if (!shouldLogError(errorKey)) return;
+  
+  // In YouTube production mode, be even more restrictive with errors
+  if (getIsYouTubeProductionMode()) {
+    // Only log truly critical errors in YouTube production mode
+    if (message.includes('fatal') || message.includes('network') || message.includes('API')) {
+      console.error(`[YouTube] ${message}`, ...args);
+    }
+  } else {
+    console.error(`[YouTube] ${message}`, ...args);
+  }
+};
+
+const shouldLogError = (errorKey) => {
+  const now = Date.now();
+  const errorData = errorTracker.get(errorKey);
+  
+  if (!errorData) {
+    errorTracker.set(errorKey, { count: 1, lastTime: now });
+    return true;
+  }
+  
+  // Reset counter if enough time has passed
+  if (now - errorData.lastTime > ERROR_RESET_TIME) {
+    errorTracker.set(errorKey, { count: 1, lastTime: now });
+    return true;
+  }
+  
+  // Check if we've exceeded the threshold
+  if (errorData.count >= ERROR_SPAM_THRESHOLD) {
+    return false;
+  }
+  
+  // Increment count
+  errorData.count++;
+  errorData.lastTime = now;
+  return true;
+};
 
 export const extractPlaylistId = (url) => {
   if (!url) return null;
@@ -70,9 +161,8 @@ export const validatePlaylistUrl = async (url) => {
             name: playlistTitle,
             videoCount: null
           };
-        }
-      } catch (pageError) {
-        console.warn('Could not fetch detailed playlist info:', pageError);
+        }      } catch (pageError) {
+        logWarn('Could not fetch detailed playlist info:', pageError);
       }
       
       // Fallback to oembed data
@@ -183,31 +273,33 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
         // Try to force audio-only by hiding video
         vq: 'tiny',
         ...options.playerVars
-      },
-      events: {
+      },      events: {
         onReady: (event) => {
-          console.log('YouTube player ready for background playback');
+          logInfo('YouTube player ready for background playback');
           
           // Set initial shuffle state
           if (options.playerVars?.shuffle) {
             try {
               event.target.setShuffle(true);
-              console.log('Shuffle enabled on player ready');
+              logInfo('Shuffle enabled on player ready');
             } catch (error) {
-              console.warn('Could not set shuffle on ready:', error);
+              logWarn('Could not set shuffle on ready:', error);
             }
           }
           
           resolve(event.target);
         },
         onStateChange: (event) => {
-          console.log('YouTube player state changed:', event.data);
+          // Only log important state changes to reduce spam
+          if (event.data === window.YT.PlayerState.PLAYING || event.data === window.YT.PlayerState.PAUSED) {
+            logInfo('YouTube player state changed:', event.data);
+          }
           
           // Handle embedding errors and retry with fallback
           if (event.data === -1) { // unstarted
-            console.log('Player unstarted, attempting to start playback...');
+            logInfo('Player unstarted, attempting to start playback...');
           } else if (event.data === window.YT.PlayerState.BUFFERING) {
-            console.log('Player buffering...');
+            logInfo('Player buffering...');
           }
           
           // Handle state changes
@@ -216,18 +308,19 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
           }
         },
         onError: (event) => {
-          console.error('YouTube player error:', event.data);
-          
-          // Handle specific error codes
+          // Handle specific error codes with smart logging to prevent spam
           switch(event.data) {
             case 5:
+              logError('HTML5 player error - video format not supported');
               reject(new Error('HTML5 player error - video format not supported'));
               break;
             case 100:
+              logError('Video not found');
               reject(new Error('Video not found'));
-              break;            case 101:
+              break;
+            case 101:
             case 150:
-              console.warn('Embedding restricted (error 150/101), implementing enhanced bypass strategies...');
+              logWarn(`Embedding restricted (error ${event.data}), implementing bypass strategies...`);
               // Enhanced bypass strategies for embedding restrictions
               if (options.onEmbeddingError) {
                 options.onEmbeddingError(event.data);
@@ -236,29 +329,29 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
               // Don't reject immediately - try multiple bypass strategies
               setTimeout(() => {
                 try {
-                  console.log('Attempting bypass strategy 1: Direct playVideo call');
+                  logInfo('Attempting bypass strategy 1: Direct playVideo call');
                   if (window.debugYTPlayer) {
                     window.debugYTPlayer.playVideo();
                   }
                 } catch (bypassErr) {
-                  console.warn('Bypass strategy 1 failed:', bypassErr);
+                  logWarn('Bypass strategy 1 failed:', bypassErr);
                 }
               }, 3000);
               
               // Additional bypass attempt with longer delay
               setTimeout(() => {
                 try {
-                  console.log('Attempting bypass strategy 2: Reload and play');
-                  if (window.debugYTPlayer && window.debugYTPlayer.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                  logInfo('Attempting bypass strategy 2: Reload and play');                  if (window.debugYTPlayer && window.debugYTPlayer.getPlayerState() !== window.YT.PlayerState.PLAYING) {
                     window.debugYTPlayer.playVideo();
                   }
                 } catch (bypassErr2) {
-                  console.warn('Bypass strategy 2 failed:', bypassErr2);
+                  logWarn('Bypass strategy 2 failed:', bypassErr2);
                 }
               }, 8000);
               
               break;
             default:
+              logError(`YouTube player error: ${event.data}`);
               reject(new Error(`YouTube player error: ${event.data}`));
           }
         }
@@ -346,7 +439,7 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
         ...options.playerVars
       },
       events: {        onReady: (event) => {
-          console.log('Hidden YouTube player ready for background audio playback');
+          logInfo('Hidden YouTube player ready for background audio playback');
           
           // Immediately try to start the playlist with retry mechanism
           const startPlaylist = async () => {
@@ -376,7 +469,7 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
               }, 1000);
               
             } catch (error) {
-              console.warn('Error setting up hidden player, trying alternative approach:', error);
+              logWarn('Error setting up hidden player, trying alternative approach:', error);
               
               // Fallback: try cuePlaylist instead of loadPlaylist
               try {
@@ -393,7 +486,7 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
                 }, 500);
                 
               } catch (fallbackError) {
-                console.warn('Fallback playlist loading also failed:', fallbackError);
+                logWarn('Fallback playlist loading also failed:', fallbackError);
               }
             }
           };
@@ -401,9 +494,9 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
           startPlaylist();
           resolve(event.target);
         },        onStateChange: (event) => {
-          // Reduce logging spam - only log important states
-          if (event.data === window.YT.PlayerState.PLAYING || event.data === window.YT.PlayerState.PAUSED) {
-            // Only log playing/paused states for debugging
+          // Reduce logging spam - only log critical states in development and never in YouTube production mode
+          if (!getIsYouTubeProductionMode() && (event.data === window.YT.PlayerState.PLAYING || event.data === window.YT.PlayerState.PAUSED)) {
+            logInfo(`Hidden player state: ${event.data}`);
           }
           
           // Handle different states
@@ -425,13 +518,15 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
               `;
             }
           } else if (event.data === window.YT.PlayerState.UNSTARTED) {
-            // Try to start playback if it's stuck
+            // Try to start playback if it's stuck - but limit retries
             setTimeout(() => {
               try {
                 event.target.playVideo();
-                console.log('Attempting to unstick hidden player');
+                if (!getIsYouTubeProductionMode()) {
+                  logInfo('Attempting to unstick hidden player');
+                }
               } catch (err) {
-                console.warn('Could not unstick player:', err);
+                logWarn('Could not unstick player:', err);
               }
             }, 2000);
           } else if (event.data === window.YT.PlayerState.CUED) {
@@ -439,9 +534,11 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
             setTimeout(() => {
               try {
                 event.target.playVideo();
-                console.log('Playing cued playlist');
+                if (!getIsYouTubeProductionMode()) {
+                  logInfo('Playing cued playlist');
+                }
               } catch (err) {
-                console.warn('Could not play cued playlist:', err);
+                logWarn('Could not play cued playlist:', err);
               }
             }, 500);
           }
@@ -450,58 +547,61 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
           if (options.onStateChange) {
             options.onStateChange(event);
           }
-        },        onError: (event) => {
-          console.error('Hidden YouTube player error:', event.data);
-          
-          // Handle specific errors more gracefully
+        },onError: (event) => {
+          // Handle specific errors more gracefully with smart logging
           switch(event.data) {
             case 5:
-              console.warn('HTML5 player error in hidden mode - continuing anyway');
+              logWarn('HTML5 player error in hidden mode - continuing anyway');
               // Don't reject immediately, might still work for audio
-              break;            case 100:
+              break;
+            case 100:
+              logInfo('Video not found - skipping to next');
               // Silently handle video not found and try next
               try {
                 event.target.nextVideo();
               } catch (err) {
-                // Silent handling
+                // Silent handling to prevent spam
               }
               break;
             case 101:
+              logWarn('Embedding disabled - attempting workaround');
               // Silently handle embedding disabled and continue
               if (options.onEmbeddingError) {
                 options.onEmbeddingError(event.data);
               }
               break;
             case 150:
-              // Silently handle playback restrictions
+              logWarn('Playback restrictions detected - applying bypass');
               // This is the main error we're trying to bypass
               // Don't reject - try to continue for audio playback
               if (options.onEmbeddingError) {
                 options.onEmbeddingError(event.data);
               }
-              
-              // Try alternative approach with setTimeout to bypass detection
+                // Try alternative approach with setTimeout to bypass detection
               setTimeout(() => {
                 try {
-                  console.log('Attempting stealth retry after error 150');
+                  if (!getIsYouTubeProductionMode()) {
+                    logInfo('Attempting stealth retry after error 150');
+                  }
                   event.target.playVideo();
                 } catch (retryErr) {
-                  console.warn('Stealth retry failed:', retryErr);
+                  // Silent retry handling to prevent spam
                 }
               }, 3000);
               break;
             default:
-              console.warn(`Unknown YouTube error ${event.data} in hidden mode - attempting to continue`);
-              // Only reject for truly fatal errors
+              // Only log unknown errors once to prevent spam
               if (event.data > 200) {
+                logError(`YouTube player fatal error: ${event.data}`);
                 reject(new Error(`YouTube player fatal error: ${event.data}`));
               } else {
+                logWarn(`YouTube error ${event.data} - attempting to continue`);
                 // For other errors, try to continue
                 setTimeout(() => {
                   try {
                     event.target.playVideo();
                   } catch (continueErr) {
-                    console.warn('Could not continue after error:', continueErr);
+                    // Silent handling to prevent spam
                   }
                 }, 2000);
               }
