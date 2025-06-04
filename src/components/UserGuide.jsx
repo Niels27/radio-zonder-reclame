@@ -14,7 +14,7 @@ const UserGuide = () => {
     {
       title: "Reclamepauzes Instellen",
       content: [
-        "Vouw de sectie 'Reclamepauze Instellingen' bovenaan uit",
+        "Vouw de sectie 'Instellingen' bovenaan uit",
         "Stel je gewenste reclamepauze minuut (wanneer) en duur (hoe lang) in",
         "Voeg een YouTube afspeellijst URL toe in het formaat: https://www.youtube.com/playlist?list=PLAYLIST_ID",
         "Klik 'Activeren' om automatische reclamepauze wisseling te activeren"

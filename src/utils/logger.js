@@ -102,7 +102,7 @@ export const initializeLogging = () => {
     // Override console methods to be silent in production
    // console.log = () => {};
    // console.info = () => {};
-   // console.warn = () => {};
+   console.warn = () => {};
    // console.debug = () => {};
    // console.trace = () => {};
     

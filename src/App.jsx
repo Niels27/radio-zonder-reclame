@@ -12,6 +12,7 @@ import { useAdBreakTimer } from './hooks/useAdBreakTimer';
 import { validatePlaylistUrl } from './utils/youtubeUtils';
 import { validateSpotifyPlaylist } from './utils/spotifyUtils';
 import LoadingIndicator from './components/LoadingIndicator';
+import TimeRangeSlider from './components/TimeRangeSlider';
 
 function App() {
   const [playlistProvider, setPlaylistProvider] = useState('youtube');
@@ -21,6 +22,9 @@ function App() {
   const [isValidatingPlaylist, setIsValidatingPlaylist] = useState(false);
   const [isPlaylistInputHovered, setIsPlaylistInputHovered] = useState(false);
   const [showDeveloperDashboard, setShowDeveloperDashboard] = useState(false);
+  const [activeStartHour, setActiveStartHour] = useState(7);
+  const [activeEndHour, setActiveEndHour] = useState(22);
+  // --- Remove state for time range enabled and selected days ---
 
   // Load last played station on mount
   useEffect(() => {
@@ -145,6 +149,49 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [adBreakTimer.playlistUrl, playlistProvider]);
 
+  // Auto play/pause based on time window and selected days
+  useEffect(() => {
+    const checkActiveTime = () => {
+      const now = new Date();
+      const dayIdx = (now.getDay() + 6) % 7; // 0=Monday, 6=Sunday
+      const hour = now.getHours();
+      // Get per-day settings from localStorage
+      let daySettings = [];
+      try {
+        const saved = localStorage.getItem('adbreak_day_settings');
+        if (saved) daySettings = JSON.parse(saved);
+      } catch {}
+      if (!Array.isArray(daySettings) || daySettings.length !== 7) return;
+      const today = daySettings[dayIdx];
+      if (!today || !today.enabled) return; // Do nothing if not enabled for today
+      // Only play if within range
+      if (today.startHour < today.endHour) {
+        if (hour >= today.startHour && hour < today.endHour) {
+          if (!audioPlayer.isPlaying && audioPlayer.currentStation) {
+            audioPlayer.resumeAudio();
+          }
+        } else {
+          if (audioPlayer.isPlaying) {
+            audioPlayer.pauseAudio();
+          }
+        }
+      } else { // overnight (e.g. 22-7)
+        if (hour >= today.startHour || hour < today.endHour) {
+          if (!audioPlayer.isPlaying && audioPlayer.currentStation) {
+            audioPlayer.resumeAudio();
+          }
+        } else {
+          if (audioPlayer.isPlaying) {
+            audioPlayer.pauseAudio();
+          }
+        }
+      }
+    };
+    const interval = setInterval(checkActiveTime, 30000); // check every 30s
+    checkActiveTime();
+    return () => clearInterval(interval);
+  }, [audioPlayer.isPlaying, audioPlayer.currentStation]);
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">
@@ -204,13 +251,17 @@ function App() {
                 onPlaylistInfoChange={setPlaylistInfo}
                 isValidating={isValidatingPlaylist}
                 onValidatingChange={setIsValidatingPlaylist}
+                // --- Pass error and retry function ---
+                error={audioPlayer.error}
+                onRetry={audioPlayer.manualInitializeSpotifyPlayer}
               />
             </div>
           </div>
 
           {/* Ad Break Settings - Moved back here */}
           <div className="bg-gray-800 border-b border-gray-700">
-            <ErrorBoundary>              <AdBreakSettings
+            <ErrorBoundary>
+              <AdBreakSettings
                 adBreakMinute={adBreakTimer.adBreakMinute}
                 adBreakMinute2={adBreakTimer.adBreakMinute2}
                 adBreakDuration={adBreakTimer.adBreakDuration}
@@ -227,7 +278,6 @@ function App() {
                 isManualTestActive={adBreakTimer.isManualTestActive}
                 playlistUrl={adBreakTimer.playlistUrl}
                 playlistInfo={playlistInfo}
-                playlistProvider={playlistProvider}
                 nextAdBreakIn={adBreakTimer.nextAdBreakIn}
                 currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
                 audioPlayer={audioPlayer}
@@ -300,12 +350,11 @@ function App() {
         <NotificationSystem />
 
         {/* Loading Overlay - Prevent clicks during transitions */}
-        {(audioPlayer.isTransitioning || audioPlayer.isLoading) && (
+        {(audioPlayer.isTransitioning || audioPlayer.isLoading) && !audioPlayer.error && (
           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
             <div className="bg-gray-800 rounded-lg p-8 max-w-sm mx-4 text-center">
               <div className="flex flex-col items-center gap-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-2">
                     {audioPlayer.isTransitioning ? 'Audio wisselen...' : 'Verbinding maken...'}
@@ -318,14 +367,12 @@ function App() {
                         : 'Bezig met laden...'
                     }
                   </p>
-                  
                   {audioPlayer.connectionTimeout && (
                     <p className="text-orange-400 text-sm mt-2">
                       {audioPlayer.connectionTimeout}
                     </p>
                   )}
                 </div>
-                
                 <button
                   onClick={() => {
                     console.log('🛑 User clicked abort button');
@@ -340,7 +387,8 @@ function App() {
                 </button>
               </div>
             </div>
-          </div>        )}
+          </div>
+        )}
 
         {/* Developer Dashboard */}
         {showDeveloperDashboard && (
