@@ -90,7 +90,7 @@ const originalConsole = {
 // Initialize logging control
 export const initializeLogging = () => {
   const productionStatus = isProduction;
-  
+  productionStatus=false;
   if (productionStatus) {
     console.log('🔕 Production mode detected - disabling console logs');
     console.log(`📍 Detection method: ${
