@@ -1005,6 +1005,7 @@ export const ensureWebPlaybackDeviceActive = async () => {
 /**
  * Clear Spotify authentication - ENHANCED
  */
+
 export const clearSpotifyAuth = () => {
   console.log('🔐 Clearing Spotify authentication...');
   
@@ -1016,18 +1017,37 @@ export const clearSpotifyAuth = () => {
   localStorage.removeItem('spotify_auth_state');
   localStorage.removeItem('spotify_code_verifier');
   
-  // Disconnect and cleanup player
+  // SAFE disconnect and cleanup player
   if (spotifyPlayer) {
     try {
       console.log('🎵 Disconnecting Spotify player...');
-      spotifyPlayer.removeAllListeners(); // Remove all event listeners first
-      spotifyPlayer.disconnect();
+      
+      // Check if methods exist before calling them
+      if (typeof spotifyPlayer.removeAllListeners === 'function') {
+        spotifyPlayer.removeAllListeners();
+      }
+      
+      if (typeof spotifyPlayer.disconnect === 'function') {
+        spotifyPlayer.disconnect();
+      }
+      
+      // Pause if playing
+      if (typeof spotifyPlayer.pause === 'function') {
+        try {
+          spotifyPlayer.pause();
+        } catch (pauseError) {
+          console.warn('Could not pause Spotify player during logout:', pauseError);
+        }
+      }
+      
     } catch (error) {
       console.warn('Error disconnecting Spotify player:', error);
+    } finally {
+      // Always clear the reference
+      spotifyPlayer = null;
+      spotifyDeviceId = null;
+      window.spotifyDeviceId = null;
     }
-    spotifyPlayer = null;
-    spotifyDeviceId = null;
-    window.spotifyDeviceId = null;
   }
   
   // Reset initialization state
