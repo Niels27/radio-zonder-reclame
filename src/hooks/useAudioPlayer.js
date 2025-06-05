@@ -291,18 +291,42 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
     } catch (err) {
       console.error('❌ [Spotify] Failed to transfer/start playback:', err);
     }
-  }, []);
-
-  // Helper to setup listeners on a Spotify player instance
+  }, []);  // Helper to setup listeners on a Spotify player instance
   const _setupSpotifyPlayerInstance = useCallback((playerInstance, resolveParent, rejectParent) => {
     if (!playerInstance) {
+      if (spotifyPlayerInitTimeoutRef.current) {
+        clearTimeout(spotifyPlayerInitTimeoutRef.current);
+        spotifyPlayerInitTimeoutRef.current = null;
+      }
       rejectParent(new Error("Player instance is null in _setupSpotifyPlayerInstance"));
       return;
     }
+    
+    // CRITICAL FIX: Check if player is already working before setting up listeners
+    const globalDeviceId = window.spotifyDeviceId;
+    if (globalDeviceId && window.spotifyPlayerInstance === playerInstance) {
+      console.log('[Spotify] Player already fully initialized with device ID:', globalDeviceId);
+      spotifyPlayerRef.current = playerInstance;
+      window.spotifyPlayerInstance = playerInstance;
+      attachSpotifyPlayerDebugLogging(playerInstance);
+      
+      if (spotifyPlayerInitTimeoutRef.current) {
+        clearTimeout(spotifyPlayerInitTimeoutRef.current);
+        spotifyPlayerInitTimeoutRef.current = null;
+      }
+      setSpotifyPlayerReadyDebug(true);
+      setIsLoading(false);
+      setLoadingProgress('');
+      setIsSpotifyInitializing(false);
+      resolveParent(playerInstance);
+      return;
+    }
+    
     spotifyPlayerRef.current = playerInstance;
     window.spotifyPlayerInstance = playerInstance;
     attachSpotifyPlayerDebugLogging(playerInstance);
     let readyFired = false;
+    
     // Helper: fallback to Web API device activation if needed
     const activateDeviceIfReady = async (device_id) => {
       try {
@@ -316,12 +340,20 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
           body: JSON.stringify({ device_ids: [device_id], play: false })
         });
         console.log('[Spotify] Playback transferred to device via Web API:', device_id);
+        if (spotifyPlayerInitTimeoutRef.current) {
+          clearTimeout(spotifyPlayerInitTimeoutRef.current);
+          spotifyPlayerInitTimeoutRef.current = null;
+        }
         setSpotifyPlayerReadyDebug(true);
         setIsLoading(false);
         setLoadingProgress('');
         setIsSpotifyInitializing(false);
         resolveParent(playerInstance);
       } catch (err) {
+        if (spotifyPlayerInitTimeoutRef.current) {
+          clearTimeout(spotifyPlayerInitTimeoutRef.current);
+          spotifyPlayerInitTimeoutRef.current = null;
+        }
         setSpotifyPlayerReadyDebug(false);
         setIsSpotifyInitializing(false);
         setError('Spotify device kon niet geactiveerd worden: ' + err.message);
@@ -329,23 +361,26 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
         rejectParent(new Error('Failed to activate Spotify Web Playback device: ' + err.message));
       }
     };
+    
     const onReady = ({ device_id }) => {
       if (readyFired) return;
       readyFired = true;
+      if (spotifyPlayerInitTimeoutRef.current) {
+        clearTimeout(spotifyPlayerInitTimeoutRef.current);
+        spotifyPlayerInitTimeoutRef.current = null;
+      }
       console.log('[Spotify] Player ready event received. Device ID:', device_id, 'Current spotifyPlayerReady:', spotifyPlayerReady);
       setLoadingProgress('Spotify apparaat activeren...');
       activateDeviceIfReady(device_id);
-      // Fallback: after 2s, if spotifyPlayerReady is still false, force it
-      setTimeout(() => {
-        if (!spotifyPlayerReady) {
-          console.warn('[DEBUG] Forcing spotifyPlayerReady to true after fallback delay.');
-          setSpotifyPlayerReadyDebug(true);
-        }
-      }, 2000);
     };
+    
     const onNotReady = ({ device_id }) => {
       if (readyFired) return;
       readyFired = true;
+      if (spotifyPlayerInitTimeoutRef.current) {
+        clearTimeout(spotifyPlayerInitTimeoutRef.current);
+        spotifyPlayerInitTimeoutRef.current = null;
+      }
       console.warn('[Spotify] Player not_ready event. Device ID:', device_id);
       setSpotifyPlayerReadyDebug(false);
       setIsSpotifyInitializing(false);
@@ -353,9 +388,14 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       if (window.addNotification) window.addNotification('Spotify apparaat is niet klaar. Probeer opnieuw.', 'error', 8000);
       rejectParent(new Error(`Spotify device ID ${device_id} is not ready.`));
     };
+    
     const onInitializationError = ({ message }) => {
       if (readyFired) return;
       readyFired = true;
+      if (spotifyPlayerInitTimeoutRef.current) {
+        clearTimeout(spotifyPlayerInitTimeoutRef.current);
+        spotifyPlayerInitTimeoutRef.current = null;
+      }
       console.error('[Spotify] initialization_error event:', message);
       setError('Spotify initialisatie fout: ' + message);
       setIsLoading(false);
@@ -366,27 +406,58 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       if (window.addNotification) window.addNotification('Spotify initialisatie fout: ' + message, 'error', 8000);
       rejectParent(new Error('Spotify initialisatie fout: ' + message));
     };
-    playerInstance.addListener('ready', onReady);
+      playerInstance.addListener('ready', onReady);
     playerInstance.addListener('not_ready', onNotReady);
     playerInstance.addListener('initialization_error', onInitializationError);
-    // --- RACE CONDITION PATCH: fallback if ready event missed ---
-    if (playerInstance._options && playerInstance._options.id) {
-      if (typeof playerInstance.getCurrentState === 'function') {
-        playerInstance.getCurrentState().then(state => {
-          if (state && state.device_id) {
-            console.log('[Spotify] getCurrentState() found device, manually activating:', state.device_id);
-            onReady({ device_id: state.device_id });
-          } else {
-            console.log('[Spotify] getCurrentState() null, but device ID present, trying manual activation:', playerInstance._options.id);
+    
+    // CRITICAL FIX: Check immediately if device is already ready
+    setTimeout(() => {
+      // Check if the device is already ready by looking at global state
+      const globalDeviceId = window.spotifyDeviceId;
+      if (globalDeviceId && !readyFired) {
+        console.log('[Spotify] Device already ready globally, firing ready event:', globalDeviceId);
+        onReady({ device_id: globalDeviceId });
+        return;
+      }
+      
+      // Enhanced race condition patch - check multiple ways
+      if (!readyFired && playerInstance._options && playerInstance._options.id) {
+        console.log('[Spotify] Ready event may have been missed, attempting manual activation...');
+        if (typeof playerInstance.getCurrentState === 'function') {
+          playerInstance.getCurrentState().then(state => {
+            if (!readyFired) {
+              console.log('[Spotify] Manual check - forcing ready event with device ID:', playerInstance._options.id);
+              onReady({ device_id: playerInstance._options.id });
+            }
+          }).catch(() => {
+            if (!readyFired) {
+              console.log('[Spotify] Manual check failed, forcing ready event anyway');
+              onReady({ device_id: playerInstance._options.id });
+            }
+          });
+        } else {
+          if (!readyFired) {
             onReady({ device_id: playerInstance._options.id });
           }
-        }).catch(() => {
-          onReady({ device_id: playerInstance._options.id });
-        });
-      } else {
-        onReady({ device_id: playerInstance._options.id });
+        }
       }
-    }
+    }, 100); // Check very quickly first
+    
+    // Backup check after 3 seconds
+    setTimeout(() => {
+      if (!readyFired) {
+        // Try to get device ID from global state or Web API
+        const globalDeviceId = window.spotifyDeviceId;
+        if (globalDeviceId) {
+          console.log('[Spotify] Backup check - using global device ID:', globalDeviceId);
+          onReady({ device_id: globalDeviceId });
+        } else if (playerInstance._options && playerInstance._options.id) {
+          console.log('[Spotify] Backup check - using player options ID:', playerInstance._options.id);
+          onReady({ device_id: playerInstance._options.id });
+        }
+      }
+    }, 3000);
+    
     console.log('🎵 [Spotify] Player instance event listeners attached (robust production version).');
   }, [setError, setIsLoading, setLoadingProgress, setSpotifyPlayerReady, setIsSpotifyInitializing]);
 
@@ -407,7 +478,6 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
     console.log('[DEBUG] spotifyPlayerReady state changed:', spotifyPlayerReady);
     window.spotifyPlayerReady = spotifyPlayerReady;
   }, [spotifyPlayerReady]);
-
   // Core Spotify Initialization Logic
   // MODIFIED: Returns a new Promise, includes timeout
   const performSpotifyInitialization = useCallback(async () => {
@@ -454,32 +524,47 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       // Clear any existing timeout
       if (spotifyPlayerInitTimeoutRef.current) {
         clearTimeout(spotifyPlayerInitTimeoutRef.current);
+        spotifyPlayerInitTimeoutRef.current = null;
       }
 
+      // Timeout logic - increased from 20s to 30s
       spotifyPlayerInitTimeoutRef.current = setTimeout(() => {
-        console.warn('🎵 Spotify initialization timeout (20s) in performSpotifyInitialization. Player did not become ready.');
+        console.warn('🎵 Spotify initialization timeout (30s) in performSpotifyInitialization. Player did not become ready.');
+        spotifyPlayerInitTimeoutRef.current = null;
         if (isSpotifyInitializing) {
-            setIsSpotifyInitializing(false);
-            setIsLoading(false);
-            setLoadingProgress('');
-            setSpotifyPlayerReady(false);
-            setError('Spotify initialisatie timeout.');
+          setIsSpotifyInitializing(false);
+          setIsLoading(false);
+          setLoadingProgress('');
+          setSpotifyPlayerReady(false);
+          setError('Spotify initialisatie timeout. Controleer je internetverbinding en probeer opnieuw.');
         }
         spotifyInitPromiseRef.current = null; // Clear on error
-        reject(new Error('Spotify player initialization timed out.'));
-      }, 20000);
+        reject(new Error('Spotify player initialization timed out after 30 seconds.'));
+      }, 30000); // Increased timeout
 
       try {
         const player = await initializeSpotifyPlayer();
         _setupSpotifyPlayerInstance(player, (result) => {
+          if (spotifyPlayerInitTimeoutRef.current) {
+            clearTimeout(spotifyPlayerInitTimeoutRef.current);
+            spotifyPlayerInitTimeoutRef.current = null;
+          }
           spotifyInitPromiseRef.current = null; // Clear on success
           resolve(result);
         }, (err) => {
+          if (spotifyPlayerInitTimeoutRef.current) {
+            clearTimeout(spotifyPlayerInitTimeoutRef.current);
+            spotifyPlayerInitTimeoutRef.current = null;
+          }
           spotifyInitPromiseRef.current = null; // Clear on error
           handleSpotifyInitFailure(err);
           reject(err);
         });
       } catch (error) {
+        if (spotifyPlayerInitTimeoutRef.current) {
+          clearTimeout(spotifyPlayerInitTimeoutRef.current);
+          spotifyPlayerInitTimeoutRef.current = null;
+        }
         handleSpotifyInitFailure(error);
         reject(error);
       }
@@ -540,6 +625,9 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       return await performSpotifyInitialization();
     } catch (error) {
       console.error('🎵 Manual Spotify player initialization failed:', error.message);
+      if (window.addNotification) {
+        window.addNotification('❌ Spotify speler kon niet initialiseren. Controleer je netwerk, adblockers, of probeer opnieuw.', 'error', 12000);
+      }
       handleSpotifyInitFailure(error);
       throw error;
     }
