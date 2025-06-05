@@ -261,53 +261,63 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
   // --- BEGIN: MINIMAL SPOTIFY PLAYER INITIALIZATION ---
   // Simple Spotify player initialization - FIXED to prevent infinite loops
 // Add check at the start of Spotify initialization
+
+// Initialize only the selected provider's player
 useEffect(() => {
-  const initSpotify = async () => {
-    // CRITICAL: Don't do ANYTHING if not authenticated
-    if (!isSpotifyAuthenticated()) {
-      console.log('🎵 Not authenticated with Spotify - skipping initialization');
-      return;
-    }
-    
-    if (spotifyPlayerReady) {
-      console.log('🎵 Spotify player already ready - skipping initialization');
-      return;
-    }
-    
-    if (spotifyPlayerRef.current) {
-      console.log('🎵 Spotify player ref already exists - skipping initialization');
-      return;
-    }
-    
-    try {
-      console.log('🎵 Initializing Spotify player (one-time)...');
-      
-      const player = await initializeSpotifyPlayer();
-      spotifyPlayerRef.current = player;
-      
-      // Only set up listeners if we have a player
-      player.addListener('player_state_changed', (state) => {
-        if (!state) return;
-        
-        // Only update React state if we're the current source
-        if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
-          setIsPlaying(!state.paused);
+  const initializeSelectedProvider = async () => {
+    // Clear any existing players when switching providers
+    if (playlistProvider === 'spotify') {
+      // Clean up YouTube if it exists
+      if (youtubePlayerRef.current) {
+        try {
+          youtubePlayerRef.current.destroy();
+          youtubePlayerRef.current = null;
+        } catch (error) {
+          console.warn('Error cleaning up YouTube player:', error);
         }
-      });
+      }
       
-      setSpotifyPlayerReady(true);
-      console.log('🎵 Spotify player ready for use');
+      // Initialize Spotify only if authenticated
+      if (isSpotifyAuthenticated() && !spotifyPlayerReady && !spotifyPlayerRef.current) {
+        console.log('🎵 Initializing Spotify player for provider:', playlistProvider);
+        try {
+          const player = await initializeSpotifyPlayer();
+          spotifyPlayerRef.current = player;
+          
+          player.addListener('player_state_changed', (state) => {
+            if (!state) return;
+            if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
+              setIsPlaying(!state.paused);
+            }
+          });
+          
+          setSpotifyPlayerReady(true);
+          console.log('🎵 Spotify player ready for use');
+        } catch (error) {
+          console.error('Failed to initialize Spotify player:', error);
+          setError('Spotify player initialization failed');
+          setSpotifyPlayerReady(false);
+        }
+      }
+    } else if (playlistProvider === 'youtube') {
+      // Clean up Spotify if switching away
+      if (spotifyPlayerRef.current) {
+        try {
+          spotifyPlayerRef.current.disconnect();
+          spotifyPlayerRef.current = null;
+          setSpotifyPlayerReady(false);
+        } catch (error) {
+          console.warn('Error cleaning up Spotify player:', error);
+        }
+      }
       
-    } catch (error) {
-      console.error('Failed to initialize Spotify player:', error);
-      setError('Spotify player initialization failed');
-      setSpotifyPlayerReady(false);
+      // YouTube player is created on-demand in playPlaylist, no need to pre-initialize
+      console.log('🎵 YouTube provider selected - player will be created on demand');
     }
   };
 
-  initSpotify();
-}, []); // ← FIX: Empty dependency array - initialize only once on mount
-
+  initializeSelectedProvider();
+}, [playlistProvider]); // Only run when provider changes
   // Simple manual initialization
   const manualInitializeSpotifyPlayer = useCallback(async () => {
   console.log('🎵 Manual Spotify player initialization...');
@@ -814,103 +824,97 @@ useEffect(() => {
         console.log('🎵 Spotify playlist started successfully');
         
       } else {
-        // YouTube implementation
+        // YouTube implementation - SIMPLIFIED
+        console.log('🎵 Starting YouTube playlist');
+        
         await loadYouTubeAPI();
         console.log('🎵 YouTube API loaded successfully');
         
+        setLoadingProgress('YouTube speler maken...');
+        
+        // Create or reuse hidden player
         if (!youtubePlayerRef.current) {
-          console.log('🎵 Creating new enhanced hidden YouTube player for background audio with embedding bypass');
+          console.log('🎵 Creating hidden YouTube player');
           
-          // Use the enhanced hidden player function with improved bypass strategies
-          youtubePlayerRef.current = await createHiddenYouTubePlayer('youtube-hidden-player', playlistId, {
-          playerVars: {
-            autoplay: 1,
-            loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
-            shuffle: options.shuffle ? 1 : 0
-          },
-          onReady: (event) => {
-            const targetVolume = Math.round(volume * 100);
-            event.target.setVolume(targetVolume);
-            console.log('🔊 Set hidden YouTube volume on ready:', targetVolume);
-            setIsLoading(false);
-          },
-          onStateChange: (event) => {
-            if (event.data === window.YT.PlayerState.PLAYING) {
-              const targetVolume = Math.round(volume * 100);
-              event.target.setVolume(targetVolume);
-              setIsPlaying(true);
-              setIsLoading(false);
-              console.log('🎵 Hidden YouTube playlist now playing at volume:', targetVolume);
-            } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
-              setIsPlaying(false);
-            }
-          },            onEmbeddingError: (errorCode) => {
-            console.warn(`YouTube embedding restricted (${errorCode}) - implementing enhanced fallback strategies`);
-            
-            // Enhanced fallback for error 150 (embedding restrictions)
-            if (errorCode === 150 || errorCode === 101) {
-              console.log('Attempting enhanced stealth mode for embedding restriction bypass');
-              
-              // Strategy 1: Try to continue playing despite the error
-              setTimeout(() => {
-                try {
-                  if (youtubePlayerRef.current) {
-                    youtubePlayerRef.current.playVideo();
-                    console.log('Force-started playback after embedding error');
+          // Create truly hidden div
+          let hiddenDiv = document.getElementById('youtube-hidden-player');
+          if (!hiddenDiv) {
+            hiddenDiv = document.createElement('div');
+            hiddenDiv.id = 'youtube-hidden-player';
+            hiddenDiv.style.cssText = `
+              position: fixed !important;
+              top: -10000px !important;
+              left: -10000px !important;
+              width: 1px !important;
+              height: 1px !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+              visibility: hidden !important;
+              z-index: -9999 !important;
+            `;
+            document.body.appendChild(hiddenDiv);
+          }
+          
+          const player = await new Promise((resolve, reject) => {
+            const ytPlayer = new window.YT.Player('youtube-hidden-player', {
+              height: '1',
+              width: '1',
+              playerVars: {
+                listType: 'playlist',
+                list: playlistId,
+                autoplay: 1, // Enable autoplay for immediate start
+                controls: 0,
+                disablekb: 1,
+                enablejsapi: 1,
+                fs: 0,
+                modestbranding: 1,
+                playsinline: 1,
+                rel: 0,
+                showinfo: 0,
+              },
+              events: {
+                onReady: (event) => {
+                  console.log('🎵 YouTube player ready');
+                  resolve(event.target);
+                },
+                onStateChange: (event) => {
+                  if (currentSource === 'playlist' && currentPlaylistProvider === 'youtube') {
+                    const isPlaying = event.data === window.YT.PlayerState.PLAYING;
+                    setIsPlaying(isPlaying);
                   }
-                } catch (retryErr) {
-                  console.warn('Could not force-start after embedding error:', retryErr);
+                },
+                onError: (event) => {
+                  console.error('YouTube player error:', event.data);
+                  reject(new Error(`YouTube error: ${event.data}`));
                 }
-              }, 2000);
-              
-              // Strategy 2: Multiple retry attempts with delays
-              const retryDelays = [5000, 10000, 15000];
-              retryDelays.forEach((delay, index) => {
-                setTimeout(() => {
-                  try {
-                    if (youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
-                      youtubePlayerRef.current.playVideo();
-                      console.log(`Retry attempt ${index + 1} for embedding bypass`);
-                    }
-                  } catch (retryErr) {
-                    console.warn(`Retry ${index + 1} failed:`, retryErr);
-                  }
-                }, delay);
-              });
-                // Show user-friendly message but don't stop trying
-              if (window.addNotification) {
-                window.addNotification('🎵 Playlist wordt gestart met verbeterde bypass-modus...', 'info', 5000);
               }
-            }
-          },
-          onError: (event) => {
-            console.error('Hidden YouTube player error:', event);
-            // Only show error for truly fatal errors
-            if (event.data > 150) {
-              setError('Kon YouTube playlist niet laden - probeer een andere playlist');
-              setIsLoading(false);
-              setIsTransitioning(false);
-            }
-          }          });
+            });
+          });
+          
+          youtubePlayerRef.current = player;
         } else {
-          // Use existing player but with enhanced error handling for embedding restrictions
-          youtubePlayerRef.current.setVolume(0);
+          // Reuse existing player
+          console.log('🎵 Reusing existing YouTube player');
           youtubePlayerRef.current.loadPlaylist({
             listType: 'playlist',
             list: playlistId,
-            shuffle: options.shuffle ? 1 : 0
+            index: 0
           });
-          
-          setTimeout(() => {
-            if (youtubePlayerRef.current && youtubePlayerRef.current.setVolume) {
-              const targetVolume = Math.round(volume * 100);
-              youtubePlayerRef.current.setVolume(targetVolume);
-            }
-            setIsLoading(false);
-          }, 500);
+        }
+        
+        // Set volume and shuffle
+        if (youtubePlayerRef.current.setVolume) {
+          youtubePlayerRef.current.setVolume(Math.round(volume * 100));
+        }
+        
+        if (options.shuffle && youtubePlayerRef.current.setShuffle) {
+          youtubePlayerRef.current.setShuffle(true);
         }
         
         setCurrentPlaylistProvider('youtube');
+        setIsPlaying(true);
+        setIsLoading(false);
+        console.log('🎵 YouTube playlist started successfully');
       }
       
       setIsPlaying(true);

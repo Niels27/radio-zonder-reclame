@@ -70,14 +70,25 @@ function App() {
     window.playlistShuffle = adBreakTimer.playlistShuffle;
     window.shouldPlayPlaylistDuringAdBreak = adBreakTimer.shouldPlayPlaylistDuringAdBreak;
     
-    // ✅ FIX: Expose audioPlayer for Spotify initialization and ensure spotifyPlayerReady is updated
+    // Better audioPlayer exposure with provider separation
     window.audioPlayer = {
       ...audioPlayer,
-      initializeSpotifyPlayer: audioPlayer.manualInitializeSpotifyPlayer
+      initializeSpotifyPlayer: audioPlayer.manualInitializeSpotifyPlayer,
+      // Add provider-specific ready states
+      isSpotifyReady: audioPlayer.spotifyPlayerReady,
+      isYouTubeReady: !!audioPlayer.youtubePlayerRef?.current,
+      currentProvider: playlistProvider
     };
 
-    // Debug logging for state synchronization
-    console.log('🔄 Updating window.audioPlayer with spotifyPlayerReady:', audioPlayer.spotifyPlayerReady);
+    // Force UI updates when Spotify becomes ready
+    if (audioPlayer.spotifyPlayerReady) {
+      // Trigger any UI components that might be waiting
+      window.dispatchEvent(new CustomEvent('spotifyReady', { 
+        detail: { ready: true, provider: playlistProvider } 
+      }));
+    }
+
+    console.log('🔄 Global state updated - Spotify ready:', audioPlayer.spotifyPlayerReady, 'Provider:', playlistProvider);
   }, [
     adBreakTimer.isAdBreakActive, 
     adBreakTimer.queueStationSwitch, 
@@ -86,7 +97,8 @@ function App() {
     adBreakTimer.playlistShuffle, 
     adBreakTimer.shouldPlayPlaylistDuringAdBreak, 
     audioPlayer,
-    audioPlayer.spotifyPlayerReady // ✅ FIX: Add specific dependency for spotifyPlayerReady
+    audioPlayer.spotifyPlayerReady,
+    playlistProvider // Add provider to dependencies
   ]);
 
   const handleStationSelect = (station) => {

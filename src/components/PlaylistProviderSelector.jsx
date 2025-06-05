@@ -36,6 +36,7 @@ const PlaylistProviderSelector = ({
   const [spotifyMode, setSpotifyMode] = useState('eigen'); // 'eigen' or 'openbare'
   // Add local state to force re-render when Spotify player state changes
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // New loading state
   
   const dropdownRef = useRef(null);
   const playlistDropdownRef = useRef(null);
@@ -59,6 +60,36 @@ const PlaylistProviderSelector = ({
       }
     };
   }, [selectedProvider, spotifyPlayerReady]);
+
+  // FIXED: Force UI update when Spotify becomes ready
+  useEffect(() => {
+    // Force re-render when Spotify player becomes ready
+    if (selectedProvider === 'spotify' && window.audioPlayer?.spotifyPlayerReady) {
+      console.log('🔄 Spotify player ready state changed:', window.audioPlayer.spotifyPlayerReady);
+      
+      // Force component to re-render by updating a dummy state
+      setIsLoading(false);
+      
+      // If we were stuck loading, clear it
+      if (isValidating) {
+        setIsValidating(false);
+      }
+    }
+  }, [selectedProvider, window.audioPlayer?.spotifyPlayerReady]);
+
+  // Add this effect to watch for global Spotify ready state
+  useEffect(() => {
+    const checkSpotifyReady = () => {
+      if (selectedProvider === 'spotify' && window.audioPlayer?.spotifyPlayerReady && isValidating) {
+        console.log('🎵 Spotify ready detected - updating UI');
+        setIsValidating(false);
+        setIsLoading(false);
+      }
+    };
+    
+    const interval = setInterval(checkSpotifyReady, 1000);
+    return () => clearInterval(interval);
+  }, [selectedProvider, isValidating]);
 
   const providers = [
     {
