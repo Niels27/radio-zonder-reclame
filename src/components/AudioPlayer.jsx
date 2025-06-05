@@ -66,16 +66,16 @@ const AudioPlayer = ({
     if (newVolume === 0 && !isMuted) {
       setIsMuted(true);
     }
-    
+
     // Trigger volume change animation
     setIsVolumeChanging(true);
     setShowVolumeTooltip(true);
-    
+
     // Clear existing timeout
     if (volumeTimeoutRef.current) {
       clearTimeout(volumeTimeoutRef.current);
     }
-    
+
     // Reset animation and hide tooltip after delay
     volumeTimeoutRef.current = setTimeout(() => {
       setIsVolumeChanging(false);
@@ -127,22 +127,22 @@ const AudioPlayer = ({
     if (isMuted || volume === 0) {
       return (
         <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" opacity="0.3"/>
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" opacity="0.3" />
           {/* Strike through line */}
-          <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2"/>
+          <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" />
         </svg>
       );
     } else if (volume < 0.5) {
       return (
         <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
         </svg>
       );
     } else {
       return (
         <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
         </svg>
       );
     }
@@ -168,7 +168,7 @@ const AudioPlayer = ({
           {/* Play/Pause Button */}
           <button
             onClick={onTogglePlayPause}
-            disabled={!currentStation && !isAdBreakActive}
+            disabled={!currentStation && !isAdBreakActive && currentSource !== 'playlist'} // Allow if playlist is playing
             className="w-12 h-12 rounded-full bg-radio-accent hover:bg-radio-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
             title="Druk op spatiebalk om af te spelen/pauzeren"
           >
@@ -234,7 +234,7 @@ const AudioPlayer = ({
                     <div className="flex items-center space-x-2 mt-1">
                       <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                         </svg>
                         <span>Volgende: {queuedStation.name}</span>
                       </span>
@@ -313,7 +313,7 @@ const AudioPlayer = ({
               >
                 {getVolumeIcon()}
               </button>
-              
+
               <div className="relative">
                 <input
                   type="range"
@@ -330,7 +330,7 @@ const AudioPlayer = ({
                     '--volume-percent': `${getVolumePercent()}%`
                   }}
                 />
-                
+
                 {/* Volume Tooltip */}
                 <div className={`volume-tooltip ${showVolumeTooltip ? 'opacity-100' : 'opacity-0'}`}>
                   {getVolumePercent()}%
@@ -345,7 +345,7 @@ const AudioPlayer = ({
               <span>{error}</span>
               {/* Show report button for any radio connection errors */}
               {currentStation && currentSource === 'radio' && (
-                <ReportStationButton 
+                <ReportStationButton
                   currentStation={currentStation}  // ← FIX: Changed from 'station'
                   error={error}                     // ← FIX: Changed from 'errorDetails' object to just the error string
                   onReported={(result) => {

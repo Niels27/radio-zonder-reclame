@@ -192,6 +192,29 @@ function App() {
     return () => clearInterval(interval);
   }, [audioPlayer.isPlaying, audioPlayer.currentStation]);
 
+  // Add this after your other useEffects
+  useEffect(() => {
+    // Global error handler to suppress CloudPlaybackClientError spam
+    const originalError = window.console.error;
+    window.console.error = (...args) => {
+      const message = args.join(' ');
+      
+      // Suppress CloudPlaybackClientError 404s from Spotify SDK
+      if (message.includes('CloudPlaybackClientError') && message.includes('404')) {
+        console.warn('🎵 Suppressed CloudPlaybackClientError 404 (normal Spotify operation)');
+        return;
+      }
+      
+      // Allow all other errors through
+      originalError.apply(console, args);
+    };
+    
+    // Cleanup on unmount
+    return () => {
+      window.console.error = originalError;
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">
