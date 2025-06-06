@@ -18,26 +18,13 @@ import { StreamProxy } from '../utils/streamProxy';
 import { AdSkipUtils } from '../utils/adSkipUtils';
 import { stationReportingService } from '../utils/stationReporting';
 import {
-  loadYouTubeAPI,
-  createHiddenYouTubePlayer,
+
+
   extractPlaylistId,
-  createThirdPartyPlayer  // ← Fixed import
+  // ← Fixed import
 } from '../utils/youtubeUtils';
 import { AudioOnlyPlayer } from '../utils/audioOnlyPlayer';
-
-// --- SPOTIFY PLAYER FULL EVENT LOGGER ---
-function attachSpotifyPlayerDebugLogging(playerInstance) {
-  const logEvent = (event, data) => {
-    console.log(`[Spotify SDK] Event: ${event}`, data);
-  };
-  playerInstance.addListener('ready', d => logEvent('ready', d));
-  playerInstance.addListener('not_ready', d => logEvent('not_ready', d));
-  playerInstance.addListener('initialization_error', d => logEvent('initialization_error', d));
-  playerInstance.addListener('authentication_error', d => logEvent('authentication_error', d));
-  playerInstance.addListener('account_error', d => logEvent('account_error', d));
-  playerInstance.addListener('playback_error', d => logEvent('playback_error', d));
-  playerInstance.addListener('player_state_changed', d => logEvent('player_state_changed', d));
-}
+import { popupYouTubePlayer } from '../utils/popupYouTubePlayer';
 
 // --- BEGIN: ROBUST SPOTIFY PLAYER INITIALIZATION ---
 // (Removed duplicate _setupSpotifyPlayerInstance definition. The correct definition is further down in the file.)
@@ -72,62 +59,7 @@ const handleSpotifyProductionErrors = (error) => {
 
   return error;
 };
-// Add this function to test if third-party players are actually working:
-const testThirdPartyPlayerAudio = async (player, timeout = 5000) => {
-  return new Promise((resolve) => {
-    console.log('🎵 Testing third-party player for actual audio...');
 
-    let audioDetected = false;
-
-    // Try to detect audio using Web Audio API
-    if (window.AudioContext || window.webkitAudioContext) {
-      try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        // Create an analyser to detect audio activity
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        // Check for audio activity
-        const checkAudio = () => {
-          analyser.getByteFrequencyData(dataArray);
-
-          // Check if there's any significant audio activity
-          const hasAudio = dataArray.some(value => value > 10);
-
-          if (hasAudio && !audioDetected) {
-            audioDetected = true;
-            console.log('🎵 ✅ Audio activity detected in third-party player!');
-            resolve(true);
-          }
-        };
-
-        // Check every 500ms
-        const audioCheckInterval = setInterval(checkAudio, 500);
-
-        // Timeout after specified time
-        setTimeout(() => {
-          clearInterval(audioCheckInterval);
-          if (!audioDetected) {
-            console.log('🎵 ❌ No audio activity detected in third-party player');
-            resolve(false);
-          }
-        }, timeout);
-
-      } catch (error) {
-        console.warn('Could not create audio context for detection:', error);
-        // Fallback to time-based check
-        setTimeout(() => resolve(true), 2000);
-      }
-    } else {
-      // Fallback for browsers without Web Audio API
-      console.log('🎵 No Web Audio API - using time-based check');
-      setTimeout(() => resolve(true), 2000);
-    }
-  });
-};
 export const useAudioPlayer = (playlistProvider = 'youtube') => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -397,6 +329,7 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
   }, [playlistProvider]);
   // Only run when provider changes
   // Simple manual initialization
+  // Update the manual Spotify initialization to give better feedback:
   const manualInitializeSpotifyPlayer = useCallback(async () => {
     console.log('🎵 Manual Spotify player initialization...');
 
@@ -412,6 +345,25 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
 
     try {
       console.log('🎵 Starting manual Spotify player creation...');
+
+      // Check AudioContext state first
+      if (window.__spotifyAudioContext && window.__spotifyAudioContext.state === 'suspended') {
+        console.log('⚠️ AudioContext still suspended - waiting for user interaction');
+        setLoadingProgress('Klik ergens om Spotify te activeren...');
+
+        // Wait for AudioContext to resume (with timeout)
+        let attempts = 0;
+        while (window.__spotifyAudioContext.state === 'suspended' && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          attempts++;
+        }
+
+        if (window.__spotifyAudioContext.state === 'suspended') {
+          throw new Error('AudioContext kon niet worden geactiveerd. Klik ergens en probeer opnieuw.');
+        }
+      }
+
+      setLoadingProgress('Spotify Web Player laden...');
       const player = await initializeSpotifyPlayer();
 
       // Only update ref and state if we don't already have them
@@ -431,6 +383,7 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
         });
 
         setSpotifyPlayerReady(true);
+        setLoadingProgress(''); // Clear loading message
         console.log('🎵 Manual Spotify initialization complete');
       }
 
@@ -439,9 +392,10 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       console.error('🎵 Manual Spotify initialization failed:', error);
       setError('Kon Spotify player niet initialiseren: ' + error.message);
       setSpotifyPlayerReady(false);
+      setLoadingProgress(''); // Clear loading message
       throw error;
     }
-  }, [currentSource, currentPlaylistProvider]); // ← REMOVE: spotifyPlayerReady from dependencies
+  }, [currentSource, currentPlaylistProvider]);// ← REMOVE: spotifyPlayerReady from dependencies
 
   // --- END: SPOTIFY PLAYER INITIALIZATION LOGIC ---
 
@@ -847,28 +801,15 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       setIsTransitioning(false);
     }
   }, [currentSource, currentStation, isTransitioning]); const playPlaylist = useCallback(async (playlistId, options = {}) => {
-    if (!playlistId) {
-      console.error('🎵 playPlaylist called without playlistId');
-      return;
-    }
-
     const provider = options.provider || currentPlaylistProvider;
-
     console.log('🎵 Starting playlist:', playlistId, 'Provider:', provider);
 
     setIsTransitioning(true);
     setIsLoading(true);
     setError(null);
     setCurrentSource('playlist');
-    setIsPlaying(false);
 
     try {
-      // Pause radio cleanly if playing
-      if (audioRef.current && !audioRef.current.paused) {
-        pauseRadioForAdBreak();
-        await new Promise(resolve => setTimeout(resolve, 400));
-      }
-
       if (provider === 'spotify') {
         console.log('🎵 Starting Spotify playlist');
 
@@ -907,302 +848,44 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
         console.log('🎵 Spotify playlist started successfully');
 
       } else {
-        // YouTube implementation - FIXED to properly clear loading states
-        console.log('🎵 Starting YouTube playlist');
+        // NEW: YouTube popup approach
+        console.log('🎵 Opening YouTube playlist in popup');
 
-        await loadYouTubeAPI();
-        console.log('🎵 YouTube API loaded successfully');
+        setLoadingProgress('Opening YouTube player...');
 
-        setLoadingProgress('YouTube speler maken...');
+        const success = await popupYouTubePlayer.playPlaylist(playlistId, options);
 
-        // Safety timeout to prevent infinite loading
-        const loadingTimeout = setTimeout(() => {
-          console.warn('🎵 YouTube loading timeout - forcing clear of loading states');
-          setIsLoading(false);
-          setIsTransitioning(false);
-          if (youtubePlayerRef.current) {
-            setIsPlaying(true);
-          }
-        }, 10000); // Clear after 10 seconds maximum
+        if (success) {
+          youtubePlayerRef.current = popupYouTubePlayer;
+          setCurrentPlaylistProvider('youtube');
+          setIsPlaying(true);
 
-        if (!youtubePlayerRef.current) {
-          console.log('🎵 Trying ALL YouTube strategies with complete fallback chain...');
-
-          let playerCreated = false;
-          let currentStrategy = 1;
-
-          // STRATEGY 1: Enhanced YouTube Player
-          // Replace the entire tryStrategy1 section with this corrected version:
-          const tryStrategy1 = async () => {
-            console.log('🎵 🟡 STRATEGY 1: Enhanced YouTube Player');
-
-            try {
-              youtubePlayerRef.current = await createHiddenYouTubePlayer('youtube-hidden-player', playlistId, {
-                shuffle: options.shuffle ? 1 : 0,
-                onReady: (event) => {
-                  if (!playerCreated && currentStrategy === 1) {
-                    console.log('🎵 ✅ STRATEGY 1 SUCCESS');
-                    playerCreated = true;
-                    setIsLoading(false);
-                    setIsTransitioning(false);
-                    setIsPlaying(true);
-                  }
-                },
-                onStateChange: (event) => {
-                  if (event.data === window.YT.PlayerState.PLAYING && !playerCreated && currentStrategy === 1) {
-                    console.log('🎵 ✅ STRATEGY 1 SUCCESS - Video Playing');
-                    playerCreated = true;
-                    setIsPlaying(true);
-                    setIsLoading(false);
-                    setIsTransitioning(false);
-                  }
-                },
-                onAllSkipsFailed: () => {
-                  console.log('🎵 ❌ STRATEGY 1 FAILED - Starting Strategy 1.5');
-                  currentStrategy = 1.5;
-
-                  // Clean up failed player
-                  if (youtubePlayerRef.current) {
-                    try {
-                      youtubePlayerRef.current.stopVideo();
-                      youtubePlayerRef.current.destroy();
-                      console.log('🎵 Destroyed failed YouTube player');
-                    } catch (e) {
-                      console.warn('Could not destroy failed YouTube player:', e);
-                    }
-                    youtubePlayerRef.current = null;
-                  }
-
-                  const existingPlayer = document.getElementById('youtube-hidden-player');
-                  if (existingPlayer) {
-                    existingPlayer.remove();
-                    console.log('🎵 Removed existing player element');
-                  }
-
-                  setTimeout(tryStrategy1_5, 1000);
-                },
-                onError: (event) => {
-                  console.log('🎵 Strategy 1 error:', event.data);
-                }
-              });
-
-            } catch (error) {
-              console.log('🎵 ❌ STRATEGY 1 FAILED - Exception:', error);
-              currentStrategy = 1.5;
-              setTimeout(tryStrategy1_5, 1000);
-            }
-          };
-
-          // Add the tryStrategy1_5 function:
-          const tryStrategy1_5 = async () => {
-            console.log('🎵 🟡 STRATEGY 1.5: Alternative YouTube Approach');
-
-            try {
-              const { createAlternativeYouTubePlayer } = await import('../utils/youtubeUtils');
-              const altPlayer = await createAlternativeYouTubePlayer('youtube-hidden-player', playlistId, options);
-
-              if (altPlayer && !playerCreated) {
-                youtubePlayerRef.current = altPlayer;
-                console.log('🎵 ❌ STRATEGY 1.5 - Assuming it DOESN work');
-
-                // Clean up since we assume it doesn't work
-                if (altPlayer.destroy) {
-                  altPlayer.destroy();
-                }
-                youtubePlayerRef.current = null;
-
-                throw new Error('Alternative YouTube assumed to fail');
-              }
-            } catch (error) {
-              console.log('🎵 ❌ STRATEGY 1.5 FAILED:', error.message);
-            }
-
-            currentStrategy = 2;
-            setTimeout(tryStrategy2, 1000);
-          };
-
-          // STRATEGY 2: Third-Party Players
-          // Replace the tryStrategy2 function with this corrected version:
-          const tryStrategy2 = async () => {
-            console.log('🎵 🟡 STRATEGY 2: Third-Party Players');
-            
-            try {
-              const thirdPartyPlayer = await createThirdPartyPlayer('youtube-hidden-player', playlistId, options);
-              
-              if (thirdPartyPlayer && !playerCreated) {
-                console.log('🎵 ❌ Third-party player created but we assume it DOESN\'T work');
-                
-                // Clean up the "working" player since we don't trust it
-                if (thirdPartyPlayer.destroy) {
-                  thirdPartyPlayer.destroy();
-                }
-                
-                throw new Error('Third-party players assumed to fail - move to next strategy');
-              }
-            } catch (thirdPartyError) {
-              console.log('🎵 ❌ STRATEGY 2 FAILED:', thirdPartyError.message);
-            }
-            
-            console.log('🎵 🔄 Moving to Strategy 3...');
-            currentStrategy = 3;
-            setTimeout(tryStrategy3, 1000);
-          };
-
-          // CRITICAL: Make sure tryStrategy3 is actually defined and working:
-          const tryStrategy3 = async () => {
-            console.log('🎵 🟡 STRATEGY 3: Audio-Only Player');
-            console.log('🎵 🔍 Attempting to import AudioOnlyPlayer...');
-            
-            try {
-              const { AudioOnlyPlayer } = await import('../utils/audioOnlyPlayer');
-              console.log('🎵 ✅ AudioOnlyPlayer imported successfully');
-              
-              const audioPlayer = new AudioOnlyPlayer();
-              console.log('🎵 🔍 Created AudioOnlyPlayer instance, calling playPlaylist...');
-              
-              const audioSuccess = await audioPlayer.playPlaylist(playlistId, options);
-              console.log('🎵 📋 AudioOnlyPlayer playPlaylist result:', audioSuccess);
-              
-              if (audioSuccess && !playerCreated) {
-                youtubePlayerRef.current = audioPlayer;
-                console.log('🎵 ✅ STRATEGY 3 SUCCESS - Audio-only player');
-                playerCreated = true;
-                setIsPlaying(true);
-                setIsLoading(false);
-                setIsTransitioning(false);
-                return;
-              } else {
-                console.log('🎵 ❌ AudioOnlyPlayer returned false or player already created');
-                throw new Error('Audio-only player did not work');
-              }
-            } catch (audioError) {
-              console.log('🎵 ❌ STRATEGY 3 FAILED:', audioError);
-              console.log('🎵 📊 Error details:', audioError.message, audioError.stack);
-            }
-            
-            console.log('🎵 🔄 Moving to Strategy 4...');
-            currentStrategy = 4;
-            setTimeout(tryStrategy4, 1000);
-          };
-
-          // STRATEGY 4: Direct Video Fallback
-          const tryStrategy4 = async () => {
-            console.log('🎵 🟡 STRATEGY 4: Direct Video Fallback');
-
-            try {
-              // Create a simple player with a known working video
-              const knownWorkingVideo = 'dQw4w9WgXcQ'; // Rick Roll - rarely restricted
-
-              const directPlayer = new window.YT.Player('youtube-hidden-player', {
-                height: '30',
-                width: '50',
-                videoId: knownWorkingVideo,
-                playerVars: {
-                  autoplay: 1,
-                  controls: 0,
-                  loop: 1,
-                  playlist: knownWorkingVideo
-                },
-                events: {
-                  onReady: (event) => {
-                    if (!playerCreated) {
-                      console.log('🎵 ✅ STRATEGY 4 SUCCESS - Direct video');
-                      youtubePlayerRef.current = event.target;
-                      playerCreated = true;
-                      setIsPlaying(true);
-                      setIsLoading(false);
-                      setIsTransitioning(false);
-
-                      if (window.addNotification) {
-                        window.addNotification('🎵 Fallback muziek - originele playlist werkte niet', 'warning', 5000);
-                      }
-                    }
-                  },
-                  onStateChange: (event) => {
-                    if (event.data === window.YT.PlayerState.PLAYING && !playerCreated) {
-                      console.log('🎵 ✅ STRATEGY 4 SUCCESS - Direct video playing');
-                      youtubePlayerRef.current = event.target;
-                      playerCreated = true;
-                      setIsPlaying(true);
-                      setIsLoading(false);
-                      setIsTransitioning(false);
-                    }
-                  },
-                  onError: (event) => {
-                    console.log('🎵 ❌ STRATEGY 4 FAILED - Even direct video failed:', event.data);
-                    setTimeout(allStrategiesFailed, 1000);
-                  }
-                }
-              });
-
-            } catch (error) {
-              console.log('🎵 ❌ STRATEGY 4 FAILED - Exception:', error);
-              setTimeout(allStrategiesFailed, 1000);
-            }
-          };
-
-          // ALL STRATEGIES FAILED
-          const allStrategiesFailed = () => {
-            console.error('🎵 ❌ ALL 4 STRATEGIES FAILED');
-            setError('Kon geen YouTube content afspelen - alle methoden gefaald');
-            setIsLoading(false);
-            setIsTransitioning(false);
-
-            if (window.addNotification) {
-              window.addNotification('❌ Alle YouTube methoden gefaald - probeer Spotify', 'error', 8000);
-            }
-          };
-
-          // Start with Strategy 1
-          tryStrategy1();
-
-        } else {
-          // WORKING reuse logic - also needs loading state fixes
-          console.log('🎵 Reusing existing YouTube player');
-
-          // Set volume to 0, load playlist, then restore volume
-          youtubePlayerRef.current.setVolume(0);
-          youtubePlayerRef.current.loadPlaylist({
-            listType: 'playlist',
-            list: playlistId,
-            index: 0,
-            shuffle: options.shuffle ? 1 : 0
+          // Set callback for when popup closes
+          popupYouTubePlayer.onClose(() => {
+            console.log('🎵 YouTube popup closed');
+            setIsPlaying(false);
+            setCurrentSource(null);
           });
 
-          setTimeout(() => {
-            if (youtubePlayerRef.current && youtubePlayerRef.current.setVolume) {
-              const targetVolume = Math.round(volume * 100);
-              youtubePlayerRef.current.setVolume(targetVolume);
-              console.log('🔊 Set YouTube volume on reuse:', targetVolume);
-            }
-
-            // CRITICAL: Clear loading states for reused player too
-            setIsLoading(false);
-            setIsTransitioning(false);
-            setIsPlaying(true);
-
-            console.log('✅ YouTube reuse complete - loading overlay cleared');
-            clearTimeout(loadingTimeout); // ← ADD THIS LINE
-          }, 1000);
+          console.log('🎵 ✅ YouTube popup opened successfully');
+        } else {
+          throw new Error('Could not open YouTube popup');
         }
-
-        setCurrentPlaylistProvider('youtube');
-        console.log('🎵 YouTube playlist started successfully');
       }
 
-      setIsPlaying(true);
     } catch (error) {
       console.error('Failed to load playlist:', error);
 
-      // Handle production-specific Spotify errors
-      handleSpotifyProductionErrors(error);
+      if (error.message.includes('Popup blocked')) {
+        setError('❌ Popup geblokkeerd. Sta popups toe voor deze site om YouTube playlists af te spelen.');
+      } else {
+        const errorMessage = provider === 'spotify'
+          ? `Kon Spotify playlist niet laden: ${error.message}`
+          : `Kon YouTube playlist niet laden: ${error.message}`;
+        setError(errorMessage);
+      }
 
-      const errorMessage = provider === 'spotify'
-        ? `Kon Spotify playlist niet laden: ${error.message}`
-        : 'Kon YouTube playlist niet laden';
-      setError(errorMessage);
       setIsPlaying(false);
-      // Reset source if playlist fails
       setCurrentSource(null);
     } finally {
       setIsLoading(false);
@@ -1253,42 +936,15 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
           pauseSpotify();
         });
       } else if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
-        youtubePlayerRef.current.pauseVideo();
+        youtubePlayerRef.current.closePopup(); // Close popup = pause
       }
     }
     setIsPlaying(false);
   }, [currentSource, currentPlaylistProvider]);
 
   const resumeAudio = useCallback(() => {
-    // Check if ad break is active and force playlist if needed
-    if (window.isAdBreakActive && window.playlistUrl) {
-      console.log('🎵 Resume tijdens ad break - zorgen dat playlist afspeelt');
-
-      const playlistId = extractPlaylistId(window.playlistUrl, playlistProvider);
-      if (playlistId && (!youtubePlayerRef.current || currentSource !== 'playlist')) {
-        // Playlist not loaded or not current source - start it
-        try {
-          playPlaylist(playlistId, {
-            shuffle: window.playlistShuffle || false,
-            repeat: 'all',
-            provider: playlistProvider
-          });
-
-          if (window.addNotification) {
-            window.addNotification('🎵 Playlist gestart tijdens reclamepauze', 'info', 2000);
-          }
-          return;
-        } catch (error) {
-          console.error('Failed to start playlist tijdens resume:', error);
-        }
-      }
-    }
-
-    // Normal resume logic
     if (currentSource === 'radio' && audioRef.current) {
-      audioRef.current.play().catch(() => {
-        setError('Failed to resume radio');
-      });
+      audioRef.current.play();
     } else if (currentSource === 'playlist') {
       if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
         // Use the SDK method directly instead of the utility function
@@ -1300,7 +956,7 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
           resumeSpotify();
         });
       } else if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
-        youtubePlayerRef.current.playVideo();
+        youtubePlayerRef.current.resume(); // Reopen popup = resume
       }
     }
     setIsPlaying(true);
@@ -1396,47 +1052,90 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
     }
   }, [playlistProvider, manualInitializeSpotifyPlayer]);
 
-  // --- BEGIN: GLOBAL USER INTERACTION HANDLER FOR SPOTIFY AUTOPLAY ---
+  // --- BEGIN: IMPROVED SPOTIFY AUDIOCONTEXT HANDLING ---
   useEffect(() => {
     let audioContext;
     let userInteracted = false;
     let handler;
+
+    // Create AudioContext
     try {
       audioContext = window.AudioContext ? new window.AudioContext() : (window.webkitAudioContext ? new window.webkitAudioContext() : null);
     } catch (e) {
       audioContext = null;
     }
+
     window.__spotifyAudioContext = audioContext;
+
+    // Check initial state
+    if (audioContext) {
+      console.log('[Spotify] Initial AudioContext state:', audioContext.state);
+
+      // If suspended, show user that interaction is needed
+      if (audioContext.state === 'suspended' && playlistProvider === 'spotify') {
+        console.log('🔧 AudioContext suspended - user interaction required for Spotify');
+
+        // Update loading message to be more specific
+        if (isSpotifyAuthenticated() && !spotifyPlayerReady) {
+          setLoadingProgress('Klik ergens om Spotify te activeren...');
+        }
+      }
+    }
+
     handler = async () => {
       if (userInteracted) return;
       userInteracted = true;
+
+      console.log('👆 User interaction detected');
+
       if (audioContext && audioContext.state === 'suspended') {
         try {
           await audioContext.resume();
-          console.log('[Spotify] AudioContext resumed after user interaction.');
+          console.log('✅ AudioContext resumed after user interaction');
+
+          // Clear the loading message once AudioContext is active
+          if (playlistProvider === 'spotify') {
+            setLoadingProgress('Spotify player laden...');
+          }
         } catch (e) {
           console.warn('[Spotify] Could not resume AudioContext:', e);
         }
       }
+
       // Try to connect the Spotify player if not already connected
       if (spotifyPlayerRef.current && typeof spotifyPlayerRef.current.connect === 'function') {
         try {
           await spotifyPlayerRef.current.connect();
-          console.log('[Spotify] Player connect() called after user interaction.');
+          console.log('✅ Spotify player connected after user interaction');
         } catch (e) {
           console.warn('[Spotify] Could not connect Spotify player after user interaction:', e);
         }
       }
-    };
-    document.addEventListener('click', handler, { once: true });
-    document.addEventListener('keydown', handler, { once: true });
-    return () => {
-      document.removeEventListener('click', handler);
-      document.removeEventListener('keydown', handler);
-    };
-  }, []);
 
-  // --- END: GLOBAL USER INTERACTION HANDLER ---
+      // If Spotify is selected and authenticated but not ready, try manual init
+      if (playlistProvider === 'spotify' && isSpotifyAuthenticated() && !spotifyPlayerReady) {
+        console.log('🔄 Triggering Spotify initialization after user interaction');
+        try {
+          await manualInitializeSpotifyPlayer();
+        } catch (error) {
+          console.error('Failed to initialize Spotify after user interaction:', error);
+        }
+      }
+    };
+
+    // Listen for multiple types of user interaction
+    const events = ['click', 'keydown', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, handler, { once: true, passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handler);
+      });
+    };
+  }, [playlistProvider, manualInitializeSpotifyPlayer]); // Add dependencies
+  // --- END: IMPROVED SPOTIFY AUDIOCONTEXT HANDLING ---
 
   // --- BEGIN: EXPOSE AUDIOCONTEXT STATE FOR DIAGNOSTICS ---
   useEffect(() => {
