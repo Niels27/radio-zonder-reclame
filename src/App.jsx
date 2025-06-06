@@ -381,51 +381,50 @@ function App() {
         {/* User Guide */}
         <UserGuide />
 
-        {/* Notification System */}
-        <NotificationSystem />
+        /* Notification System */
+          <NotificationSystem />
 
-        {/* Loading Overlay - Prevent clicks during transitions */}
-        {(audioPlayer.isTransitioning || audioPlayer.isLoading) && !audioPlayer.error && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-lg p-8 max-w-sm mx-4 text-center">
-              <div className="flex flex-col items-center gap-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {audioPlayer.isTransitioning ? 'Audio wisselen...' : 'Verbinding maken...'}
-                  </h3>
-                  <p className="text-gray-400 text-sm">
-                    {audioPlayer.isTransitioning 
-                      ? 'Even geduld, de overgang wordt voorbereid' 
-                      : audioPlayer.currentStation 
-                        ? `Verbinding maken met ${audioPlayer.currentStation.name}`
-                        : 'Bezig met laden...'
-                    }
-                  </p>
-                  {audioPlayer.connectionTimeout && (
-                    <p className="text-orange-400 text-sm mt-2">
-                      {audioPlayer.connectionTimeout}
-                    </p>
-                  )}
+          {/* Loading Status - Non-intrusive bottom-right indicator */}
+          {(audioPlayer.isTransitioning || audioPlayer.isLoading) && !audioPlayer.error && (
+            <div className="fixed bottom-20 right-4 bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-lg z-40 max-w-xs">
+              <div className="flex items-center gap-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 flex-shrink-0"></div>
+                <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">
+              {audioPlayer.isTransitioning ? 'Audio wisselen...' : 'Verbinding maken...'}
+            </p>
+            <p className="text-xs text-gray-400 truncate">
+              {audioPlayer.isTransitioning 
+                ? 'Overgang wordt voorbereid' 
+                : audioPlayer.currentStation 
+                  ? audioPlayer.currentStation.name
+                  : 'Bezig met laden...'
+              }
+            </p>
+            {audioPlayer.connectionTimeout && (
+              <p className="text-xs text-orange-400 mt-1">
+                {audioPlayer.connectionTimeout}
+              </p>
+            )}
                 </div>
                 <button
-                  onClick={() => {
-                    console.log('🛑 User clicked abort button');
-                    audioPlayer.abortConnection();
-                    if (window.addNotification) {
-                      window.addNotification('⏹️ Alles gestopt', 'info', 2000);
-                    }
-                  }}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-200 text-sm rounded-lg transition-colors border border-gray-500"
+            onClick={() => {
+              console.log('🛑 User clicked abort button');
+              audioPlayer.abortConnection();
+              if (window.addNotification) {
+                window.addNotification('⏹️ Alles gestopt', 'info', 2000);
+              }
+            }}
+            className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-gray-200 text-xs rounded transition-colors border border-gray-500 flex-shrink-0"
+            title="Stop laden"
                 >
-                  Geef op
+            ✕
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Developer Dashboard */}
+          {/* Developer Dashboard */}
         {showDeveloperDashboard && (
           <DeveloperDashboard onClose={() => setShowDeveloperDashboard(false)} />
         )}

@@ -346,14 +346,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
           </div>
         )}
         
-        {/* Loading overlay */}
-        {isLoading && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-radio-dark p-6 rounded-lg">
-              <LoadingIndicator message="Verbinding maken met radiozender..." />
-            </div>
-          </div>
-        )}
+    
         
         {/* Stations grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">

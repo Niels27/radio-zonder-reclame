@@ -130,21 +130,26 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       setError(null); // Clear error if we reach canplay
     };
 
-    const handleError = (event) => {
-      const mediaError = event.target.error;
-      console.error('🎧 Audio element error:', mediaError ? `Code: ${mediaError.code}, Message: ${mediaError.message}` : 'Unknown error', event);
+ const handleError = (event) => {
+  const mediaError = event.target.error;
+  console.error('🎧 Audio element error:', mediaError ? `Code: ${mediaError.code}, Message: ${mediaError.message}` : 'Unknown error', event);
 
-      // Don't show errors if we're intentionally stopping, transitioning, or if src is empty
-      if (!isIntentionalStopRef.current && !isTransitioningRef.current && audioRef.current?.src) {
-        if (currentStationRef.current) {
-          setError(`Verbinding met ${currentStationRef.current.name} verloren. Probeer een andere zender.`);
-        }
-        setIsPlaying(false);
-        setIsLoading(false);
-      } else {
-        console.log('🎧 Audio error ignored due to intentionalStop, transitioning, or empty src.');
-      }
-    };
+  // ✅ CRITICAL FIX: Don't show errors during ad breaks or intentional stops
+  if (!isIntentionalStopRef.current && 
+      !isTransitioningRef.current && 
+      !window.isAdBreakActive && // ← ADD THIS
+      audioRef.current?.src) {
+    
+    // Only show error if we have a current station and it's radio
+    if (currentStationRef.current && currentSourceRef.current === 'radio') {
+      setError(`Verbinding met ${currentStationRef.current.name} verloren. Probeer een andere zender.`);
+    } else {
+      setError('Audio playback failed. Please try again.');
+    }
+  } else {
+    console.log('🎧 Audio error suppressed (intentional stop/transition/ad break)');
+  }
+};
 
     const handleEnded = () => {
       console.log('🎧 Audio: ended');
@@ -900,6 +905,9 @@ const pauseRadioForAdBreak = useCallback(() => {
   setIsTransitioning(true);
 
   if (audioRef.current && currentSource === 'radio' && currentStation) {
+    // ✅ CRITICAL FIX: Mark as intentional stop BEFORE pausing
+    setIsIntentionalStop(true);
+    
     // Save the complete state before pausing
     const radioState = {
       station: currentStation,
@@ -909,23 +917,25 @@ const pauseRadioForAdBreak = useCallback(() => {
       wasPlaying: !audioRef.current.paused
     };
 
+    // Store in localStorage and component state
     localStorage.setItem('pausedRadioState', JSON.stringify(radioState));
-    
     setIsRadioPausedForAdBreak(true);
     setPausedRadioStation(currentStation);
-    setIsIntentionalStop(true);
 
-    // Pause without clearing source initially
+    // Clean pause
     audioRef.current.pause();
-    
-    console.log('🎵 Radio paused for ad break, full state saved:', radioState);
+    audioRef.current.src = '';
+    setIsPlaying(false);
 
+    console.log('🎵 ✅ Radio cleanly paused for ad break:', radioState);
+    
+    // Reset intentional stop after a moment
     setTimeout(() => {
       setIsIntentionalStop(false);
       setIsTransitioning(false);
-    }, 300);
+    }, 1000);
   } else {
-    console.warn('🎵 No radio to pause for ad break');
+    console.log('🎵 No radio to pause for ad break');
     setIsTransitioning(false);
   }
 }, [currentSource, currentStation, isTransitioning]);
