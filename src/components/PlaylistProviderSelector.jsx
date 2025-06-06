@@ -111,7 +111,26 @@ const PlaylistProviderSelector = ({
       )
     }
   ];
+// In PlaylistProviderSelector.jsx, add this useEffect to listen for manual updates
+useEffect(() => {
+  const handleManualSpotifyReady = (event) => {
+    console.log('🔄 Spotify player ready state changed:', event.detail.ready);
+    
+    if (event.detail.manual && event.detail.ready && selectedProvider === 'spotify') {
+      console.log('🎵 ✅ Manual Spotify ready - forcing component update');
+      
+      // Force re-render by triggering a state change
+      setSpotifyPlayerReady(prev => !prev);
+      setTimeout(() => setSpotifyPlayerReady(event.detail.ready), 50);
+    }
+  };
 
+  window.addEventListener('spotifyPlayerReady', handleManualSpotifyReady);
+  
+  return () => {
+    window.removeEventListener('spotifyPlayerReady', handleManualSpotifyReady);
+  };
+}, [selectedProvider]);
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {

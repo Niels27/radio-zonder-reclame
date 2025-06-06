@@ -384,69 +384,256 @@ export const getPlaylistTracks = async (playlistId) => {
     throw error;
   }
 };
-
+export const resetInitializationState = () => {
+  console.log('🔧 Forcing reset of Spotify initialization state...');
+  isPlayerInitializing = false;
+  initializationPromise = null;
+  isSDKLoading = false;
+  
+  if (initializationTimeout) {
+    clearTimeout(initializationTimeout);
+    initializationTimeout = null;
+  }
+  
+  console.log('🔧 Spotify initialization state reset complete');
+};
 /**
  * Initialize Spotify Web Playback SDK - FIXED to prevent duplicates
  */
+let initializationPromise = null;
+let initializationTimeout = null;
+
+let isSDKLoading = false;
+
 export const initializeSpotifyPlayer = () => {
-  // CRITICAL FIX: More strict duplicate prevention
+  // Return existing promise if already initializing
+  if (initializationPromise) {
+    console.log('🎵 Spotify initialization already in progress - returning existing promise');
+    return initializationPromise;
+  }
+
+  // Return existing player immediately if ready
   if (spotifyPlayer && spotifyDeviceId && !isPlayerInitializing) {
-    console.log('🎵 Spotify player already exists and ready - returning existing instance');
+    console.log('🎵 Spotify player already ready - returning immediately');
     return Promise.resolve(spotifyPlayer);
   }
-  
-  // If already initializing, return the existing promise
-  if (isPlayerInitializing && playerInitPromise) {
-    console.log('🎵 Already initializing Spotify player - returning existing promise');
-    return playerInitPromise;
-  }
-  
-  // CRITICAL: Check if another instance is starting to initialize
-  if (isPlayerInitializing) {
-    console.log('🎵 Another initialization in progress - waiting...');
-    return new Promise((resolve, reject) => {
+
+  console.log('🎵 Starting fast Spotify player initialization...');
+  isPlayerInitializing = true;
+
+  initializationPromise = new Promise((resolve, reject) => {
+    const cleanup = () => {
+      if (initializationTimeout) {
+        clearTimeout(initializationTimeout);
+        initializationTimeout = null;
+      }
+      isPlayerInitializing = false;
+      initializationPromise = null;
+      isSDKLoading = false; // ✅ Reset SDK loading flag
+    };
+
+    // ✅ CRITICAL FIX: Check if SDK is already loading
+    if (!window.Spotify && !isSDKLoading) {
+      console.log('🎵 Loading Spotify SDK...');
+      isSDKLoading = true; // ✅ Set flag to prevent multiple loads
+      
+      // ✅ CRITICAL FIX: Define callback BEFORE loading the script
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log('🎵 Spotify SDK ready - creating player immediately');
+        isSDKLoading = false; // ✅ Reset flag
+        createSpotifyPlayerFast(resolve, reject, cleanup);
+      };
+      
+      const script = document.createElement('script');
+      script.src = 'https://sdk.scdn.co/spotify-player.js';
+      script.async = true;
+      
+      script.onload = () => {
+        console.log('🎵 Spotify SDK loaded');
+        
+        // Fallback: if onSpotifyWebPlaybackSDKReady doesn't fire within 1 second
+        setTimeout(() => {
+          if (window.Spotify && !spotifyPlayer) {
+            console.log('🎵 Fallback: Creating player after SDK load');
+            createSpotifyPlayerFast(resolve, reject, cleanup);
+          }
+        }, 1000);
+      };
+      
+      script.onerror = () => {
+        isSDKLoading = false; // ✅ Reset flag on error
+        cleanup();
+        reject(new Error('Failed to load Spotify SDK'));
+      };
+      
+      document.head.appendChild(script);
+    } else if (window.Spotify) {
+      console.log('🎵 Spotify SDK already loaded - creating player');
+      createSpotifyPlayerFast(resolve, reject, cleanup);
+    } else {
+      // SDK is currently loading, wait for it
+      console.log('🎵 Spotify SDK currently loading - waiting...');
       const checkInterval = setInterval(() => {
-        if (!isPlayerInitializing && spotifyPlayer) {
+        if (window.Spotify) {
           clearInterval(checkInterval);
-          resolve(spotifyPlayer);
-        } else if (!isPlayerInitializing && !spotifyPlayer) {
-          clearInterval(checkInterval);
-          reject(new Error('Initialization failed'));
+          createSpotifyPlayerFast(resolve, reject, cleanup);
         }
       }, 100);
       
-      // Timeout after 10 seconds
+      // Timeout the check after 10 seconds
       setTimeout(() => {
         clearInterval(checkInterval);
-        reject(new Error('Initialization timeout'));
+        if (!window.Spotify) {
+          cleanup();
+          reject(new Error('Spotify SDK failed to load'));
+        }
       }, 10000);
-    });
-  }
-  
-  console.log('🎵 Starting fresh Spotify player initialization...');
-  isPlayerInitializing = true;
-  
-  playerInitPromise = new Promise((resolve, reject) => {
-    if (!window.Spotify) {
-      // Load SDK only once
-      if (!document.querySelector('script[src*="spotify-player.js"]')) {
-        const script = document.createElement('script');
-        script.src = 'https://sdk.scdn.co/spotify-player.js';
-        script.async = true;
-        document.body.appendChild(script);
+    }
+
+    // Set the main timeout
+    initializationTimeout = setTimeout(() => {
+      console.log('🎵 Spotify initialization timeout (30s)');
+      console.warn('🎵 ⚠️ Spotify initialization taking longer than expected, but continuing to wait...');
+      
+      if (window.addNotification) {
+        window.addNotification('🎵 ⚠️ Spotify loading slowly - please wait...', 'warning', 5000);
       }
       
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        createSpotifyPlayer(resolve, reject);
-      };
-    } else {
-      createSpotifyPlayer(resolve, reject);
-    }
+      setTimeout(() => {
+        console.error('🎵 ❌ Final Spotify timeout (60s total)');
+        cleanup();
+        reject(new Error('Spotify initialization timed out after 60 seconds'));
+      }, 30000);
+      
+    }, 30000);
   });
-  
-  return playerInitPromise;
+
+  return initializationPromise;
 };
 
+// Faster player creation with minimal logging
+// CRITICAL FIX: Update the ready event handler in createSpotifyPlayerFast
+// CRITICAL FIX: Update the ready event handler in createSpotifyPlayerFast
+const createSpotifyPlayerFast = (resolve, reject, cleanup) => {
+  if (!spotifyAccessToken) {
+    cleanup();
+    reject(new Error('No Spotify access token'));
+    return;
+  }
+
+  if (spotifyPlayer) {
+    console.log('🎵 Player already exists during fast init');
+    cleanup();
+    resolve(spotifyPlayer);
+    return;
+  }
+
+  console.log('🎵 Creating Spotify player (fast mode)...');
+
+  spotifyPlayer = new window.Spotify.Player({
+    name: 'No Ads Radio Browser Player',
+    getOAuthToken: cb => cb(spotifyAccessToken),
+    volume: 0.5
+  });
+
+  // ✅ CRITICAL FIX: Track if we've already resolved/rejected
+  let isResolved = false;
+
+  // Minimal error handling - just log and continue
+  spotifyPlayer.addListener('initialization_error', ({ message }) => {
+    console.error('Spotify init error:', message);
+    if (!isResolved) {
+      isResolved = true;
+      cleanup();
+      reject(new Error(`Init failed: ${message}`));
+    }
+  });
+
+  spotifyPlayer.addListener('authentication_error', ({ message }) => {
+    console.error('Spotify auth error:', message);
+    clearSpotifyAuth();
+    if (!isResolved) {
+      isResolved = true;
+      cleanup();
+      reject(new Error(`Auth failed: ${message}`));
+    }
+  });
+
+  spotifyPlayer.addListener('account_error', ({ message }) => {
+    console.error('Spotify account error:', message);
+    if (!isResolved) {
+      isResolved = true;
+      cleanup();
+      reject(new Error(`Account error: ${message}`));
+    }
+  });
+
+  // Suppress CloudPlaybackClientError completely in fast mode
+  spotifyPlayer.addListener('playback_error', ({ message }) => {
+    if (message && message.includes('CloudPlaybackClientError')) {
+      // Completely silent in fast mode
+      return;
+    }
+    console.warn('Spotify playback error:', message);
+  });
+
+  // Minimal state change logging
+  spotifyPlayer.addListener('player_state_changed', () => {
+    // Silent in fast mode
+  });
+
+  // ✅ CRITICAL FIX: Ready event - resolve even if timeout already occurred
+  spotifyPlayer.addListener('ready', ({ device_id }) => {
+    console.log('🎵 Spotify ready:', device_id);
+    spotifyDeviceId = device_id;
+    window.spotifyDeviceId = device_id;
+    
+    // ✅ RESOLVE EVEN IF TIMEOUT OCCURRED - just ensure we don't double-resolve
+    if (!isResolved) {
+      isResolved = true;
+      cleanup();
+      resolve(spotifyPlayer);
+    } else {
+      // Timeout already occurred, but player is ready now
+      console.log('🎵 ✅ Spotify player ready after timeout - updating global state');
+      
+      // Reset the initialization state so it can be used
+      isPlayerInitializing = false;
+      initializationPromise = null;
+      
+      // Trigger a global event to notify React that Spotify is ready
+      window.dispatchEvent(new CustomEvent('spotifyPlayerReady', { 
+        detail: { player: spotifyPlayer, deviceId: device_id } 
+      }));
+    }
+  });
+
+  spotifyPlayer.addListener('not_ready', ({ device_id }) => {
+    console.warn('🎵 Spotify not ready:', device_id);
+  });
+
+  // Fast connection with minimal error handling
+  spotifyPlayer.connect().then(connected => {
+    if (!connected && !isResolved) {
+      isResolved = true;
+      cleanup();
+      reject(new Error('Failed to connect to Spotify'));
+    }
+    // If connected, wait for ready event
+  }).catch(error => {
+    if (error.message && error.message.includes('CloudPlaybackClientError')) {
+      // In fast mode, ignore CloudPlaybackClientError and wait for ready event
+      console.log('🎵 Ignoring CloudPlaybackClientError in fast mode - waiting for ready event');
+      return;
+    }
+    console.error('Spotify connection failed:', error);
+    if (!isResolved) {
+      isResolved = true;
+      cleanup();
+      reject(error);
+    }
+  });
+};
 // Also update createSpotifyPlayer to be more defensive:
 const createSpotifyPlayer = (resolve, reject) => {
   if (!spotifyAccessToken) {
@@ -1247,4 +1434,10 @@ export const activateSpotifyDevice = async () => {
 // Add this export to prevent duplicate initialization
 export const isSpotifyPlayerInitializing = () => {
   return isPlayerInitializing;
+};
+window.spotifyUtils = {
+  resetInitializationState,
+  isPlayerInitializing: () => isPlayerInitializing,
+  getCurrentPlayer: () => spotifyPlayer,
+  getCurrentDeviceId: () => spotifyDeviceId
 };
