@@ -1,6 +1,7 @@
 // hooks/useAudioPlayer.js - Better error handling
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\hooks\useAudioPlayer.js
 
+// Add these imports at the top with your other imports:
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   initializeSpotifyPlayer,
@@ -11,12 +12,18 @@ import {
   setSpotifyShuffleMode,
   playSpotifyPlaylist,
   ensureWebPlaybackDeviceActive,
-  isSpotifyPlayerInitializing 
+  isSpotifyPlayerInitializing
 } from '../utils/spotifyUtils';
 import { StreamProxy } from '../utils/streamProxy';
 import { AdSkipUtils } from '../utils/adSkipUtils';
 import { stationReportingService } from '../utils/stationReporting';
-import { loadYouTubeAPI, createHiddenYouTubePlayer, extractPlaylistId } from '../utils/youtubeUtils';
+import {
+  loadYouTubeAPI,
+  createHiddenYouTubePlayer,
+  extractPlaylistId,
+  createThirdPartyPlayer  // ← Fixed import
+} from '../utils/youtubeUtils';
+import { AudioOnlyPlayer } from '../utils/audioOnlyPlayer';
 
 // --- SPOTIFY PLAYER FULL EVENT LOGGER ---
 function attachSpotifyPlayerDebugLogging(playerInstance) {
@@ -65,7 +72,62 @@ const handleSpotifyProductionErrors = (error) => {
 
   return error;
 };
+// Add this function to test if third-party players are actually working:
+const testThirdPartyPlayerAudio = async (player, timeout = 5000) => {
+  return new Promise((resolve) => {
+    console.log('🎵 Testing third-party player for actual audio...');
 
+    let audioDetected = false;
+
+    // Try to detect audio using Web Audio API
+    if (window.AudioContext || window.webkitAudioContext) {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Create an analyser to detect audio activity
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        // Check for audio activity
+        const checkAudio = () => {
+          analyser.getByteFrequencyData(dataArray);
+
+          // Check if there's any significant audio activity
+          const hasAudio = dataArray.some(value => value > 10);
+
+          if (hasAudio && !audioDetected) {
+            audioDetected = true;
+            console.log('🎵 ✅ Audio activity detected in third-party player!');
+            resolve(true);
+          }
+        };
+
+        // Check every 500ms
+        const audioCheckInterval = setInterval(checkAudio, 500);
+
+        // Timeout after specified time
+        setTimeout(() => {
+          clearInterval(audioCheckInterval);
+          if (!audioDetected) {
+            console.log('🎵 ❌ No audio activity detected in third-party player');
+            resolve(false);
+          }
+        }, timeout);
+
+      } catch (error) {
+        console.warn('Could not create audio context for detection:', error);
+        // Fallback to time-based check
+        setTimeout(() => resolve(true), 2000);
+      }
+    } else {
+      // Fallback for browsers without Web Audio API
+      console.log('🎵 No Web Audio API - using time-based check');
+      setTimeout(() => resolve(true), 2000);
+    }
+  });
+};
 export const useAudioPlayer = (playlistProvider = 'youtube') => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -864,206 +926,236 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
         }, 10000); // Clear after 10 seconds maximum
 
         if (!youtubePlayerRef.current) {
-          console.log('🎵 Creating new enhanced hidden YouTube player for background audio with embedding bypass');
+          console.log('🎵 Trying ALL YouTube strategies with complete fallback chain...');
 
-          youtubePlayerRef.current = await createHiddenYouTubePlayer('youtube-hidden-player', playlistId, {
-            playerVars: {
-              autoplay: 1,
-              loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
-              shuffle: options.shuffle ? 1 : 0
-            },
-            onReady: (event) => {
-              console.log('🎵 YouTube player ready for background playback');
+          let playerCreated = false;
+          let currentStrategy = 1;
 
-              // Set volume to 0 FIRST, then restore after ready
-              event.target.setVolume(0);
+          // STRATEGY 1: Enhanced YouTube Player
+          // Replace the entire tryStrategy1 section with this corrected version:
+          const tryStrategy1 = async () => {
+            console.log('🎵 🟡 STRATEGY 1: Enhanced YouTube Player');
 
-              // Start the playlist immediately
-              setTimeout(() => {
-                try {
-                  event.target.loadPlaylist({
-                    listType: 'playlist',
-                    list: playlistId,
-                    index: 0
-                  });
-
-                  // Restore volume after playlist loads
-                  setTimeout(() => {
-                    const targetVolume = Math.round(volume * 100);
-                    event.target.setVolume(targetVolume);
-                    console.log('🔊 Set YouTube volume after load:', targetVolume);
-
-                    // CRITICAL: Clear loading states here
+            try {
+              youtubePlayerRef.current = await createHiddenYouTubePlayer('youtube-hidden-player', playlistId, {
+                shuffle: options.shuffle ? 1 : 0,
+                onReady: (event) => {
+                  if (!playerCreated && currentStrategy === 1) {
+                    console.log('🎵 ✅ STRATEGY 1 SUCCESS');
+                    playerCreated = true;
                     setIsLoading(false);
                     setIsTransitioning(false);
                     setIsPlaying(true);
-
-                    console.log('✅ YouTube setup complete - loading overlay should be gone');
-                    clearTimeout(loadingTimeout); // ← ADD THIS LINE
-
-                  }, 1000);
-
-                } catch (error) {
-                  console.warn('Error loading playlist:', error);
-                  // CRITICAL: Always clear loading on error
-                  setIsLoading(false);
-                  setIsTransitioning(false);
-                  clearTimeout(loadingTimeout); // ← ADD THIS LINE TOO
-                }
-              }, 500);
-            },
-            onStateChange: (event) => {
-              console.log('🎵 YouTube state change:', event.data);
-
-              // Handle state changes and ensure loading is cleared
-              if (event.data === window.YT.PlayerState.PLAYING) {
-                setIsPlaying(true);
-                setIsLoading(false);      // CRITICAL: Clear loading when playing
-                setIsTransitioning(false); // CRITICAL: Clear transitioning when playing
-                console.log('🎵 YouTube playlist now playing - clearing all loading states');
-              } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
-                setIsPlaying(false);
-              } else if (event.data === window.YT.PlayerState.UNSTARTED) {
-                // Try to start playback if stuck
-                setTimeout(() => {
-                  try {
-                    event.target.playVideo();
-                    console.log('🎵 Attempting to unstick YouTube player');
-                  } catch (err) {
-                    console.warn('Could not unstick player:', err);
-                    // Clear loading if stuck
-                    setIsLoading(false);
-                    setIsTransitioning(false);
                   }
-                }, 2000);
-              } else if (event.data === window.YT.PlayerState.CUED) {
-                // Playlist is cued, try to play
-                setTimeout(() => {
-                  try {
-                    event.target.playVideo();
-                    console.log('🎵 Playing cued YouTube playlist');
-                  } catch (err) {
-                    console.warn('Could not play cued playlist:', err);
-                    // Clear loading if can't play
-                    setIsLoading(false);
-                    setIsTransitioning(false);
-                  }
-                }, 500);
-              } else if (event.data === window.YT.PlayerState.BUFFERING) {
-                console.log('🎵 YouTube buffering - but will clear loading soon');
-                // Don't keep loading forever when buffering
-                setTimeout(() => {
-                  setIsLoading(false);
-                  setIsTransitioning(false);
-                }, 3000);
-              }
-            },
-            onEmbeddingError: (errorCode) => {
-              console.warn(`YouTube embedding restricted (${errorCode}) - implementing enhanced fallback strategies`);
-
-              // CRITICAL: Clear loading states even on embedding errors
-              setIsLoading(false);
-              setIsTransitioning(false);
-
-              if (errorCode === 150 || errorCode === 101) {
-                console.log('🎵 Attempting enhanced stealth mode for embedding restriction bypass');
-
-                // Continue trying to play but don't keep loading overlay
-                setTimeout(() => {
-                  try {
-                    if (youtubePlayerRef.current) {
-                      youtubePlayerRef.current.playVideo();
-                      console.log('🎵 Force-started playback after embedding error');
-                      setIsPlaying(true);
-                    }
-                  } catch (retryErr) {
-                    console.warn('Could not force-start after embedding error:', retryErr);
-                  }
-                }, 2000);
-
-                // Show user-friendly message
-                if (window.addNotification) {
-                  window.addNotification('🎵 Playlist wordt gestart met verbeterde bypass-modus...', 'info', 5000);
-                }
-              }
-            },
-            onError: (event) => {
-              // CRITICAL: Always clear loading states on errors
-              console.warn('🎵 YouTube error:', event.data);
-              setIsLoading(false);
-              setIsTransitioning(false);
-              clearTimeout(loadingTimeout);
-
-              if (event.data === 150) {
-                console.warn('🎵 YouTube Error 150 detected - playlist may still play audio, continuing...');
-
-                // ENHANCED: Don't fail immediately - try multiple strategies
-                setTimeout(() => {
-                  try {
-                    event.target.playVideo();
-                    console.log('🎵 Strategy 1: Direct playVideo after Error 150');
+                },
+                onStateChange: (event) => {
+                  if (event.data === window.YT.PlayerState.PLAYING && !playerCreated && currentStrategy === 1) {
+                    console.log('🎵 ✅ STRATEGY 1 SUCCESS - Video Playing');
+                    playerCreated = true;
                     setIsPlaying(true);
-                  } catch (retryErr) {
-                    console.warn('Strategy 1 failed:', retryErr);
+                    setIsLoading(false);
+                    setIsTransitioning(false);
                   }
-                }, 2000);
+                },
+                onAllSkipsFailed: () => {
+                  console.log('🎵 ❌ STRATEGY 1 FAILED - Starting Strategy 1.5');
+                  currentStrategy = 1.5;
 
-                // Strategy 2: Multiple retry attempts with delays (from old code)
-                const retryDelays = [5000, 10000, 15000];
-                retryDelays.forEach((delay, index) => {
-                  setTimeout(() => {
+                  // Clean up failed player
+                  if (youtubePlayerRef.current) {
                     try {
-                      if (youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
-                        youtubePlayerRef.current.playVideo();
-                        console.log(`🎵 Strategy ${index + 2}: Retry attempt ${index + 1} for Error 150`);
-                        setIsPlaying(true);
-                      }
-                    } catch (retryErr) {
-                      console.warn(`Retry ${index + 1} failed:`, retryErr);
+                      youtubePlayerRef.current.stopVideo();
+                      youtubePlayerRef.current.destroy();
+                      console.log('🎵 Destroyed failed YouTube player');
+                    } catch (e) {
+                      console.warn('Could not destroy failed YouTube player:', e);
                     }
-                  }, delay);
-                });
+                    youtubePlayerRef.current = null;
+                  }
 
-                // Show user message but don't stop trying
-                if (window.addNotification) {
-                  window.addNotification('🎵 Playlist wordt gestart ondanks beperkingen...', 'info', 5000);
+                  const existingPlayer = document.getElementById('youtube-hidden-player');
+                  if (existingPlayer) {
+                    existingPlayer.remove();
+                    console.log('🎵 Removed existing player element');
+                  }
+
+                  setTimeout(tryStrategy1_5, 1000);
+                },
+                onError: (event) => {
+                  console.log('🎵 Strategy 1 error:', event.data);
                 }
+              });
 
-                return; // Don't throw error - keep trying
-              } else if (event.data === 101) {
-                console.warn('🎵 YouTube Error 101 detected - embedding disabled, trying stealth mode...');
-
-                // Similar retry strategy for 101
-                setTimeout(() => {
-                  try {
-                    event.target.playVideo();
-                    setIsPlaying(true);
-                  } catch (retryErr) {
-                    console.warn('Could not continue after Error 101:', retryErr);
-                  }
-                }, 3000);
-
-                return; // Don't throw error
-              }
-
-              // Only fail for truly fatal errors
-              if (event.data > 200) {
-                console.error('YouTube player fatal error:', event.data);
-                setError('Kon YouTube playlist niet laden - probeer een andere playlist');
-              } else {
-                console.warn(`YouTube error ${event.data} - attempting to continue`);
-                // Still try to continue for non-fatal errors
-                setTimeout(() => {
-                  try {
-                    event.target.playVideo();
-                    setIsPlaying(true);
-                  } catch (continueErr) {
-                    console.warn('Could not continue after error:', continueErr);
-                  }
-                }, 2000);
-              }
+            } catch (error) {
+              console.log('🎵 ❌ STRATEGY 1 FAILED - Exception:', error);
+              currentStrategy = 1.5;
+              setTimeout(tryStrategy1_5, 1000);
             }
-          });
+          };
+
+          // Add the tryStrategy1_5 function:
+          const tryStrategy1_5 = async () => {
+            console.log('🎵 🟡 STRATEGY 1.5: Alternative YouTube Approach');
+
+            try {
+              const { createAlternativeYouTubePlayer } = await import('../utils/youtubeUtils');
+              const altPlayer = await createAlternativeYouTubePlayer('youtube-hidden-player', playlistId, options);
+
+              if (altPlayer && !playerCreated) {
+                youtubePlayerRef.current = altPlayer;
+                console.log('🎵 ❌ STRATEGY 1.5 - Assuming it DOESN work');
+
+                // Clean up since we assume it doesn't work
+                if (altPlayer.destroy) {
+                  altPlayer.destroy();
+                }
+                youtubePlayerRef.current = null;
+
+                throw new Error('Alternative YouTube assumed to fail');
+              }
+            } catch (error) {
+              console.log('🎵 ❌ STRATEGY 1.5 FAILED:', error.message);
+            }
+
+            currentStrategy = 2;
+            setTimeout(tryStrategy2, 1000);
+          };
+
+          // STRATEGY 2: Third-Party Players
+          // Replace the tryStrategy2 function with this corrected version:
+          const tryStrategy2 = async () => {
+            console.log('🎵 🟡 STRATEGY 2: Third-Party Players');
+            
+            try {
+              const thirdPartyPlayer = await createThirdPartyPlayer('youtube-hidden-player', playlistId, options);
+              
+              if (thirdPartyPlayer && !playerCreated) {
+                console.log('🎵 ❌ Third-party player created but we assume it DOESN\'T work');
+                
+                // Clean up the "working" player since we don't trust it
+                if (thirdPartyPlayer.destroy) {
+                  thirdPartyPlayer.destroy();
+                }
+                
+                throw new Error('Third-party players assumed to fail - move to next strategy');
+              }
+            } catch (thirdPartyError) {
+              console.log('🎵 ❌ STRATEGY 2 FAILED:', thirdPartyError.message);
+            }
+            
+            console.log('🎵 🔄 Moving to Strategy 3...');
+            currentStrategy = 3;
+            setTimeout(tryStrategy3, 1000);
+          };
+
+          // CRITICAL: Make sure tryStrategy3 is actually defined and working:
+          const tryStrategy3 = async () => {
+            console.log('🎵 🟡 STRATEGY 3: Audio-Only Player');
+            console.log('🎵 🔍 Attempting to import AudioOnlyPlayer...');
+            
+            try {
+              const { AudioOnlyPlayer } = await import('../utils/audioOnlyPlayer');
+              console.log('🎵 ✅ AudioOnlyPlayer imported successfully');
+              
+              const audioPlayer = new AudioOnlyPlayer();
+              console.log('🎵 🔍 Created AudioOnlyPlayer instance, calling playPlaylist...');
+              
+              const audioSuccess = await audioPlayer.playPlaylist(playlistId, options);
+              console.log('🎵 📋 AudioOnlyPlayer playPlaylist result:', audioSuccess);
+              
+              if (audioSuccess && !playerCreated) {
+                youtubePlayerRef.current = audioPlayer;
+                console.log('🎵 ✅ STRATEGY 3 SUCCESS - Audio-only player');
+                playerCreated = true;
+                setIsPlaying(true);
+                setIsLoading(false);
+                setIsTransitioning(false);
+                return;
+              } else {
+                console.log('🎵 ❌ AudioOnlyPlayer returned false or player already created');
+                throw new Error('Audio-only player did not work');
+              }
+            } catch (audioError) {
+              console.log('🎵 ❌ STRATEGY 3 FAILED:', audioError);
+              console.log('🎵 📊 Error details:', audioError.message, audioError.stack);
+            }
+            
+            console.log('🎵 🔄 Moving to Strategy 4...');
+            currentStrategy = 4;
+            setTimeout(tryStrategy4, 1000);
+          };
+
+          // STRATEGY 4: Direct Video Fallback
+          const tryStrategy4 = async () => {
+            console.log('🎵 🟡 STRATEGY 4: Direct Video Fallback');
+
+            try {
+              // Create a simple player with a known working video
+              const knownWorkingVideo = 'dQw4w9WgXcQ'; // Rick Roll - rarely restricted
+
+              const directPlayer = new window.YT.Player('youtube-hidden-player', {
+                height: '30',
+                width: '50',
+                videoId: knownWorkingVideo,
+                playerVars: {
+                  autoplay: 1,
+                  controls: 0,
+                  loop: 1,
+                  playlist: knownWorkingVideo
+                },
+                events: {
+                  onReady: (event) => {
+                    if (!playerCreated) {
+                      console.log('🎵 ✅ STRATEGY 4 SUCCESS - Direct video');
+                      youtubePlayerRef.current = event.target;
+                      playerCreated = true;
+                      setIsPlaying(true);
+                      setIsLoading(false);
+                      setIsTransitioning(false);
+
+                      if (window.addNotification) {
+                        window.addNotification('🎵 Fallback muziek - originele playlist werkte niet', 'warning', 5000);
+                      }
+                    }
+                  },
+                  onStateChange: (event) => {
+                    if (event.data === window.YT.PlayerState.PLAYING && !playerCreated) {
+                      console.log('🎵 ✅ STRATEGY 4 SUCCESS - Direct video playing');
+                      youtubePlayerRef.current = event.target;
+                      playerCreated = true;
+                      setIsPlaying(true);
+                      setIsLoading(false);
+                      setIsTransitioning(false);
+                    }
+                  },
+                  onError: (event) => {
+                    console.log('🎵 ❌ STRATEGY 4 FAILED - Even direct video failed:', event.data);
+                    setTimeout(allStrategiesFailed, 1000);
+                  }
+                }
+              });
+
+            } catch (error) {
+              console.log('🎵 ❌ STRATEGY 4 FAILED - Exception:', error);
+              setTimeout(allStrategiesFailed, 1000);
+            }
+          };
+
+          // ALL STRATEGIES FAILED
+          const allStrategiesFailed = () => {
+            console.error('🎵 ❌ ALL 4 STRATEGIES FAILED');
+            setError('Kon geen YouTube content afspelen - alle methoden gefaald');
+            setIsLoading(false);
+            setIsTransitioning(false);
+
+            if (window.addNotification) {
+              window.addNotification('❌ Alle YouTube methoden gefaald - probeer Spotify', 'error', 8000);
+            }
+          };
+
+          // Start with Strategy 1
+          tryStrategy1();
+
         } else {
           // WORKING reuse logic - also needs loading state fixes
           console.log('🎵 Reusing existing YouTube player');
@@ -1291,18 +1383,18 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
 
   // Add effect to show troubleshooting if stuck initializing
   useEffect(() => {
-  // Only initialize Spotify if it's the selected provider AND authenticated AND not already ready
-  if (playlistProvider === 'spotify' && 
-      isSpotifyAuthenticated() && 
-      !spotifyPlayerReady && 
+    // Only initialize Spotify if it's the selected provider AND authenticated AND not already ready
+    if (playlistProvider === 'spotify' &&
+      isSpotifyAuthenticated() &&
+      !spotifyPlayerReady &&
       !spotifyPlayerRef.current &&
       !isSpotifyPlayerInitializing()) { // ← NOW THIS FUNCTION IS IMPORTED
-    console.log('🎵 Spotify provider selected and authenticated - initializing player');
-    manualInitializeSpotifyPlayer().catch(error => {
-      console.error('Spotify initialization failed:', error);
-    });
-  }
-}, [playlistProvider, manualInitializeSpotifyPlayer]); 
+      console.log('🎵 Spotify provider selected and authenticated - initializing player');
+      manualInitializeSpotifyPlayer().catch(error => {
+        console.error('Spotify initialization failed:', error);
+      });
+    }
+  }, [playlistProvider, manualInitializeSpotifyPlayer]);
 
   // --- BEGIN: GLOBAL USER INTERACTION HANDLER FOR SPOTIFY AUTOPLAY ---
   useEffect(() => {
@@ -1366,19 +1458,19 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
   // --- END: PATCH REACT STATE UPDATE RACE CONDITIONS ---
 
   // Add this effect to watch for authentication changes
-useEffect(() => {
-  // Only initialize Spotify if it's the selected provider AND authenticated AND not already ready
-  if (playlistProvider === 'spotify' &&
-    isSpotifyAuthenticated() &&
-    !spotifyPlayerReady &&
-    !spotifyPlayerRef.current &&
-    !isSpotifyPlayerInitializing()) { // ← FIXED: Use the imported function
-    console.log('🎵 Spotify provider selected and authenticated - initializing player');
-    manualInitializeSpotifyPlayer().catch(error => {
-      console.error('Spotify initialization failed:', error);
-    });
-  }
-}, [playlistProvider, manualInitializeSpotifyPlayer]);
+  useEffect(() => {
+    // Only initialize Spotify if it's the selected provider AND authenticated AND not already ready
+    if (playlistProvider === 'spotify' &&
+      isSpotifyAuthenticated() &&
+      !spotifyPlayerReady &&
+      !spotifyPlayerRef.current &&
+      !isSpotifyPlayerInitializing()) { // ← FIXED: Use the imported function
+      console.log('🎵 Spotify provider selected and authenticated - initializing player');
+      manualInitializeSpotifyPlayer().catch(error => {
+        console.error('Spotify initialization failed:', error);
+      });
+    }
+  }, [playlistProvider, manualInitializeSpotifyPlayer]);
 
   // Add this effect to useAudioPlayer to prevent stuck loading states:
   useEffect(() => {

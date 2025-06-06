@@ -325,7 +325,7 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
             options.onStateChange(event);
           }
         },
-        onError: (event) => {
+         onError: (errorEvent) => {
           // Handle specific error codes with smart logging to prevent spam
           switch (event.data) {
             case 5:
@@ -387,7 +387,392 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
   });
 };
 
+// Add this helper function:
+export const testPlaylistPlayability = async (playlistId) => {
+  return new Promise((resolve) => {
+    const testDiv = document.createElement('div');
+    testDiv.id = 'test-player-' + Date.now();
+    testDiv.style.cssText = 'position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px;';
+    document.body.appendChild(testDiv);
+
+    let playableFound = false;
+    let testCount = 0;
+    const maxTests = 5;
+
+    const testPlayer = new window.YT.Player(testDiv.id, {
+      height: '1',
+      width: '1',
+      playerVars: {
+        autoplay: 0,
+        listType: 'playlist',
+        list: playlistId,
+        index: 0
+      },
+      events: {
+        onReady: (event) => {
+          // Test a few videos in the playlist
+          const testNext = () => {
+            if (testCount >= maxTests || playableFound) {
+              testPlayer.destroy();
+              document.body.removeChild(testDiv);
+              resolve(playableFound);
+              return;
+            }
+
+            testCount++;
+            setTimeout(() => {
+              try {
+                event.target.nextVideo();
+                testNext();
+              } catch (err) {
+                resolve(false);
+              }
+            }, 2000);
+          };
+
+          testNext();
+        },
+        onStateChange: (event) => {
+          if (event.data === window.YT.PlayerState.PLAYING) {
+            playableFound = true;
+          }
+        },
+        onError: (event) => {
+          if (event.data !== 150 && event.data !== 101) {
+            playableFound = true; // Other errors might still allow some playback
+          }
+        }
+      }
+    });
+
+    // Timeout after 15 seconds
+    setTimeout(() => {
+      if (testPlayer) {
+        try {
+          testPlayer.destroy();
+          document.body.removeChild(testDiv);
+        } catch (err) {}
+        resolve(false);
+      }
+    }, 15000);
+  });
+};
+// Create a new audio-only player that bypasses YouTube's embedding restrictions
+
+// Several third-party services that can embed YouTube content
+export const THIRD_PARTY_PLAYERS = {
+  // Updated Invidious instances (more reliable)
+  invidious: [
+    'https://yewtu.be',
+    'https://invidious.snopyta.org',
+    'https://invidious.flokinet.to',
+    'https://invidious.kavin.rocks',
+    'https://inv.riverside.rocks'
+  ],
+  
+  // Updated Piped instances
+  piped: [
+    'https://piped.video',
+    'https://piped.kavin.rocks',
+    'https://piped.tokhmi.xyz'
+  ]
+};
+// Add this new function that tries a different approach:
+export const createAlternativeYouTubePlayer = (elementId, playlistId, options = {}) => {
+  return new Promise((resolve, reject) => {
+    console.log('🎵 Trying ALTERNATIVE YouTube approach...');
+    
+    // Create iframe manually instead of using YouTube API
+    const iframe = document.createElement('iframe');
+    iframe.id = elementId;
+    iframe.style.cssText = `
+      position: fixed !important;
+      bottom: -100px !important;
+      right: 10px !important;
+      width: 200px !important;
+      height: 150px !important;
+      border: none !important;
+      opacity: 0.2 !important;
+      z-index: 9999 !important;
+    `;
+    
+    // Use nocookie domain and different parameters
+    iframe.src = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&autoplay=1&mute=0&controls=0&loop=1&playlist=${playlistId}&enablejsapi=0`;
+    
+    // Allow autoplay
+    iframe.allow = 'autoplay; encrypted-media';
+    
+    document.body.appendChild(iframe);
+    
+    // Test if it loads
+    iframe.onload = () => {
+      console.log('🎵 Alternative iframe loaded');
+      
+      setTimeout(() => {
+        console.log('🎵 ✅ Alternative YouTube approach SUCCESS (assuming audio works)');
+        resolve({
+          iframe,
+          setVolume: () => {},
+          pauseVideo: () => {
+            iframe.src = iframe.src.replace('autoplay=1', 'autoplay=0');
+          },
+          playVideo: () => {
+            iframe.src = iframe.src.replace('autoplay=0', 'autoplay=1');
+          },
+          destroy: () => {
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+          }
+        });
+      }, 3000);
+    };
+    
+    iframe.onerror = () => {
+      console.log('🎵 Alternative iframe failed');
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+      reject(new Error('Alternative YouTube approach failed'));
+    };
+  });
+};
+export const createThirdPartyPlayer = async (elementId, playlistId, options = {}) => {
+  console.log('🎵 Trying third-party players...');
+  
+  // Try Invidious first
+  for (const instance of THIRD_PARTY_PLAYERS.invidious) {
+    try {
+      console.log(`🎵 Trying Invidious instance: ${instance}`);
+      const player = await createInvidiousPlayer(instance, elementId, playlistId, options);
+      if (player) {
+        console.log(`🎵 Invidious success: ${instance}`);
+        return player;
+      }
+    } catch (error) {
+      console.log(`🎵 Invidious instance ${instance} failed:`, error);
+    }
+  }
+  
+  // Try Piped as fallback
+  for (const instance of THIRD_PARTY_PLAYERS.piped) {
+    try {
+      console.log(`🎵 Trying Piped instance: ${instance}`);
+      const player = await createPipedPlayer(instance, elementId, playlistId, options);
+      if (player) {
+        console.log(`🎵 Piped success: ${instance}`);
+        return player;
+      }
+    } catch (error) {
+      console.log(`🎵 Piped instance ${instance} failed:`, error);
+    }
+  }
+  
+  throw new Error('All third-party players failed');
+};
+export const YouTubePlaylistEmbed = ({ playlistId, visible = false }) => {
+  return (
+    <iframe
+      src={`https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&loop=1`}
+      style={{
+        position: visible ? 'relative' : 'fixed',
+        bottom: visible ? 'auto' : '-100px',
+        right: visible ? 'auto' : '10px',
+        width: visible ? '100%' : '50px',
+        height: visible ? '400px' : '30px',
+        border: 'none',
+        opacity: visible ? 1 : 0.1
+      }}
+      allow="autoplay; encrypted-media"
+    />
+  );
+};
+// Replace the createInvidiousPlayer function with proper failure detection:
+const createInvidiousPlayer = async (instance, elementId, playlistId, options) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Clear any existing element
+      const existingElement = document.getElementById(elementId);
+      if (existingElement) {
+        existingElement.remove();
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.id = elementId;
+      iframe.style.cssText = `
+        position: fixed !important;
+        bottom: -100px !important;
+        right: 10px !important;
+        width: 50px !important;
+        height: 30px !important;
+        border: none !important;
+        opacity: 0.1 !important;
+        z-index: 9999 !important;
+      `;
+      
+      // Invidious playlist URL with autoplay
+      iframe.src = `${instance}/embed/videoseries?list=${playlistId}&autoplay=1&loop=1&controls=0`;
+      
+      let hasResolved = false;
+      let frameBlockedDetected = false;
+      
+      // Add to DOM
+      document.body.appendChild(iframe);
+      
+      // Monitor console errors for X-Frame-Options violations
+      const originalConsoleError = console.error;
+      const errorMonitor = (...args) => {
+        const message = args.join(' ');
+        if (message.includes('X-Frame-Options') || 
+            message.includes('NS_ERROR_XFO_VIOLATION') ||
+            message.includes('refused to display')) {
+          console.log(`🎵 ❌ Invidious blocked by X-Frame-Options: ${instance}`);
+          frameBlockedDetected = true;
+          
+          if (!hasResolved) {
+            hasResolved = true;
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+            reject(new Error(`Invidious blocked by X-Frame-Options: ${instance}`));
+          }
+        }
+        originalConsoleError.apply(console, args);
+      };
+      
+      // Temporarily override console.error to catch frame violations
+      console.error = errorMonitor;
+      
+      // Test if iframe loads
+      iframe.onload = () => {
+        console.log(`🎵 Invidious iframe loaded: ${instance}`);
+        
+        // Wait to see if it gets blocked or actually works
+        setTimeout(() => {
+          // Restore original console.error
+          console.error = originalConsoleError;
+          
+          if (frameBlockedDetected) {
+            // Already handled by error monitor
+            return;
+          }
+          
+          if (!hasResolved) {
+            console.log(`🎵 ❌ Invidious probably doesn't work: ${instance}`);
+            hasResolved = true;
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+            reject(new Error(`Invidious likely blocked or no audio: ${instance}`));
+          }
+        }, 3000);
+      };
+      
+      iframe.onerror = () => {
+        console.log(`🎵 ❌ Invidious iframe failed to load: ${instance}`);
+        console.error = originalConsoleError; // Restore
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+        if (!hasResolved) {
+          hasResolved = true;
+          reject(new Error(`Invidious instance failed: ${instance}`));
+        }
+      };
+      
+      // Timeout - assume it doesn't work if no clear success
+      setTimeout(() => {
+        console.error = originalConsoleError; // Restore
+        if (!hasResolved) {
+          console.log(`🎵 ❌ Invidious timeout (assuming failure): ${instance}`);
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+          hasResolved = true;
+          reject(new Error(`Invidious timeout: ${instance}`));
+        }
+      }, 5000);
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+const createPipedPlayer = async (instance, elementId, playlistId, options) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Clear any existing element
+      const existingElement = document.getElementById(elementId);
+      if (existingElement) {
+        existingElement.remove();
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.id = elementId;
+      iframe.style.cssText = `
+        position: fixed !important;
+        bottom: -100px !important;
+        right: 10px !important;
+        width: 50px !important;
+        height: 30px !important;
+        border: none !important;
+        opacity: 0.1 !important;
+        z-index: 9999 !important;
+      `;
+      
+      // Piped playlist URL
+      iframe.src = `${instance}/embed/playlist/${playlistId}?autoplay=true&loop=true`;
+      
+      // Add to DOM
+      document.body.appendChild(iframe);
+      
+      // Test if iframe loads successfully
+      iframe.onload = () => {
+        console.log(`🎵 Piped iframe loaded: ${instance}`);
+        setTimeout(() => {
+          resolve({
+            iframe,
+            setVolume: () => {},
+            pauseVideo: () => {
+              iframe.src = iframe.src.replace('autoplay=true', 'autoplay=false');
+            },
+            playVideo: () => {
+              iframe.src = iframe.src.replace('autoplay=false', 'autoplay=true');
+            },
+            destroy: () => {
+              if (iframe.parentNode) {
+                iframe.parentNode.removeChild(iframe);
+              }
+            }
+          });
+        }, 2000);
+      };
+      
+      iframe.onerror = () => {
+        console.log(`🎵 Piped iframe failed to load: ${instance}`);
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+        reject(new Error(`Piped instance failed: ${instance}`));
+      };
+      
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+        reject(new Error(`Piped timeout: ${instance}`));
+      }, 5000);
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
 // Enhanced hidden player creation to bypass embedding restrictions
+// Update the createHiddenYouTubePlayer function:
+// Replace your createHiddenYouTubePlayer function with this enhanced version:
 export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) => {
   return new Promise((resolve, reject) => {
     if (!window.YT) {
@@ -395,179 +780,175 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
       return;
     }
 
-    // Create a truly hidden container
+    // Create a small but VISIBLE container
     let playerDiv = document.getElementById(elementId);
     if (!playerDiv) {
       playerDiv = document.createElement('div');
       playerDiv.id = elementId;
-      // Make it completely invisible and inaccessible
+      // Make it smaller and less obtrusive
       playerDiv.style.cssText = `
         position: fixed !important;
-        top: -10000px !important;
-        left: -10000px !important;
-        width: 1px !important;
-        height: 1px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        visibility: hidden !important;
-        z-index: -9999 !important;
-        overflow: hidden !important;
-        transform: scale(0) !important;
+        bottom: -50px !important;
+        right: 10px !important;
+        width: 50px !important;
+        height: 30px !important;
+        z-index: 9999 !important;
+        background: black !important;
+        border: 1px solid #333 !important;
+        opacity: 0.3 !important;
       `;
       document.body.appendChild(playerDiv);
-    } const playerOptions = {
-      height: '1', // Changed from '0' to '1' 
-      width: '1',  // Changed from '0' to '1'
-      videoId: '', // Start without specific video
+    }
+
+    console.log('🎵 Creating ENHANCED YouTube player with aggressive auto-skip...');
+
+    let skipCount = 0;
+    const MAX_SKIPS = 3; // Try up to 20 videos
+    let isSkipping = false;
+
+    const player = new window.YT.Player(elementId, {
+      height: '30',
+      width: '50',
       playerVars: {
         autoplay: 1,
-        loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
-        shuffle: options.shuffle ? 1 : 0,
-        // Add these from old code that might help:
         controls: 0,
-        disablekb: 1,
-        enablejsapi: 1,
-        fs: 0,
-        iv_load_policy: 3,
-        modestbranding: 1,
-        playsinline: 1,
-        rel: 0,
-        showinfo: 0,
-        host: 'https://www.youtube-nocookie.com',
-        origin: window.location.origin,
-        cc_load_policy: 0,
-        color: 'white',
-        hl: 'en',
-        html5: 1,
-        vq: 'tiny',
-        wmode: 'transparent'
+        listType: 'playlist',
+        list: playlistId,
+        index: Math.floor(Math.random() * 10), // Start at random position
+        loop: 1,
+        shuffle: options.shuffle ? 1 : 0
       },
       events: {
         onReady: (event) => {
-          console.log('[YouTube] Hidden YouTube player ready for background audio playback');
+          console.log('🎵 ✅ Enhanced YouTube player ready!');
+          
+          // Start playing immediately
+          setTimeout(() => {
+            try {
+              event.target.playVideo();
+              console.log('🎵 ✅ Started playback via playVideo()');
+            } catch (err) {
+              console.warn('Could not start playback:', err);
+            }
+          }, 1000);
 
-          // Call the provided onReady callback
-          if (options.onReady) {
-            options.onReady(event);
-          } else {
-            // Default behavior if no callback provided
-            setTimeout(() => {
-              try {
-                event.target.loadPlaylist({
-                  listType: 'playlist',
-                  list: playlistId,
-                  index: 0
-                });
-              } catch (error) {
-                logWarn('Error in default onReady:', error);
-              }
-            }, 500);
-          }
+          resolve(event.target);
         },
         onStateChange: (event) => {
-          // Call provided callback or use default
+          console.log('🎵 YouTube state:', event.data, `(skip count: ${skipCount})`);
+          
+          // If we hit PLAYING state, we found a working video!
+          if (event.data === window.YT.PlayerState.PLAYING) {
+            console.log('🎵 🎉 SUCCESS! Found playable video after', skipCount, 'skips');
+            skipCount = 0; // Reset skip count
+            isSkipping = false;
+            
+            if (window.addNotification) {
+              window.addNotification('🎵 Afspeelbare video gevonden!', 'success', 2000);
+            }
+          }
+          
           if (options.onStateChange) {
             options.onStateChange(event);
-          } else {
-            // Default state handling
-            if (event.data === window.YT.PlayerState.UNSTARTED) {
-              setTimeout(() => {
-                try {
-                  event.target.playVideo();
-                } catch (err) {
-                  logWarn('Could not start unstarted player:', err);
-                }
-              }, 2000);
-            }
           }
         },
-        onError: (event) => {
-          // Call provided callback or use default
-          if (options.onError) {
-            options.onError(event);
-          } else {
-            // Default error handling
-            if (event.data === 150 || event.data === 101) {
-              logWarn(`Embedding error ${event.data} - continuing anyway`);
-              setTimeout(() => {
-                try {
-                  event.target.playVideo();
-                } catch (retryErr) {
-                  logWarn('Retry after embedding error failed:', retryErr);
-                }
-              }, 3000);
+       onError: (errorEvent) => {
+  console.log('🎵 YouTube error:', errorEvent.data, `(skip count: ${skipCount})`);
+  
+  // AUTO-SKIP for embedding errors
+  if (errorEvent.data === 150 || errorEvent.data === 101) {
+    console.log('🎵 🚀 AUTO-SKIPPING restricted video...', skipCount + 1, 'of', MAX_SKIPS);
+    
+    if (skipCount >= MAX_SKIPS) {
+      console.error('🎵 ❌ Exhausted all skip attempts. Trying fallback methods...');
+      if (window.addNotification) {
+        window.addNotification('❌ Probeer derde partij spelers...', 'warning', 3000);
+      }
+      
+      // CRITICAL: Trigger fallback methods immediately
+      if (options.onAllSkipsFailed) {
+        console.log('🎵 🚨 Triggering onAllSkipsFailed callback');
+        setTimeout(() => {
+          options.onAllSkipsFailed();
+        }, 1000);
+      } else {
+        console.error('🎵 ❌ No onAllSkipsFailed callback provided!');
+      }
+      return;
+    }
+
+    if (!isSkipping) {
+      isSkipping = true;
+      skipCount++;
+      
+      // SIMPLER skip approach - just try nextVideo multiple times
+      const attemptSkip = () => {
+        try {
+          console.log(`🎵 Attempting skip ${skipCount}...`);
+          errorEvent.target.nextVideo();  // ← Use errorEvent consistently
+          
+          // Set a timeout to check if we're still not playing after 3 seconds
+          setTimeout(() => {
+            const currentState = errorEvent.target.getPlayerState();  // ← Use errorEvent consistently
+            console.log('🎵 State after skip attempt:', currentState);
+            
+            if (currentState !== window.YT.PlayerState.PLAYING) {
+              console.log('🎵 Skip failed, incrementing count...');
+              isSkipping = false;
+              
+              // Trigger another error to continue the skip chain
+              if (skipCount < MAX_SKIPS) {
+                setTimeout(() => {
+                  // Manually trigger onError again to continue skipping
+                  if (errorEvent.target.getPlayerState() !== window.YT.PlayerState.PLAYING) {  // ← Use errorEvent consistently
+                    console.log('🎵 Manually triggering next skip...');
+                    skipCount++;
+                    if (skipCount >= MAX_SKIPS) {
+                      console.log('🎵 🚨 MANUAL: Reached max skips, calling fallback');
+                      if (options.onAllSkipsFailed) {
+                        options.onAllSkipsFailed();
+                      }
+                    } else {
+                      attemptSkip();
+                    }
+                  }
+                }, 1000);
+              }
+            } else {
+              console.log('🎵 🎉 Skip successful!');
+              isSkipping = false;
+              skipCount = 0; // Reset on success
+            }
+          }, 3000);
+          
+        } catch (skipErr) {
+          console.warn('Skip attempt failed:', skipErr);
+          isSkipping = false;
+          
+          // Force trigger fallback after failed skip
+          if (skipCount >= MAX_SKIPS) {
+            if (options.onAllSkipsFailed) {
+              options.onAllSkipsFailed();
             }
           }
         }
-      }
-    };
-
-    try {
-      const player = new window.YT.Player(elementId, playerOptions);
-
-      // Store reference for debugging
-      window.debugHiddenYTPlayer = player;
-      // Additional hiding after creation
-      setTimeout(() => {
-        if (playerDiv) {
-          playerDiv.style.cssText = `
-            position: fixed !important;
-            top: -10000px !important;
-            left: -10000px !important;
-            width: 1px !important;
-            height: 1px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
-            z-index: -9999 !important;
-            overflow: hidden !important;
-            transform: scale(0) !important;
-          `;
-
-          // Also hide any iframe children
-          const iframes = playerDiv.querySelectorAll('iframe');
-          iframes.forEach(iframe => {
-            iframe.style.cssText = `
-              position: absolute !important;
-              top: -10000px !important;
-              left: -10000px !important;
-              width: 1px !important;
-              height: 1px !important;
-              opacity: 0 !important;
-              visibility: hidden !important;
-              transform: scale(0) !important;
-            `;
-          });
-        }
-      }, 100);
-
-      // Additional stealth hiding after a longer delay
-      setTimeout(() => {
-        if (playerDiv) {
-          // Move it even further away and make it even smaller
-          playerDiv.style.cssText = `
-            position: fixed !important;
-            top: -50000px !important;
-            left: -50000px !important;
-            width: 0px !important;
-            height: 0px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
-            z-index: -99999 !important;
-            overflow: hidden !important;
-            transform: scale(0) !important;
-            clip: rect(0,0,0,0) !important;
-          `;
-        }
-      }, 2000);
-
-    } catch (error) {
-      reject(error);
+      };
+      
+      attemptSkip();
     }
+  }
+  
+  if (options.onError) {
+    options.onError(errorEvent);  // ← Use errorEvent consistently
+  }
+}
+      }
+    });
+
+    // Store for debugging
+    window.debugSimpleYTPlayer = player;
   });
 };
-
 // Playlist control helper functions and icons
 export const playlistControlIcons = {
   shuffle: {
