@@ -389,7 +389,7 @@ export const getPlaylistTracks = async (playlistId) => {
  * Initialize Spotify Web Playback SDK - FIXED to prevent duplicates
  */
 export const initializeSpotifyPlayer = () => {
-  // CRITICAL FIX: If player already exists and ready, return it immediately
+  // CRITICAL FIX: More strict duplicate prevention
   if (spotifyPlayer && spotifyDeviceId && !isPlayerInitializing) {
     console.log('🎵 Spotify player already exists and ready - returning existing instance');
     return Promise.resolve(spotifyPlayer);
@@ -397,10 +397,33 @@ export const initializeSpotifyPlayer = () => {
   
   // If already initializing, return the existing promise
   if (isPlayerInitializing && playerInitPromise) {
-    console.log('🎵 Using existing Spotify player initialization...');
+    console.log('🎵 Already initializing Spotify player - returning existing promise');
     return playerInitPromise;
   }
   
+  // CRITICAL: Check if another instance is starting to initialize
+  if (isPlayerInitializing) {
+    console.log('🎵 Another initialization in progress - waiting...');
+    return new Promise((resolve, reject) => {
+      const checkInterval = setInterval(() => {
+        if (!isPlayerInitializing && spotifyPlayer) {
+          clearInterval(checkInterval);
+          resolve(spotifyPlayer);
+        } else if (!isPlayerInitializing && !spotifyPlayer) {
+          clearInterval(checkInterval);
+          reject(new Error('Initialization failed'));
+        }
+      }, 100);
+      
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        reject(new Error('Initialization timeout'));
+      }, 10000);
+    });
+  }
+  
+  console.log('🎵 Starting fresh Spotify player initialization...');
   isPlayerInitializing = true;
   
   playerInitPromise = new Promise((resolve, reject) => {
@@ -424,9 +447,7 @@ export const initializeSpotifyPlayer = () => {
   return playerInitPromise;
 };
 
-/**
- * Create Spotify player instance with enhanced error handling
- */
+// Also update createSpotifyPlayer to be more defensive:
 const createSpotifyPlayer = (resolve, reject) => {
   if (!spotifyAccessToken) {
     isPlayerInitializing = false;
@@ -434,9 +455,9 @@ const createSpotifyPlayer = (resolve, reject) => {
     return;
   }
   
-  // Prevent duplicate players
+  // FINAL CHECK: Prevent duplicate players even at this level
   if (spotifyPlayer) {
-    console.log('🎵 Spotify player already exists, reusing...');
+    console.log('🎵 Player created during initialization - returning existing');
     isPlayerInitializing = false;
     resolve(spotifyPlayer);
     return;
@@ -496,7 +517,7 @@ const createSpotifyPlayer = (resolve, reject) => {
     }
   });
   
-  // Ready event handler
+  // Ready event handler - SIMPLIFIED
   spotifyPlayer.addListener('ready', ({ device_id }) => {
     console.log('🎵 Spotify player ready with device:', device_id);
     spotifyDeviceId = device_id;
