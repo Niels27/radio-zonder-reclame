@@ -50,7 +50,7 @@ const isNetworkRequestBlocked = (url) => {
     '/pixel',
     'scorecardresearch.com'
   ];
-  
+
   return blockedPatterns.some(pattern => url.includes(pattern));
 };
 
@@ -60,7 +60,7 @@ const safeFetch = async (url, options = {}) => {
   if (getIsProduction() && isNetworkRequestBlocked(url)) {
     throw new Error('Request blocked to prevent ERR_BLOCKED_BY_CLIENT');
   }
-  
+
   return fetch(url, options);
 };
 
@@ -79,7 +79,7 @@ const logInfo = (message, ...args) => {
 const logWarn = (message, ...args) => {
   const errorKey = `warn_${message}`;
   if (!shouldLogError(errorKey)) return;
-  
+
   if (!getIsYouTubeProductionMode()) {
     console.warn(`[YouTube] ${message}`, ...args);
   }
@@ -88,7 +88,7 @@ const logWarn = (message, ...args) => {
 const logError = (message, ...args) => {
   const errorKey = `error_${message}`;
   if (!shouldLogError(errorKey)) return;
-  
+
   // In YouTube production mode, be even more restrictive with errors
   if (getIsYouTubeProductionMode()) {
     // Only log truly critical errors in YouTube production mode
@@ -103,23 +103,23 @@ const logError = (message, ...args) => {
 const shouldLogError = (errorKey) => {
   const now = Date.now();
   const errorData = errorTracker.get(errorKey);
-  
+
   if (!errorData) {
     errorTracker.set(errorKey, { count: 1, lastTime: now });
     return true;
   }
-  
+
   // Reset counter if enough time has passed
   if (now - errorData.lastTime > ERROR_RESET_TIME) {
     errorTracker.set(errorKey, { count: 1, lastTime: now });
     return true;
   }
-  
+
   // Check if we've exceeded the threshold
   if (errorData.count >= ERROR_SPAM_THRESHOLD) {
     return false;
   }
-  
+
   // Increment count
   errorData.count++;
   errorData.lastTime = now;
@@ -128,21 +128,21 @@ const shouldLogError = (errorKey) => {
 
 export const extractPlaylistId = (url) => {
   if (!url) return null;
-  
+
   // Handle different YouTube URL formats
   const patterns = [
     /[?&]list=([a-zA-Z0-9_-]+)/,  // Standard format
     /youtube\.com\/playlist\?list=([a-zA-Z0-9_-]+)/,  // Direct playlist URL
     /youtu\.be\/.*[?&]list=([a-zA-Z0-9_-]+)/  // Short URL format
   ];
-  
+
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match && match[1]) {
       return match[1];
     }
   }
-  
+
   return null;
 };
 
@@ -165,7 +165,7 @@ export const validatePlaylistUrl = async (url) => {
   try {
     // Try oembed only - it's more reliable than page scraping
     const oembedResponse = await safeFetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`);
-    
+
     if (oembedResponse.ok) {
       const oembedData = await oembedResponse.json();
       return {
@@ -219,7 +219,7 @@ export const loadYouTubeAPI = () => {
       if (getIsProduction()) {
         // In production, handle YouTube API errors more gracefully
         logError('YouTube API loading failed in production', error);
-        
+
         // Try alternative approach or provide fallback
         setTimeout(() => {
           if (!window.YT || !window.YT.Player) {
@@ -236,10 +236,10 @@ export const loadYouTubeAPI = () => {
     script.onload = () => {
       logInfo('YouTube API script loaded successfully');
     };
-    
+
     // Add referrer policy to prevent some blocking issues
     script.referrerPolicy = 'no-referrer-when-downgrade';
-    
+
     document.head.appendChild(script);
 
     // Set up callback for when API is ready
@@ -247,7 +247,7 @@ export const loadYouTubeAPI = () => {
       logInfo('YouTube iframe API fully ready');
       resolve();
     };
-    
+
     // Fallback timeout in case API never loads
     setTimeout(() => {
       if (!window.YT || !window.YT.Player) {
@@ -263,7 +263,7 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
     if (!window.YT) {
       reject(new Error('YouTube API not loaded'));
       return;
-    }    const playerOptions = {
+    } const playerOptions = {
       height: '1',
       width: '1',
       playerVars: {
@@ -291,10 +291,10 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
         // Try to force audio-only by hiding video
         vq: 'tiny',
         ...options.playerVars
-      },      events: {
+      }, events: {
         onReady: (event) => {
           logInfo('YouTube player ready for background playback');
-          
+
           // Set initial shuffle state
           if (options.playerVars?.shuffle) {
             try {
@@ -304,7 +304,7 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
               logWarn('Could not set shuffle on ready:', error);
             }
           }
-          
+
           resolve(event.target);
         },
         onStateChange: (event) => {
@@ -312,14 +312,14 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
           if (event.data === window.YT.PlayerState.PLAYING || event.data === window.YT.PlayerState.PAUSED) {
             logInfo('YouTube player state changed:', event.data);
           }
-          
+
           // Handle embedding errors and retry with fallback
           if (event.data === -1) { // unstarted
             logInfo('Player unstarted, attempting to start playback...');
           } else if (event.data === window.YT.PlayerState.BUFFERING) {
             logInfo('Player buffering...');
           }
-          
+
           // Handle state changes
           if (options.onStateChange) {
             options.onStateChange(event);
@@ -327,7 +327,7 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
         },
         onError: (event) => {
           // Handle specific error codes with smart logging to prevent spam
-          switch(event.data) {
+          switch (event.data) {
             case 5:
               logError('HTML5 player error - video format not supported');
               reject(new Error('HTML5 player error - video format not supported'));
@@ -343,7 +343,7 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
               if (options.onEmbeddingError) {
                 options.onEmbeddingError(event.data);
               }
-              
+
               // Don't reject immediately - try multiple bypass strategies
               setTimeout(() => {
                 try {
@@ -355,18 +355,18 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
                   logWarn('Bypass strategy 1 failed:', bypassErr);
                 }
               }, 3000);
-              
+
               // Additional bypass attempt with longer delay
               setTimeout(() => {
                 try {
-                  logInfo('Attempting bypass strategy 2: Reload and play');                  if (window.debugYTPlayer && window.debugYTPlayer.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                  logInfo('Attempting bypass strategy 2: Reload and play'); if (window.debugYTPlayer && window.debugYTPlayer.getPlayerState() !== window.YT.PlayerState.PLAYING) {
                     window.debugYTPlayer.playVideo();
                   }
                 } catch (bypassErr2) {
                   logWarn('Bypass strategy 2 failed:', bypassErr2);
                 }
               }, 8000);
-              
+
               break;
             default:
               logError(`YouTube player error: ${event.data}`);
@@ -378,10 +378,10 @@ export const createYouTubePlayer = (elementId, playlistId, options = {}) => {
 
     try {
       const player = new window.YT.Player(elementId, playerOptions);
-      
+
       // Store reference for debugging
       window.debugYTPlayer = player;
-        } catch (error) {
+    } catch (error) {
       reject(error);
     }
   });
@@ -415,14 +415,15 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
         transform: scale(0) !important;
       `;
       document.body.appendChild(playerDiv);
-    }    const playerOptions = {
+    } const playerOptions = {
       height: '1', // Changed from '0' to '1' 
       width: '1',  // Changed from '0' to '1'
       videoId: '', // Start without specific video
       playerVars: {
-        listType: 'playlist',
-        list: playlistId,
-        autoplay: 1, // CRITICAL: Enable autoplay
+        autoplay: 1,
+        loop: options.repeat === 'all' || options.repeat === 'one' ? 1 : 0,
+        shuffle: options.shuffle ? 1 : 0,
+        // Add these from old code that might help:
         controls: 0,
         disablekb: 1,
         enablejsapi: 1,
@@ -432,7 +433,6 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
         playsinline: 1,
         rel: 0,
         showinfo: 0,
-        // WORKING parameters from old code
         host: 'https://www.youtube-nocookie.com',
         origin: window.location.origin,
         cc_load_policy: 0,
@@ -440,13 +440,12 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
         hl: 'en',
         html5: 1,
         vq: 'tiny',
-        wmode: 'transparent',
-        ...options.playerVars
+        wmode: 'transparent'
       },
       events: {
         onReady: (event) => {
           console.log('[YouTube] Hidden YouTube player ready for background audio playback');
-          
+
           // Call the provided onReady callback
           if (options.onReady) {
             options.onReady(event);
@@ -505,10 +504,10 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
 
     try {
       const player = new window.YT.Player(elementId, playerOptions);
-      
+
       // Store reference for debugging
       window.debugHiddenYTPlayer = player;
-        // Additional hiding after creation
+      // Additional hiding after creation
       setTimeout(() => {
         if (playerDiv) {
           playerDiv.style.cssText = `
@@ -524,7 +523,7 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
             overflow: hidden !important;
             transform: scale(0) !important;
           `;
-          
+
           // Also hide any iframe children
           const iframes = playerDiv.querySelectorAll('iframe');
           iframes.forEach(iframe => {
@@ -541,7 +540,7 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
           });
         }
       }, 100);
-      
+
       // Additional stealth hiding after a longer delay
       setTimeout(() => {
         if (playerDiv) {
@@ -562,7 +561,7 @@ export const createHiddenYouTubePlayer = (elementId, playlistId, options = {}) =
           `;
         }
       }, 2000);
-      
+
     } catch (error) {
       reject(error);
     }
@@ -577,7 +576,7 @@ export const playlistControlIcons = {
   },
   repeat: {
     all: 'repeat-all',
-    one: 'repeat-one', 
+    one: 'repeat-one',
     off: 'repeat-off'
   }
 };

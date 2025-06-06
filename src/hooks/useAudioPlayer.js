@@ -10,7 +10,8 @@ import {
   setSpotifyVolume,
   setSpotifyShuffleMode,
   playSpotifyPlaylist,
-  ensureWebPlaybackDeviceActive
+  ensureWebPlaybackDeviceActive,
+  isSpotifyPlayerInitializing 
 } from '../utils/spotifyUtils';
 import { StreamProxy } from '../utils/streamProxy';
 import { AdSkipUtils } from '../utils/adSkipUtils';
@@ -279,27 +280,38 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
           }
         }
 
-        // Initialize Spotify only if authenticated
-        if (isSpotifyAuthenticated() && !spotifyPlayerReady && !spotifyPlayerRef.current) {
-          console.log('🎵 Initializing Spotify player for selected provider');
-          try {
-            const player = await initializeSpotifyPlayer();
-            spotifyPlayerRef.current = player;
-
-            player.addListener('player_state_changed', (state) => {
-              if (!state) return;
-              if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
-                setIsPlaying(!state.paused);
-              }
-            });
-
-            setSpotifyPlayerReady(true);
-            console.log('🎵 Spotify player ready for use');
-          } catch (error) {
-            console.error('Failed to initialize Spotify player:', error);
-            setError('Spotify player initialization failed');
-            setSpotifyPlayerReady(false);
+        // CRITICAL FIX: Don't reset Spotify if it's already working
+        if (isSpotifyAuthenticated()) {
+          // Check if we already have a working Spotify player
+          if (spotifyPlayerReady && spotifyPlayerRef.current) {
+            console.log('🎵 Spotify player already ready and working - skipping reinitialization');
+            return; // ← CRITICAL: Don't reinitialize if already working
           }
+
+          // Only initialize if we don't have a player OR it's not ready
+          if (!spotifyPlayerRef.current || !spotifyPlayerReady) {
+            console.log('🎵 Initializing Spotify player for selected provider');
+            try {
+              const player = await initializeSpotifyPlayer();
+              spotifyPlayerRef.current = player;
+
+              player.addListener('player_state_changed', (state) => {
+                if (!state) return;
+                if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
+                  setIsPlaying(!state.paused);
+                }
+              });
+
+              setSpotifyPlayerReady(true);
+              console.log('🎵 Spotify player ready for use');
+            } catch (error) {
+              console.error('Failed to initialize Spotify player:', error);
+              setError('Spotify player initialization failed');
+              setSpotifyPlayerReady(false);
+            }
+          }
+        } else {
+          console.log('🎵 Spotify provider selected but not authenticated - waiting for login');
         }
       } else if (playlistProvider === 'youtube') {
         // Clean up Spotify completely
@@ -330,28 +342,36 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       throw new Error('Not authenticated with Spotify');
     }
 
+    // CRITICAL FIX: Don't reinitialize if already working
     if (spotifyPlayerRef.current && spotifyPlayerReady) {
-      console.log('🎵 Spotify player already ready');
+      console.log('🎵 Spotify player already ready - returning existing player');
       return spotifyPlayerRef.current;
     }
 
     try {
       console.log('🎵 Starting manual Spotify player creation...');
       const player = await initializeSpotifyPlayer();
-      spotifyPlayerRef.current = player;
 
-      // Set up the state change listener
-      player.addListener('player_state_changed', (state) => {
-        if (!state) return;
+      // Only update ref and state if we don't already have them
+      if (!spotifyPlayerRef.current) {
+        spotifyPlayerRef.current = player;
+      }
 
-        // Only update React state if we're the current source
-        if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
-          setIsPlaying(!state.paused);
-        }
-      });
+      // Set up the state change listener only once
+      if (!spotifyPlayerReady) {
+        player.addListener('player_state_changed', (state) => {
+          if (!state) return;
 
-      setSpotifyPlayerReady(true);
-      console.log('🎵 Manual Spotify initialization complete');
+          // Only update React state if we're the current source
+          if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
+            setIsPlaying(!state.paused);
+          }
+        });
+
+        setSpotifyPlayerReady(true);
+        console.log('🎵 Manual Spotify initialization complete');
+      }
+
       return player;
     } catch (error) {
       console.error('🎵 Manual Spotify initialization failed:', error);
@@ -359,7 +379,7 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
       setSpotifyPlayerReady(false);
       throw error;
     }
-  }, [currentSource, currentPlaylistProvider]);
+  }, [currentSource, currentPlaylistProvider]); // ← REMOVE: spotifyPlayerReady from dependencies
 
   // --- END: SPOTIFY PLAYER INITIALIZATION LOGIC ---
 
@@ -972,18 +992,54 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
               console.warn('🎵 YouTube error:', event.data);
               setIsLoading(false);
               setIsTransitioning(false);
+              clearTimeout(loadingTimeout);
 
               if (event.data === 150) {
                 console.warn('🎵 YouTube Error 150 detected - playlist may still play audio, continuing...');
 
-                // Try to continue but clear loading
+                // ENHANCED: Don't fail immediately - try multiple strategies
                 setTimeout(() => {
                   try {
                     event.target.playVideo();
-                    console.log('🎵 Continuing playback despite Error 150');
+                    console.log('🎵 Strategy 1: Direct playVideo after Error 150');
                     setIsPlaying(true);
                   } catch (retryErr) {
-                    console.warn('Could not continue after Error 150:', retryErr);
+                    console.warn('Strategy 1 failed:', retryErr);
+                  }
+                }, 2000);
+
+                // Strategy 2: Multiple retry attempts with delays (from old code)
+                const retryDelays = [5000, 10000, 15000];
+                retryDelays.forEach((delay, index) => {
+                  setTimeout(() => {
+                    try {
+                      if (youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                        youtubePlayerRef.current.playVideo();
+                        console.log(`🎵 Strategy ${index + 2}: Retry attempt ${index + 1} for Error 150`);
+                        setIsPlaying(true);
+                      }
+                    } catch (retryErr) {
+                      console.warn(`Retry ${index + 1} failed:`, retryErr);
+                    }
+                  }, delay);
+                });
+
+                // Show user message but don't stop trying
+                if (window.addNotification) {
+                  window.addNotification('🎵 Playlist wordt gestart ondanks beperkingen...', 'info', 5000);
+                }
+
+                return; // Don't throw error - keep trying
+              } else if (event.data === 101) {
+                console.warn('🎵 YouTube Error 101 detected - embedding disabled, trying stealth mode...');
+
+                // Similar retry strategy for 101
+                setTimeout(() => {
+                  try {
+                    event.target.playVideo();
+                    setIsPlaying(true);
+                  } catch (retryErr) {
+                    console.warn('Could not continue after Error 101:', retryErr);
                   }
                 }, 3000);
 
@@ -997,7 +1053,14 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
               } else {
                 console.warn(`YouTube error ${event.data} - attempting to continue`);
                 // Still try to continue for non-fatal errors
-                setIsPlaying(true);
+                setTimeout(() => {
+                  try {
+                    event.target.playVideo();
+                    setIsPlaying(true);
+                  } catch (continueErr) {
+                    console.warn('Could not continue after error:', continueErr);
+                  }
+                }, 2000);
               }
             }
           });
@@ -1228,22 +1291,18 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
 
   // Add effect to show troubleshooting if stuck initializing
   useEffect(() => {
-    // Only show Spotify errors if Spotify is the selected provider
-    if (playlistProvider !== 'spotify') {
-      return; // Don't run Spotify checks for other providers
-    }
-
-    const stuckTimeout = setTimeout(() => {
-      if (!spotifyPlayerReady && isSpotifyAuthenticated()) {
-        setError('Spotify player wordt niet klaar. Controleer: 1) Premium account, 2) Browser blokkeert cookies/autoplay, 3) Geen andere actieve Spotify apparaten. Probeer opnieuw in te loggen of herlaad de pagina.');
-        if (window.addNotification) {
-          window.addNotification('Spotify player wordt niet klaar. Zie console voor tips.', 'error', 12000);
-        }
-      }
-    }, 15000);
-
-    return () => clearTimeout(stuckTimeout);
-  }, [spotifyPlayerReady, playlistProvider]);
+  // Only initialize Spotify if it's the selected provider AND authenticated AND not already ready
+  if (playlistProvider === 'spotify' && 
+      isSpotifyAuthenticated() && 
+      !spotifyPlayerReady && 
+      !spotifyPlayerRef.current &&
+      !isSpotifyPlayerInitializing()) { // ← NOW THIS FUNCTION IS IMPORTED
+    console.log('🎵 Spotify provider selected and authenticated - initializing player');
+    manualInitializeSpotifyPlayer().catch(error => {
+      console.error('Spotify initialization failed:', error);
+    });
+  }
+}, [playlistProvider, manualInitializeSpotifyPlayer]); 
 
   // --- BEGIN: GLOBAL USER INTERACTION HANDLER FOR SPOTIFY AUTOPLAY ---
   useEffect(() => {
@@ -1307,18 +1366,21 @@ export const useAudioPlayer = (playlistProvider = 'youtube') => {
   // --- END: PATCH REACT STATE UPDATE RACE CONDITIONS ---
 
   // Add this effect to watch for authentication changes
-  useEffect(() => {
-    // Only initialize Spotify if it's the selected provider AND authenticated
-    if (playlistProvider === 'spotify' && isSpotifyAuthenticated() && !spotifyPlayerReady && !spotifyPlayerRef.current) {
-      console.log('🎵 Spotify provider selected and authenticated - initializing player');
-      manualInitializeSpotifyPlayer().catch(error => {
-        console.error('Spotify initialization failed:', error);
-      });
-    }
-  }, [playlistProvider, spotifyPlayerReady, manualInitializeSpotifyPlayer]);
+useEffect(() => {
+  // Only initialize Spotify if it's the selected provider AND authenticated AND not already ready
+  if (playlistProvider === 'spotify' &&
+    isSpotifyAuthenticated() &&
+    !spotifyPlayerReady &&
+    !spotifyPlayerRef.current &&
+    !isSpotifyPlayerInitializing()) { // ← FIXED: Use the imported function
+    console.log('🎵 Spotify provider selected and authenticated - initializing player');
+    manualInitializeSpotifyPlayer().catch(error => {
+      console.error('Spotify initialization failed:', error);
+    });
+  }
+}, [playlistProvider, manualInitializeSpotifyPlayer]);
 
   // Add this effect to useAudioPlayer to prevent stuck loading states:
-
   useEffect(() => {
     // Safety timeout to prevent stuck loading states
     if (isLoading || isTransitioning) {

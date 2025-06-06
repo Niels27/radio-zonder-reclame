@@ -389,16 +389,16 @@ export const getPlaylistTracks = async (playlistId) => {
  * Initialize Spotify Web Playback SDK - FIXED to prevent duplicates
  */
 export const initializeSpotifyPlayer = () => {
+  // CRITICAL FIX: If player already exists and ready, return it immediately
+  if (spotifyPlayer && spotifyDeviceId && !isPlayerInitializing) {
+    console.log('🎵 Spotify player already exists and ready - returning existing instance');
+    return Promise.resolve(spotifyPlayer);
+  }
+  
   // If already initializing, return the existing promise
   if (isPlayerInitializing && playerInitPromise) {
     console.log('🎵 Using existing Spotify player initialization...');
     return playerInitPromise;
-  }
-  
-  // If player already exists and ready, return it
-  if (spotifyPlayer && spotifyDeviceId) {
-    console.log('🎵 Spotify player already exists and ready');
-    return Promise.resolve(spotifyPlayer);
   }
   
   isPlayerInitializing = true;
@@ -1221,4 +1221,9 @@ export const activateSpotifyDevice = async () => {
     console.error('Error activating Spotify device:', error);
     return false;
   }
+};
+
+// Add this export to prevent duplicate initialization
+export const isSpotifyPlayerInitializing = () => {
+  return isPlayerInitializing;
 };
