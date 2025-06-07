@@ -6,10 +6,10 @@ import {
   getNextLofiStream, 
   createLofiStation, 
   extractYouTubeVideoId,
-  openLofiYouTubePopup,
-  closeLofiYouTubePopup,
-  markLofiStreamAsFailed ,
-  isLofiPopupOpen
+  openLofiYouTubeOverlay,  // ← Updated import
+  closeLofiYouTubeOverlay,
+  markLofiStreamAsFailed,
+  isLofiOverlayOpen        // ← Updated import
 } from '../utils/lofiUtils.js';
 
 export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
@@ -140,6 +140,8 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
 // Replace the startNonstopAdBreak function with this fixed version:
 
+// Replace the startNonstopAdBreak function with this properly fixed version:
+
 const startNonstopAdBreak = useCallback(async (duration, attempt = 0) => {
   const maxAttempts = 8;
   
@@ -159,10 +161,10 @@ const startNonstopAdBreak = useCallback(async (duration, attempt = 0) => {
       window.addNotification(`📻 Proberen: ${station.name}...`, 'info', 2000);
     }
     
-    // ✅ CRITICAL FIX: Properly await and catch the radio play error
+    // ✅ CRITICAL FIX: Use await and let any errors bubble up
     await audioPlayer.playRadio(station);
     
-    // ✅ CRITICAL FIX: Only log success if we actually get here without throwing
+    // ✅ CRITICAL FIX: Only reach here if playRadio succeeded
     console.log(`✅ SUCCESS: Playing nonstop radio: ${station.name} for ${duration} minutes`);
     if (window.addNotification) {
       window.addNotification(`📻 Nonstop radio: ${station.name}`, 'success', 3000);
@@ -172,10 +174,10 @@ const startNonstopAdBreak = useCallback(async (duration, attempt = 0) => {
     return; // Success - exit function
     
   } catch (error) {
-    // ✅ CRITICAL FIX: This catch block should handle ALL playRadio failures
+    // ✅ CRITICAL FIX: This catch block handles ALL playRadio failures
     console.warn(`❌ FAILED: Nonstop station ${station.name} failed:`, error);
     
-    // Mark station as failed
+    // Mark station as failed to avoid retrying it
     markStationAsFailed(station.name);
     
     if (window.addNotification) {
@@ -187,7 +189,7 @@ const startNonstopAdBreak = useCallback(async (duration, attempt = 0) => {
     // ✅ CRITICAL FIX: Recursive retry with proper error propagation
     return await startNonstopAdBreak(duration, attempt + 1);
   }
-}, [audioPlayer, markStationAsFailed]);
+}, [audioPlayer]);
 
   // Lofi ad break
 // Replace the entire startLofiAdBreak function:
@@ -203,14 +205,14 @@ const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
     throw new Error('Alle lofi streams zijn uitgeproeeerd');
   }
 
-  // ✅ CRITICAL FIX: Check if popup is already working BEFORE trying anything
-  if (attempt === 0 && isLofiPopupOpen()) {
-    console.log('🎵 Lofi popup already open and working - not starting new stream');
+  // ✅ CRITICAL FIX: Check if overlay is already working BEFORE trying anything
+  if (attempt === 0 && isLofiOverlayOpen()) {
+    console.log('🎵 Lofi overlay already open and working - not starting new stream');
     if (window.addNotification) {
       window.addNotification(`🎧 Lofi Girl: al actief`, 'success', 3000);
     }
     setCurrentLofiAttempt(0);
-    return; // Success - popup already working
+    return; // Success - overlay already working
   }
 
   const lofiStream = getNextLofiStream();
@@ -225,33 +227,21 @@ const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
         throw new Error('Invalid YouTube video ID');
       }
       
-      // ✅ CRITICAL FIX: Try to open popup with better error handling
+      // ✅ Try to open overlay (always succeeds since we control it)
       try {
-        await openLofiYouTubePopup(videoId, duration);
+        await openLofiYouTubeOverlay(videoId, duration);
         
-        console.log(`✅ SUCCESS: Playing lofi popup: ${lofiStation.name} for ${duration} minutes`);
+        console.log(`✅ SUCCESS: Playing lofi overlay: ${lofiStation.name} for ${duration} minutes`);
         if (window.addNotification) {
-          window.addNotification(`🎧 Lofi Girl: ${lofiStation.name} (popup geopend)`, 'success', 3000);
+          window.addNotification(`🎧 Lofi Girl: ${lofiStation.name} (overlay actief)`, 'success', 3000);
         }
         
         setCurrentLofiAttempt(0);
         return; // Success - exit function
         
-      } catch (popupError) {
-        // ✅ CRITICAL FIX: Only retry if popup was actually blocked, not cross-origin issues
-        if (popupError.message.includes('blocked by browser')) {
-          console.warn(`❌ BLOCKED: Popup blocked for ${lofiStation.name}:`, popupError);
-          throw popupError; // This should trigger retry
-        } else {
-          // For other errors (like cross-origin), assume it worked
-          console.log(`🎵 Popup opened but validation failed (likely cross-origin): ${popupError.message}`);
-          console.log(`✅ ASSUMING SUCCESS: Lofi popup for ${lofiStation.name}`);
-          if (window.addNotification) {
-            window.addNotification(`🎧 Lofi Girl: ${lofiStation.name} (popup geopend)`, 'success', 3000);
-          }
-          setCurrentLofiAttempt(0);
-          return; // Success - assume it worked
-        }
+      } catch (overlayError) {
+        console.warn(`❌ FAILED: Overlay failed for ${lofiStation.name}:`, overlayError);
+        throw overlayError; // This should trigger retry
       }
       
     } else {
@@ -275,22 +265,15 @@ const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
   } catch (error) {
     console.warn(`❌ FAILED: Lofi stream ${lofiStation.name} failed:`, error);
     
-    // ✅ CRITICAL FIX: Only mark as failed if it's a real failure
-    if (error.message.includes('blocked by browser') || error.message.includes('Connection timeout')) {
-      markLofiStreamAsFailed(lofiStation.name);
-      
-      if (window.addNotification) {
-        window.addNotification(`❌ ${lofiStation.name} mislukt, proberen volgende...`, 'warning', 2000);
-      }
-      
-      // Recursive retry with proper error propagation
-      return await startLofiAdBreak(duration, attempt + 1);
-    } else {
-      // For other errors, don't retry - assume it might have worked
-      console.log(`🎵 Assuming lofi stream worked despite error: ${error.message}`);
-      setCurrentLofiAttempt(0);
-      return;
+    // Only mark as failed and retry if it's a real failure
+    markLofiStreamAsFailed(lofiStation.name);
+    
+    if (window.addNotification) {
+      window.addNotification(`❌ ${lofiStation.name} mislukt, proberen volgende...`, 'warning', 2000);
     }
+    
+    // Recursive retry with proper error propagation
+    return await startLofiAdBreak(duration, attempt + 1);
   }
 }, [audioPlayer]);
 
@@ -309,8 +292,8 @@ const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
       adBreakTimeoutRef.current = null;
     }
 
-    // Close Lofi YouTube popup if open
-    closeLofiYouTubePopup();
+    // ✅ Close Lofi overlay if open (we have full control)
+    closeLofiYouTubeOverlay();
 
     // Stop YouTube popup specifically for ad break end
     if (audioPlayer.youtubePlayerRef?.current) {
@@ -462,8 +445,8 @@ const manualAdBreak = useCallback(() => {
     setIsManualTestActive(false);
     setShouldPlayPlaylistDuringAdBreak(false);
     
-    // ✅ CRITICAL FIX: Close Lofi popup when stopping test
-    closeLofiYouTubePopup();
+    // ✅ Close Lofi overlay when stopping test (reliable)
+    closeLofiYouTubeOverlay();
     
     // Also close any lingering popups by name
   try {

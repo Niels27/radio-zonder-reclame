@@ -1,4 +1,4 @@
-// Lofi Girl stream management with YouTube popup support
+// Replace the entire file with this improved version:
 
 const LOFI_STREAMS = [
   {
@@ -30,10 +30,9 @@ const LOFI_STREAMS = [
 
 let currentLofiIndex = 0;
 let failedStreams = new Set();
-let currentLofiPopup = null;
+let currentLofiOverlay = null;
 
 export const getNextLofiStream = () => {
-  // Find next working stream that hasn't failed
   let attempts = 0;
   let stream = null;
   
@@ -41,7 +40,6 @@ export const getNextLofiStream = () => {
     stream = LOFI_STREAMS[currentLofiIndex];
     currentLofiIndex = (currentLofiIndex + 1) % LOFI_STREAMS.length;
     
-    // Skip failed streams unless we've tried all others
     if (!failedStreams.has(stream.name) || attempts === LOFI_STREAMS.length - 1) {
       break;
     }
@@ -56,7 +54,6 @@ export const markLofiStreamAsFailed = (streamName) => {
   console.log(`🚫 Marking lofi stream as failed: ${streamName}`);
   failedStreams.add(streamName);
   
-  // If too many streams failed, reset the failed list
   if (failedStreams.size >= LOFI_STREAMS.length * 0.8) {
     console.log('🔄 Too many failed lofi streams, resetting failed list');
     failedStreams.clear();
@@ -74,157 +71,454 @@ export const extractYouTubeVideoId = (url) => {
   return match ? match[1] : null;
 };
 
-// Open YouTube in popup for lofi playback
-// Update the openLofiYouTubePopup function:
+// ✅ NEW: Create a controllable overlay instead of popup
+// Replace the openLofiYouTubeOverlay function with this enhanced version:
 
-// Replace the openLofiYouTubePopup function:
-
-// Replace the openLofiYouTubePopup function:
-
-// Replace the openLofiYouTubePopup function with this much more reliable version:
-
-export const openLofiYouTubePopup = (videoId, duration) => {
+export const openLofiYouTubeOverlay = (videoId, duration) => {
   return new Promise((resolve, reject) => {
     try {
-      // ✅ CRITICAL FIX: Better check for existing popup
-      if (currentLofiPopup && !currentLofiPopup.closed) {
-        try {
-          // Try to focus the existing popup to test if it's really alive
-          currentLofiPopup.focus();
-          console.log('🎵 Lofi popup already open and working - reusing existing popup');
-          resolve(currentLofiPopup);
-          return;
-        } catch (error) {
-          // If focus fails, popup might be dead, continue to create new one
-          console.log('🎵 Existing popup appears dead, creating new one');
-          currentLofiPopup = null;
-          window.currentLofiPopup = null;
-        }
-      }
-
-      const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&autoplay=1&loop=1&playlist=${videoId}`;
-      
-      // Calculate popup size and position
-      const width = 800;
-      const height = 600;
-      const left = (window.screen.width - width) / 2;
-      const top = (window.screen.height - height) / 2;
-      
-      const popupFeatures = [
-        `width=${width}`,
-        `height=${height}`,
-        `left=${left}`,
-        `top=${top}`,
-        'menubar=no',
-        'toolbar=no',
-        'location=no',
-        'status=no',
-        'scrollbars=yes',
-        'resizable=yes'
-      ].join(',');
-
-      console.log('🎵 Opening NEW Lofi YouTube popup:', youtubeUrl);
-      
-      currentLofiPopup = window.open(youtubeUrl, 'lofiPlayer', popupFeatures);
-      
-      if (!currentLofiPopup) {
-        reject(new Error('Popup blocked by browser'));
+      // ✅ Check if overlay already exists and is working
+      if (currentLofiOverlay && document.body.contains(currentLofiOverlay)) {
+        console.log('🎵 Lofi overlay already open and working - reusing existing overlay');
+        resolve(currentLofiOverlay);
         return;
       }
 
-      // ✅ CRITICAL FIX: Much more lenient popup validation
-      // Just check immediately if window.open returned a valid object
-      try {
-        // Test if we can access basic properties (this will fail if popup is blocked)
-        const hasValidReference = currentLofiPopup && typeof currentLofiPopup.closed === 'boolean';
-        
-        if (hasValidReference) {
-          // SUCCESS - we have a valid popup reference
-          console.log('🎵 Lofi popup opened successfully');
-          window.currentLofiPopup = currentLofiPopup;
-          resolve(currentLofiPopup);
-          
-          // Optional: Set up a listener to detect if popup gets closed later
-          const checkInterval = setInterval(() => {
-            if (currentLofiPopup && currentLofiPopup.closed) {
-              console.log('🎵 Lofi popup was closed by user');
-              currentLofiPopup = null;
-              window.currentLofiPopup = null;
-              clearInterval(checkInterval);
-            }
-          }, 2000);
-          
-          // Clear interval after 30 seconds to avoid memory leaks
-          setTimeout(() => clearInterval(checkInterval), 30000);
-          
-        } else {
-          // FAILED - popup was blocked
-          console.warn('🎵 Lofi popup was blocked');
-          currentLofiPopup = null;
-          window.currentLofiPopup = null;
-          reject(new Error('Popup was blocked by browser'));
-        }
-        
-      } catch (error) {
-        console.error('🎵 Error validating popup:', error);
-        reject(new Error('Failed to validate popup'));
-      }
+      // ✅ Create overlay container
+      const overlay = document.createElement('div');
+      overlay.id = 'lofi-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+        transition: all 0.3s ease;
+      `;
+
+      // ✅ Create video container
+      const container = document.createElement('div');
+      container.style.cssText = `
+        background: #1f2937;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        position: relative;
+        max-width: 90vw;
+        max-height: 90vh;
+        transition: all 0.3s ease;
+      `;
+
+      // ✅ Create header with title and buttons
+      const header = document.createElement('div');
+      header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        color: white;
+      `;
+
+      const title = document.createElement('h3');
+      title.textContent = 'Lofi Girl - Study Stream';
+      title.style.cssText = `
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      `;
+
+      // ✅ Create button container
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = `
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      `;
+
+      // ✅ Create minimize button
+      const minimizeButton = document.createElement('button');
+      minimizeButton.innerHTML = '−';
+      minimizeButton.style.cssText = `
+        background: #3b82f6;
+        border: none;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      `;
       
+      minimizeButton.onmouseover = () => {
+        minimizeButton.style.background = '#2563eb';
+        minimizeButton.style.transform = 'scale(1.1)';
+      };
+      minimizeButton.onmouseout = () => {
+        minimizeButton.style.background = '#3b82f6';
+        minimizeButton.style.transform = 'scale(1)';
+      };
+
+      // ✅ Create close button
+      const closeButton = document.createElement('button');
+      closeButton.innerHTML = '✕';
+      closeButton.style.cssText = `
+        background: #ef4444;
+        border: none;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      `;
+      
+      closeButton.onmouseover = () => {
+        closeButton.style.background = '#dc2626';
+        closeButton.style.transform = 'scale(1.1)';
+      };
+      closeButton.onmouseout = () => {
+        closeButton.style.background = '#ef4444';
+        closeButton.style.transform = 'scale(1)';
+      };
+
+      // ✅ Create iframe for YouTube
+      const iframe = document.createElement('iframe');
+      const youtubeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}`;
+      iframe.src = youtubeUrl;
+      iframe.style.cssText = `
+        width: 800px;
+        height: 450px;
+        border: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+      `;
+      iframe.allow = 'autoplay; encrypted-media';
+
+      // ✅ Create timer display
+      const timerDisplay = document.createElement('div');
+      timerDisplay.style.cssText = `
+        margin-top: 15px;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 14px;
+        transition: all 0.3s ease;
+      `;
+
+      // ✅ MINIMIZE FUNCTIONALITY
+      let isMinimized = false;
+      
+      const minimizeOverlay = () => {
+        if (isMinimized) return;
+        
+        console.log('🎵 Minimizing Lofi overlay');
+        isMinimized = true;
+        
+        // Change overlay to bottom-right corner
+        overlay.style.cssText = `
+          position: fixed;
+          bottom: 100px;
+          right: 20px;
+          width: 320px;
+          height: 200px;
+          background: transparent;
+          z-index: 10000;
+          backdrop-filter: none;
+          transition: all 0.3s ease;
+          cursor: pointer;
+        `;
+        
+        // Change container to compact style
+        container.style.cssText = `
+          background: #1f2937;
+          border-radius: 12px;
+          padding: 10px;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+          position: relative;
+          width: 100%;
+          height: 100%;
+          border: 2px solid #3b82f6;
+          transition: all 0.3s ease;
+        `;
+        
+        // Update header
+        header.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          color: white;
+        `;
+        
+        // Update title
+        title.style.cssText = `
+          margin: 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: #93c5fd;
+        `;
+        title.textContent = 'Lofi Girl';
+        
+        // Change minimize button to expand button
+        minimizeButton.innerHTML = '□';
+        minimizeButton.title = 'Maximize';
+        
+        // Update iframe to smaller size
+        iframe.style.cssText = `
+          width: 100%;
+          height: 140px;
+          border: none;
+          border-radius: 6px;
+          transition: all 0.3s ease;
+        `;
+        
+        // Update timer display
+        timerDisplay.style.cssText = `
+          margin-top: 5px;
+          text-align: center;
+          color: #6b7280;
+          font-size: 10px;
+          transition: all 0.3s ease;
+        `;
+        
+        // Remove backdrop click to minimize (only works in fullscreen)
+        overlay.onclick = null;
+        
+        // Add click to maximize
+        container.onclick = (e) => {
+          if (e.target === container || e.target === iframe) {
+            maximizeOverlay();
+          }
+        };
+      };
+      
+      const maximizeOverlay = () => {
+        if (!isMinimized) return;
+        
+        console.log('🎵 Maximizing Lofi overlay');
+        isMinimized = false;
+        
+        // Restore original overlay style
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.8);
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(5px);
+          transition: all 0.3s ease;
+        `;
+        
+        // Restore original container style
+        container.style.cssText = `
+          background: #1f2937;
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+          position: relative;
+          max-width: 90vw;
+          max-height: 90vh;
+          transition: all 0.3s ease;
+        `;
+        
+        // Restore header
+        header.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+          color: white;
+        `;
+        
+        // Restore title
+        title.style.cssText = `
+          margin: 0;
+          font-size: 18px;
+          font-weight: 600;
+        `;
+        title.textContent = 'Lofi Girl - Study Stream';
+        
+        // Change expand button back to minimize button
+        minimizeButton.innerHTML = '−';
+        minimizeButton.title = 'Minimize';
+        
+        // Restore iframe
+        iframe.style.cssText = `
+          width: 800px;
+          height: 450px;
+          border: none;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+        `;
+        
+        // Restore timer display
+        timerDisplay.style.cssText = `
+          margin-top: 15px;
+          text-align: center;
+          color: #9ca3af;
+          font-size: 14px;
+          transition: all 0.3s ease;
+        `;
+        
+        // Restore backdrop click to minimize
+        overlay.onclick = (e) => {
+          if (e.target === overlay) minimizeOverlay();
+        };
+        
+        // Remove container click
+        container.onclick = null;
+      };
+
+      // ✅ Close function that we control
+      const closeOverlay = () => {
+        console.log('🎵 Closing Lofi overlay');
+        if (overlay && document.body.contains(overlay)) {
+          document.body.removeChild(overlay);
+        }
+        currentLofiOverlay = null;
+        window.currentLofiOverlay = null;
+        
+        // Clear timer if exists
+        if (window.lofiOverlayTimer) {
+          clearInterval(window.lofiOverlayTimer);
+          window.lofiOverlayTimer = null;
+        }
+      };
+
+      // ✅ Set up button handlers
+      minimizeButton.onclick = (e) => {
+        e.stopPropagation();
+        if (isMinimized) {
+          maximizeOverlay();
+        } else {
+          minimizeOverlay();
+        }
+      };
+      
+      closeButton.onclick = (e) => {
+        e.stopPropagation();
+        closeOverlay();
+      };
+      
+      // ✅ Initial backdrop click to minimize (only in fullscreen mode)
+      overlay.onclick = (e) => {
+        if (e.target === overlay && !isMinimized) {
+          minimizeOverlay();
+        }
+      };
+
+      // ✅ ESC key handler
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          if (isMinimized) {
+            closeOverlay();
+          } else {
+            minimizeOverlay();
+          }
+          document.removeEventListener('keydown', handleEscape);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+
+      // ✅ Auto-close timer (optional)
+      if (duration && duration > 0) {
+        let timeLeft = duration * 60; // Convert to seconds
+        
+        const updateTimer = () => {
+          const minutes = Math.floor(timeLeft / 60);
+          const seconds = timeLeft % 60;
+          const timeText = `Auto-close in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+          timerDisplay.textContent = timeText;
+          timeLeft--;
+          
+          if (timeLeft < 0) {
+            console.log('🎵 Auto-closing Lofi overlay after timer');
+            closeOverlay();
+          }
+        };
+        
+        updateTimer(); // Initial update
+        window.lofiOverlayTimer = setInterval(updateTimer, 1000);
+      } else {
+        timerDisplay.textContent = 'Playing until manually closed';
+      }
+
+      // ✅ Assemble the overlay
+      buttonContainer.appendChild(minimizeButton);
+      buttonContainer.appendChild(closeButton);
+      
+      header.appendChild(title);
+      header.appendChild(buttonContainer);
+      
+      container.appendChild(header);
+      container.appendChild(iframe);
+      container.appendChild(timerDisplay);
+      
+      overlay.appendChild(container);
+
+      // ✅ Add to DOM
+      document.body.appendChild(overlay);
+      
+      // ✅ Store reference and global functions
+      currentLofiOverlay = overlay;
+      window.currentLofiOverlay = overlay;
+      window.closeLofiOverlay = closeOverlay;
+      window.minimizeLofiOverlay = minimizeOverlay;
+      window.maximizeLofiOverlay = maximizeOverlay;
+
+      console.log('🎵 Lofi overlay created successfully');
+      resolve(overlay);
+
     } catch (error) {
-      console.error('Failed to open lofi YouTube popup:', error);
+      console.error('Failed to create lofi overlay:', error);
       reject(error);
     }
   });
 };
-// Close the lofi popup
-export const closeLofiYouTubePopup = () => {
+
+// ✅ NEW: Close the overlay (we have full control)
+export const closeLofiYouTubeOverlay = () => {
   try {
-    if (currentLofiPopup && !currentLofiPopup.closed) {
-      console.log('🎵 Closing Lofi YouTube popup');
-      currentLofiPopup.close();
+    if (window.closeLofiOverlay) {
+      window.closeLofiOverlay();
+    } else if (currentLofiOverlay && document.body.contains(currentLofiOverlay)) {
+      document.body.removeChild(currentLofiOverlay);
+      currentLofiOverlay = null;
+      window.currentLofiOverlay = null;
     }
   } catch (error) {
-    console.warn('Error closing Lofi popup:', error);
-  } finally {
-    // Always clean up references
-    currentLofiPopup = null;
-    window.currentLofiPopup = null;
+    console.warn('Error closing Lofi overlay:', error);
   }
 };
 
-// Check if popup is still open
-// Replace the isLofiPopupOpen function:
-
-export const isLofiPopupOpen = () => {
-  try {
-    if (!currentLofiPopup) {
-      return false;
-    }
-    
-    // Check if popup is still open and accessible
-    if (currentLofiPopup.closed) {
-      // Popup was closed, clean up references
-      currentLofiPopup = null;
-      window.currentLofiPopup = null;
-      return false;
-    }
-    
-    // Try to access a property to test if popup is still alive
-    try {
-      // This will throw if popup is from different origin or blocked
-      const isAlive = typeof currentLofiPopup.closed === 'boolean';
-      return isAlive;
-    } catch (error) {
-      // Cross-origin or blocked popup
-      console.log('🎵 Popup access restricted (cross-origin), assuming it\'s working');
-      return true; // Assume it's working if we can't check due to cross-origin
-    }
-    
-  } catch (error) {
-    console.warn('Error checking if lofi popup is open:', error);
-    return false;
-  }
+// ✅ NEW: Check if overlay is open (reliable)
+export const isLofiOverlayOpen = () => {
+  return currentLofiOverlay && document.body.contains(currentLofiOverlay);
 };
+
+// Keep the old popup functions as fallback, but prefer overlay
+export const openLofiYouTubePopup = openLofiYouTubeOverlay;
+export const isLofiPopupOpen = isLofiOverlayOpen;
 
 export const createLofiStation = (lofiStream) => {
   if (lofiStream.type === "youtube_video") {

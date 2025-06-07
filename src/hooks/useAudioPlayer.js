@@ -641,31 +641,58 @@ useEffect(() => {
 
       // Final check before setting audio source
       if (connectionAttempt.cancel) {
-        console.log('🚫 Connection attempt canceled before setting audio source');
+        console.log('🚫 Connection was canceled, not setting audio source');
         return;
       }
+
       console.log('🎵 Setting audio source to:', workingUrl);
       audioRef.current.src = workingUrl;
-      audioRef.current.volume = volume; // Set volume before playing
-
-      // Play the audio
-      await audioRef.current.play();
-      setIsPlaying(true);
-
-      setIsLoading(false);
-      setLoadingProgress('');
-      setCurrentConnectionAttempt(null);
-      setCurrentSource('radio');
-
-      // Check if we should offer pre-roll skip button
-      if (AdSkipUtils.shouldOfferPrerollSkip(workingUrl, effectiveStationData.name)) {
-        console.log('🚫 Offering pre-roll skip for:', effectiveStationData.name);
-        AdSkipUtils.createPrerollSkipButton(audioRef.current, () => {
-          console.log('⏭️ Pre-roll skipped for:', effectiveStationData.name);
-          if (window.addNotification) {
-            window.addNotification('⏭️ Pre-roll reclame overgeslagen', 'success', 2000);
+      audioRef.current.volume = volume;
+      
+      // ✅ CRITICAL FIX: Wait for the audio to actually start playing before declaring success
+      try {
+        await audioRef.current.play();
+        console.log('🎵 Audio.play() succeeded');
+        
+        // Wait a bit to make sure the stream is actually working
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Stream validation timeout'));
+          }, 3000);
+          
+          const handleCanPlay = () => {
+            clearTimeout(timeout);
+            audioRef.current.removeEventListener('canplay', handleCanPlay);
+            audioRef.current.removeEventListener('error', handleError);
+            resolve();
+          };
+          
+          const handleError = (e) => {
+            clearTimeout(timeout);
+            audioRef.current.removeEventListener('canplay', handleCanPlay);
+            audioRef.current.removeEventListener('error', handleError);
+            reject(new Error('Stream failed to load properly'));
+          };
+          
+          audioRef.current.addEventListener('canplay', handleCanPlay);
+          audioRef.current.addEventListener('error', handleError);
+          
+          // If already can play, resolve immediately
+          if (audioRef.current.readyState >= 2) {
+            clearTimeout(timeout);
+            resolve();
           }
         });
+        
+        setIsPlaying(true);
+        setIsLoading(false);
+        setLoadingProgress('');
+        setCurrentConnectionAttempt(null);
+        setCurrentSource('radio');
+        
+      } catch (playError) {
+        console.error('🎵 Audio.play() or validation failed:', playError);
+        throw new Error(`Failed to start playback: ${playError.message}`);
       }
 
     } catch (error) {
@@ -676,32 +703,27 @@ useEffect(() => {
       }
 
       if (connectionAttempt.cancel) {
-        console.log('🚫 Connection attempt was canceled');
+        console.log('🚫 Connection was canceled during error handling');
         return;
       }
 
       console.log(`❌ Failed to play ${effectiveStationData.name}:`, error);
 
-      // DON'T clear currentStation immediately - keep it for error reporting
+      // ✅ CRITICAL FIX: Make sure we throw the error so it propagates
       setIsLoading(false);
       setLoadingProgress('Verbinding mislukt');
       setCurrentConnectionAttempt(null);
       setError(`Kan ${effectiveStationData.name} niet afspelen: ${error.message}`);
 
       // Keep the station data so the report button can access it
-      // Only clear it after a delay to allow user to report the issue
       setTimeout(() => {
-        setCurrentStation(null);
-      }, 10000); // Clear after 10 seconds
-
-      // ❌ REMOVE AUTOMATIC REPORTING - Only report when user clicks the button
-      // stationReportingService.reportFailedStation(effectiveStationData, {
-      //   primaryError: error.message,
-      //   timestamp: new Date().toISOString(),
-      //   source: 'playRadio',
-      //   connectionType: navigator.connection?.effectiveType || 'unknown',
-      //   userAgent: navigator.userAgent
-      // });
+        if (!audioPlayer.isPlaying) {
+          setCurrentStation(null);
+        }
+      }, 10000);
+      
+      // ✅ CRITICAL FIX: Re-throw the error so nonstop mode can catch it
+      throw error;
     }
   }, [currentConnectionAttempt, volume, isTransitioning]);
 
