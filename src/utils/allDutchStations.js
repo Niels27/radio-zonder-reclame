@@ -7,7 +7,7 @@ import { getStationDefinition } from '../data/stationDefinitions.js';
 
 // Popular stations list - the 24 most popular Dutch radio stations
 const popularStationNames = [
- // 'TEST FAILING STATION',
+  // 'TEST FAILING STATION',
   'Radio 538',
   'Sky Radio',
   'Qmusic',
@@ -15,8 +15,8 @@ const popularStationNames = [
   'SLAM!',
   '100% NL',
   'Radio 10',
-  'NPO Radio 1', 
-  'NPO Radio 2', 
+  'NPO Radio 1',
+  'NPO Radio 2',
   '3FM',
   'NPO Radio 4',
   'NPO FunX',
@@ -27,7 +27,7 @@ const popularStationNames = [
   'Joy Radio',
   'Classic FM',
   'Vibe Radio',
-  'Radio 538 Non-Stop', 
+  'Radio 538 Non-Stop',
   'Sky Radio Non-Stop @ Work',
   'Qmusic Non-Stop',
   'Slam! Mixmarathon',
@@ -41,7 +41,7 @@ export const isPopularStation = (stationName) => {
 // Get all popular stations from the database
 export const getPopularStations = () => {
   const popularStations = [];
-  
+
   // Search through all categories to find popular stations
   Object.entries(allDutchStations).forEach(([category, stations]) => {
     Object.values(stations).forEach(station => {
@@ -53,7 +53,7 @@ export const getPopularStations = () => {
       }
     });
   });
-  
+
   // Sort by the order defined in popularStationNames
   return popularStations.sort((a, b) => {
     const indexA = popularStationNames.indexOf(a.name);
@@ -78,12 +78,12 @@ export const getStats = () => ({
 // Get all stations from all categories
 export const getAllStations = () => {
   const allStations = [];
-  
+
   Object.entries(allDutchStations).forEach(([category, stations]) => {
     Object.values(stations).forEach(station => {
       // Check if there's a custom definition for this station
       const customDefinition = getStationDefinition(station.name);
-      
+
       if (customDefinition) {
         // Use custom definition with multiple URLs
         allStations.push({
@@ -108,7 +108,7 @@ export const getAllStations = () => {
       }
     });
   });
-  
+
   return allStations;
 };
 
@@ -160,13 +160,13 @@ export const allDutchStations = {
       "votes": 1767
     },
     "Classic FM": {
-    "name": "Classic FM",
-    "url": "https://25553.live.streamtheworld.com/CLASSICFM.mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Classic_FM_logo.svg",
-    "description": "Klassieke muziek voor iedereen",
-    "bitrate": 128,
-    "city": null,
-    "votes": 2198
+      "name": "Classic FM",
+      "url": "https://25553.live.streamtheworld.com/CLASSICFM.mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Classic_FM_logo.svg",
+      "description": "Klassieke muziek voor iedereen",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2198
     },
     "Sky Radio 101 FM": {
       "name": "Sky Radio",
@@ -267,60 +267,60 @@ export const allDutchStations = {
       "city": null,
       "votes": 303
     },
-      "Radio 2": {
-    "name": "Radio 2",
-    "url": "https://live-radio-cf-vrt.akamaized.net/groupa/live/d8c422c8-465a-4ba9-b9c2-76b44ce9b060/live.isml/live-audio=128000.m3u8",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/4/41/VRT_Radio_2_logo.svg",
-    "description": "Vlaamse hits (populair in NL)",
-    "bitrate": 128,
-    "city": null,
-    "votes": 2341
-  },
-   "NPO Radio 2": {
-    "name": "NPO Radio 2",
-    "url": "https://icecast.omroep.nl/radio2-bb-mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/7/79/NPO_Radio_2_logo_2014.svg",
-    "description": "De beste muziek en verhalen",
-    "bitrate": 192,
-    "city": null,
-    "votes": 9876
-  },
-  "3FM": {
-    "name": "3FM",
-    "url": "https://icecast.omroep.nl/3fm-bb-mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/3/34/NPO_3FM_logo_2014.svg",
-    "description": "Alternative, indie en nieuwe muziek",
-    "bitrate": 192,
-    "city": null,
-    "votes": 7654
-  },
-  "NPO Radio 4": {
-    "name": "NPO Radio 4",
-    "url": "https://icecast.omroep.nl/radio4-bb-mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/a/ae/NPO_Radio_4_logo_2014.svg",
-    "description": "Klassieke muziek",
-    "bitrate": 192,
-    "city": null,
-    "votes": 2345
-  },
-  "NPO Radio 5": {
-    "name": "NPO Radio 5",
-    "url": "https://icecast.omroep.nl/radio5-bb-mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/f/f4/NPO_Radio_5_logo_2014.svg",
-    "description": "Nostalgie jaren 60, 70, 80",
-    "bitrate": 192,
-    "city": null,
-    "votes": 4567
-  },
-  "NPO FunX": {
- "name": "NPO FunX",
- "url": "https://icecast.omroep.nl/funx-bb-mp3",
- "logo": "https://upload.wikimedia.org/wikipedia/commons/5/56/NPO_FunX_logo_2014.svg",
- "description": "Urban, hip-hop en R&B",
- "bitrate": 192,
- "city": null,
- "votes": 3421
-},
+    "Radio 2": {
+      "name": "Radio 2",
+      "url": "https://live-radio-cf-vrt.akamaized.net/groupa/live/d8c422c8-465a-4ba9-b9c2-76b44ce9b060/live.isml/live-audio=128000.m3u8",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/4/41/VRT_Radio_2_logo.svg",
+      "description": "Vlaamse hits (populair in NL)",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2341
+    },
+    "NPO Radio 2": {
+      "name": "NPO Radio 2",
+      "url": "https://icecast.omroep.nl/radio2-bb-mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/7/79/NPO_Radio_2_logo_2014.svg",
+      "description": "De beste muziek en verhalen",
+      "bitrate": 192,
+      "city": null,
+      "votes": 9876
+    },
+    "3FM": {
+      "name": "3FM",
+      "url": "https://icecast.omroep.nl/3fm-bb-mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/3/34/NPO_3FM_logo_2014.svg",
+      "description": "Alternative, indie en nieuwe muziek",
+      "bitrate": 192,
+      "city": null,
+      "votes": 7654
+    },
+    "NPO Radio 4": {
+      "name": "NPO Radio 4",
+      "url": "https://icecast.omroep.nl/radio4-bb-mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/a/ae/NPO_Radio_4_logo_2014.svg",
+      "description": "Klassieke muziek",
+      "bitrate": 192,
+      "city": null,
+      "votes": 2345
+    },
+    "NPO Radio 5": {
+      "name": "NPO Radio 5",
+      "url": "https://icecast.omroep.nl/radio5-bb-mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/f/f4/NPO_Radio_5_logo_2014.svg",
+      "description": "Nostalgie jaren 60, 70, 80",
+      "bitrate": 192,
+      "city": null,
+      "votes": 4567
+    },
+    "NPO FunX": {
+      "name": "NPO FunX",
+      "url": "https://icecast.omroep.nl/funx-bb-mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/5/56/NPO_FunX_logo_2014.svg",
+      "description": "Urban, hip-hop en R&B",
+      "bitrate": 192,
+      "city": null,
+      "votes": 3421
+    },
     "Concertzender Jazz": {
       "name": "Concertzender Jazz",
       "url": "http://streams.greenhost.nl:8080/jazz",
@@ -393,15 +393,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 218
     },
-    "Radio 10 non-stop": {
-      "name": "Radio 10 non-stop",
-      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR15.mp3",
-      "logo": "https://www.radio10.nl/favicon.ico",
-      "description": "Publieke omroep",
-      "bitrate": 128,
-      "city": null,
-      "votes": 210
-    },
+
     "Concertzender Jazznotjazz": {
       "name": "Concertzender Jazznotjazz",
       "url": "http://streams.greenhost.nl:8080/jazznotjazz",
@@ -728,15 +720,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 1882
     },
-    "SLAM! Non Stop": {
-      "name": "SLAM! Non Stop",
-      "url": "http://stream.radiocorp.nl/web10_mp3",
-      "logo": "https://www.slam.nl/favicon.ico",
-      "description": "Pop muziek",
-      "bitrate": 128,
-      "city": null,
-      "votes": 1823
-    },
+
     "Sky Radio Christmas": {
       "name": "Sky Radio Christmas",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/SRGSTR08.mp3",
@@ -854,15 +838,7 @@ export const allDutchStations = {
       "city": "NH",
       "votes": 422
     },
-    "Qmusic Non-Stop": {
-      "name": "Qmusic Non-Stop",
-      "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop_96.mp3",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/7/70/Qmusic_logo.svg",
-      "description": "Commerciële radio",
-      "bitrate": 96,
-      "city": null,
-      "votes": 408
-    },
+
     "Slam! The Boom Room": {
       "name": "Slam! The Boom Room",
       "url": "http://stream.radiocorp.nl/web12_aac",
@@ -927,15 +903,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 286
     },
-    "538 Non-Stop": {
-      "name": "538 Non-Stop",
-      "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR09.mp3",
-      "logo": "https://raw.githubusercontent.com/wootje/radiotv/main/radio/logo/538nonstop.gif",
-      "description": "Commerciële radio",
-      "bitrate": 128,
-      "city": "Noord-Holland",
-      "votes": 281
-    },
+
     "Sky Radio Lounge": {
       "name": "Sky Radio Lounge",
       "url": "http://provisioning.streamtheworld.com/pls/SRGSTR07AAC.pls",
@@ -1098,15 +1066,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 69
     },
-    "Sky Radio Non-Stop": {
-      "name": "Sky Radio Non-Stop",
-      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
-      "description": "Commerciële radio",
-      "bitrate": 128,
-      "city": null,
-      "votes": 58
-    },
+
     "538 Party MP3 Stream": {
       "name": "538 Party MP3 Stream",
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR16.mp3",
@@ -1188,15 +1148,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 25
     },
-    "100% NL Non-Stop": {
-      "name": "100% NL Non-Stop",
-      "url": "https://stream.100p.nl/web02_mp3",
-      "logo": "https://scale.100p.nl/imageScaled/?site=100pnl&file=1561108141_Nonstop.jpg&w=150&h=150&cropped=0",
-      "description": "Commerciële radio",
-      "bitrate": 128,
-      "city": null,
-      "votes": 24
-    },
+
     "538 Party AAC Stream": {
       "name": "538 Party AAC Stream",
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR16AAC.aac",
@@ -1287,15 +1239,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 4
     },
-    "Veronica Non-stop": {
-      "name": "Veronica Non-stop",
-      "url": "https://21633.live.streamtheworld.com/DAB02_AAC.aac",
-      "logo": "null",
-      "description": "Rock muziek",
-      "bitrate": 96,
-      "city": null,
-      "votes": 4
-    },
+
     "KINK - http": {
       "name": "KINK - http",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/KINK.mp3",
@@ -1359,42 +1303,17 @@ export const allDutchStations = {
       "city": null,
       "votes": 2
     },
-      "Radio 538 Non-Stop": {
-    "name": "Radio 538 Non-Stop",
-    "url": "https://21223.live.streamtheworld.com/538NONSTOP.mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/538_logo.png/250px-538_logo.png",
-    "description": "Non-stop hits zonder praat",
-    "bitrate": 128,
-    "city": null,
-    "votes": 3421
-  },
-    "Sky Radio Non-Stop @ Work": {
-    "name": "Sky Radio Non-Stop @ Work",
-    "url": "https://22433.live.streamtheworld.com/SKYRADIO_NONSTOP_WORK.mp3",
-    "logo": "http://www.skyradio.nl/favicon.ico",
-    "description": "Perfect voor op kantoor",
-    "bitrate": 128,
-    "city": null,
-    "votes": 2156
-  },
-    "Qmusic Non-Stop": {
-    "name": "Qmusic Non-Stop",
-    "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop_96.mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/1/14/Qmusic_logo.svg",
-    "description": "Non-stop muziek",
-    "bitrate": 96,
-    "city": null,
-    "votes": 2834
-  },  "Q-music": {
-    "name": "Q-music",
-    "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_live_96.mp3",
-    "logo": "https://upload.wikimedia.org/wikipedia/commons/1/14/Qmusic_logo.svg",
-    "description": "Q sounds better",
-    "bitrate": 96,
-    "city": null,
-    "votes": 6892
-  },
-  
+
+    "Q-music": {
+      "name": "Q-music",
+      "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_live_96.mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/1/14/Qmusic_logo.svg",
+      "description": "Q sounds better",
+      "bitrate": 96,
+      "city": null,
+      "votes": 6892
+    },
+
   },
   "regional": {
     "Team FM Gelderland": {
@@ -2350,6 +2269,15 @@ export const allDutchStations = {
     }
   },
   "specialty": {
+    "Truckers FM": {
+      "name": "Truckers FM",
+      "url": "https://live.truckers.fm/",
+      "logo": "https://truckers.fm/favicon.ico",
+      "description": "Hit music station for trucking simulators",
+      "bitrate": 128,
+      "city": "London",
+      "votes": 2341
+    },
     "Intense Radio - We love Dance HQ FLAC": {
       "name": "Intense Radio - We love Dance HQ FLAC",
       "url": "http://secure.live-streams.nl/flac.ogg",
@@ -4917,15 +4845,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 9
     },
-    "Non-stop Geheime zender muziek": {
-      "name": "Non-stop Geheime zender muziek",
-      "url": "https://stream.geheimezenderstream.nl/stream",
-      "logo": "https://www.geheimezenderstream.nl/logo/logo-500PNG.png",
-      "description": "Nederlandse radio",
-      "bitrate": 192,
-      "city": "Overijssel",
-      "votes": 9
-    },
+
     "Piraten Stream Twente": {
       "name": "Piraten Stream Twente",
       "url": "http://stream.piratentwente.com:8020/live",
@@ -5079,15 +4999,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 7
     },
-    "Alex FM Non Stop Hits": {
-      "name": "Alex FM Non Stop Hits",
-      "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Populaire hits",
-      "bitrate": 128,
-      "city": null,
-      "votes": 7
-    },
+
     "Ancient FM": {
       "name": "Ancient FM",
       "url": "https://mediaserv73.live-streams.nl:18058/stream",
@@ -5502,15 +5414,7 @@ export const allDutchStations = {
       "city": "Harderwijk",
       "votes": 4
     },
-    "Alex FM Non-Stop": {
-      "name": "Alex FM Non-Stop",
-      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
-      "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
-      "description": "Pop muziek",
-      "bitrate": 128,
-      "city": null,
-      "votes": 3
-    },
+
     "All Sports Radio": {
       "name": "All Sports Radio",
       "url": "https://streaming.hofhosting.nl/proxy/allsports_main?mp=/stream",
@@ -5754,15 +5658,7 @@ export const allDutchStations = {
       "city": "constitutionele monarchie",
       "votes": 2
     },
-    "AlexFM Nonstop": {
-      "name": "AlexFM Nonstop",
-      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?t302=2024-03-06_08-21-40&uuid=25a57695-a22f-4083-b348-b104684576af",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Nederlandse radio",
-      "bitrate": 128,
-      "city": null,
-      "votes": 2
-    },
+
     "beeClassics": {
       "name": "beeClassics",
       "url": "https://stream.beeradio.nl/classics",
@@ -5853,15 +5749,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 2
     },
-    "Non Stop AlexFM": {
-      "name": "Non Stop AlexFM",
-      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
-      "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
-      "description": "Rock muziek",
-      "bitrate": 128,
-      "city": null,
-      "votes": 2
-    },
+
     "OnDair": {
       "name": "OnDair",
       "url": "https://stream.zeno.fm/vistyzosypbvv",
@@ -6258,15 +6146,7 @@ export const allDutchStations = {
       "city": "Noord Brabant",
       "votes": 1
     },
-    "Non-Stop Cobra Team": {
-      "name": "Non-Stop Cobra Team",
-      "url": "https://server-67.stream-server.nl:8496/relay",
-      "logo": "https://cobrateam.nl/wp-content/uploads/2022/11/Cobra-Logo-Website.png",
-      "description": "Nederlandse radio",
-      "bitrate": 192,
-      "city": null,
-      "votes": 1
-    },
+
     "Nostalgie NL": {
       "name": "Nostalgie NL",
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/NOSTALGIENLAAC.aac",
@@ -7473,14 +7353,500 @@ export const allDutchStations = {
       "city": null,
       "votes": 0
     }
+  },
+  "nonstop": {
+
+    // 24/7 Non-Stop Music Stations
+    "Radio 538 Non-Stop": {
+      "name": "Radio 538 Non-Stop",
+      "url": "https://21223.live.streamtheworld.com/538NONSTOP.mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/538_logo.png/250px-538_logo.png",
+      "description": "Non-stop hits zonder praat",
+      "bitrate": 128,
+      "city": null,
+      "votes": 3421
+    },
+    "Sky Radio Non-Stop @ Work": {
+      "name": "Sky Radio Non-Stop @ Work",
+      "url": "https://22433.live.streamtheworld.com/SKYRADIO_NONSTOP_WORK.mp3",
+      "logo": "http://www.skyradio.nl/favicon.ico",
+      "description": "Perfect voor op kantoor",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2156
+    },
+    "Qmusic Non-Stop": {
+      "name": "Qmusic Non-Stop",
+      "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop_96.mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/1/14/Qmusic_logo.svg",
+      "description": "Non-stop muziek",
+      "bitrate": 96,
+      "city": null,
+      "votes": 2834
+    },
+    "Alex FM Non Stop Hits": {
+      "name": "Alex FM Non Stop Hits",
+      "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Populaire hits",
+      "bitrate": 128,
+      "city": null,
+      "votes": 7
+    },
+    "SLAM! Non Stop": {
+      "name": "SLAM! Non Stop",
+      "url": "http://stream.radiocorp.nl/web10_mp3",
+      "logo": "https://www.slam.nl/favicon.ico",
+      "description": "Pop muziek",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1823
+    },
+    "Non Stop AlexFM": {
+      "name": "Non Stop AlexFM",
+      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
+      "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
+      "description": "Rock muziek",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2
+    },
+    "Radio 10 non-stop": {
+      "name": "Radio 10 non-stop",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR15.mp3",
+      "logo": "https://www.radio10.nl/favicon.ico",
+      "description": "Publieke omroep",
+      "bitrate": 128,
+      "city": null,
+      "votes": 210
+    },
+    "Qmusic Non-Stop": {
+      "name": "Qmusic Non-Stop",
+      "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop_96.mp3",
+      "logo": "https://upload.wikimedia.org/wikipedia/commons/7/70/Qmusic_logo.svg",
+      "description": "Commerciële radio",
+      "bitrate": 96,
+      "city": null,
+      "votes": 408
+    },
+    "538 Non-Stop": {
+      "name": "538 Non-Stop",
+      "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR09.mp3",
+      "logo": "https://raw.githubusercontent.com/wootje/radiotv/main/radio/logo/538nonstop.gif",
+      "description": "Commerciële radio",
+      "bitrate": 128,
+      "city": "Noord-Holland",
+      "votes": 281
+    },
+    "Sky Radio Non-Stop": {
+      "name": "Sky Radio Non-Stop",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
+      "logo": "http://www.skyradio.nl/favicon.ico",
+      "description": "Commerciële radio",
+      "bitrate": 128,
+      "city": null,
+      "votes": 58
+    },
+    "100% NL Non-Stop": {
+      "name": "100% NL Non-Stop",
+      "url": "https://stream.100p.nl/web02_mp3",
+      "logo": "https://scale.100p.nl/imageScaled/?site=100pnl&file=1561108141_Nonstop.jpg&w=150&h=150&cropped=0",
+      "description": "Commerciële radio",
+      "bitrate": 128,
+      "city": null,
+      "votes": 24
+    },
+    "Veronica Non-stop": {
+      "name": "Veronica Non-stop",
+      "url": "https://21633.live.streamtheworld.com/DAB02_AAC.aac",
+      "logo": "null",
+      "description": "Rock muziek",
+      "bitrate": 96,
+      "city": null,
+      "votes": 4
+    },
+    "Non-Stop Cobra Team": {
+      "name": "Non-Stop Cobra Team",
+      "url": "https://server-67.stream-server.nl:8496/relay",
+      "logo": "https://cobrateam.nl/wp-content/uploads/2022/11/Cobra-Logo-Website.png",
+      "description": "Nederlandse radio",
+      "bitrate": 192,
+      "city": null,
+      "votes": 1
+    },
+    "Non-stop Geheime zender muziek": {
+      "name": "Non-stop Geheime zender muziek",
+      "url": "https://stream.geheimezenderstream.nl/stream",
+      "logo": "https://www.geheimezenderstream.nl/logo/logo-500PNG.png",
+      "description": "Nederlandse radio",
+      "bitrate": 192,
+      "city": "Overijssel",
+      "votes": 9
+    },
+    "AlexFM Nonstop": {
+      "name": "AlexFM Nonstop",
+      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?t302=2024-03-06_08-21-40&uuid=25a57695-a22f-4083-b348-b104684576af",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Nederlandse radio",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2
+    },
+
+    "181.FM The Beat": {
+      "name": "181.FM The Beat",
+      "url": "http://relay.181.fm:8058/",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "Hip-Hop and R&B non-stop",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1823
+    },
+
+    "181.FM Awesome 80s": {
+      "name": "181.FM Awesome 80s",
+      "url": "http://relay.181.fm:8068/",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "80s hits all day long",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2156
+    },
+
+    "181.FM Power 181": {
+      "name": "181.FM Power 181",
+      "url": "http://relay.181.fm:8028/",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "Top 40 hits non-stop",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1934
+    },
+
+    "SomaFM Groove Salad": {
+      "name": "SomaFM Groove Salad",
+      "url": "http://ice.somafm.com/groovesalad",
+      "logo": "https://somafm.com/favicon.ico",
+      "description": "Downtempo, chillout and ambient",
+      "bitrate": 128,
+      "city": "San Francisco",
+      "votes": 3421
+    },
+
+    "SomaFM Beat Blender": {
+      "name": "SomaFM Beat Blender",
+      "url": "http://ice.somafm.com/beatblender",
+      "logo": "https://somafm.com/favicon.ico",
+      "description": "Electronic, downtempo and trip-hop",
+      "bitrate": 128,
+      "city": "San Francisco",
+      "votes": 2387
+    },
+
+    "Radio Paradise": {
+      "name": "Radio Paradise",
+      "url": "http://stream.radioparadise.com/mp3-128",
+      "logo": "https://radioparadise.com/favicon.ico",
+      "description": "Eclectic music mix, commercial-free",
+      "bitrate": 128,
+      "city": "California",
+      "votes": 4521
+    },
+
+    "Radio Paradise Mellow": {
+      "name": "Radio Paradise Mellow",
+      "url": "http://stream.radioparadise.com/mellow-128",
+      "logo": "https://radioparadise.com/favicon.ico",
+      "description": "Mellow mix, perfect for background",
+      "bitrate": 128,
+      "city": "California",
+      "votes": 2876
+    },
+
+    "Linn Jazz": {
+      "name": "Linn Jazz",
+      "url": "http://89.16.185.174:8000/stream",
+      "logo": "https://www.linnrecords.com/favicon.ico",
+      "description": "High-quality jazz streaming",
+      "bitrate": 320,
+      "city": "Glasgow",
+      "votes": 1654
+    },
+
+    "Linn Classical": {
+      "name": "Linn Classical",
+      "url": "http://89.16.185.174:8004/stream",
+      "logo": "https://www.linnrecords.com/favicon.ico",
+      "description": "High-quality classical music",
+      "bitrate": 320,
+      "city": "Glasgow",
+      "votes": 987
+    },
+
+    "KCRW Eclectic 24": {
+      "name": "KCRW Eclectic 24",
+      "url": "http://media.kcrw.com/pls/kcrwmusic.pls",
+      "logo": "https://www.kcrw.com/favicon.ico",
+      "description": "24/7 eclectic music from KCRW",
+      "bitrate": 128,
+      "city": "Los Angeles",
+      "votes": 2341
+    },
+
+    "Chillout Lounge": {
+      "name": "Chillout Lounge",
+      "url": "http://ice.somafm.com/chilloutlounge",
+      "logo": "https://somafm.com/favicon.ico",
+      "description": "Relaxing chillout and lounge music",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1876
+    },
+
+    "JB Radio 2": {
+      "name": "JB Radio 2",
+      "url": "http://cristina.torontocast.com:8007/mp3-320",
+      "logo": "https://jbradio2.ca/favicon.ico",
+      "description": "High-quality diverse music mix",
+      "bitrate": 320,
+      "city": "Toronto",
+      "votes": 1432
+    },
+    "Size Radio": {
+      "name": "Size Radio",
+      "url": "https://stream.size-radio.com/live",
+      "logo": "https://www.size-radio.com/favicon.ico",
+      "description": "24/7 Hip-Hop, Soul, Rock, Pop, Electro - No ads",
+      "bitrate": 128,
+      "city": null,
+      "votes": 892
+    },
+
+    "NonStopPlay UK": {
+      "name": "NonStopPlay",
+      "url": "https://stream.nonstopplay.com/nsp",
+      "logo": "https://www.nonstopplay.com/favicon.ico",
+      "description": "Non-Stop Rhythm & Dance hits",
+      "bitrate": 128,
+      "city": "London",
+      "votes": 1456
+    },
+
+    "AccuRadio Chillout": {
+      "name": "AccuRadio Chillout",
+      "url": "https://listen.accuradio.com/wp_chillout.m3u",
+      "logo": "https://www.accuradio.com/favicon.ico",
+      "description": "Relaxing ambient music 24/7",
+      "bitrate": 128,
+      "city": null,
+      "votes": 743
+    },
+
+    "181.FM The Beat": {
+      "name": "181.FM The Beat",
+      "url": "https://listen.181fm.com/181-beat_128k.mp3",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "Hip-Hop and R&B hits",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1238
+    },
+
+    "Nightride FM": {
+      "name": "Nightride FM",
+      "url": "https://stream.nightride.fm/nightride.m3u",
+      "logo": "https://nightride.fm/favicon.ico",
+      "description": "Synthwave and retro electronic",
+      "bitrate": 192,
+      "city": null,
+      "votes": 567
+    },
+
+    "OpenLab FM": {
+      "name": "OpenLab FM",
+      "url": "https://openlab.fm/stream.mp3",
+      "logo": "https://openlab.fm/favicon.ico",
+      "description": "Curated music without chatter",
+      "bitrate": 320,
+      "city": null,
+      "votes": 421
+    },
+    "AccuRadio Mellow Gold": {
+      "name": "AccuRadio Mellow Gold",
+      "url": "https://listen.accuradio.com/wp_mellowgold.m3u",
+      "logo": "https://www.accuradio.com/favicon.ico",
+      "description": "Classic 70s-80s pop hits, office-friendly",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2876
+    },
+
+    "AccuRadio Adult Hits": {
+      "name": "AccuRadio Adult Hits",
+      "url": "https://listen.accuradio.com/wp_adulthits.m3u",
+      "logo": "https://www.accuradio.com/favicon.ico",
+      "description": "Pop hits perfect for workplace",
+      "bitrate": 128,
+      "city": null,
+      "votes": 3421
+    },
+
+    "AccuRadio Soft Rock": {
+      "name": "AccuRadio Soft Rock",
+      "url": "https://listen.accuradio.com/wp_softrock.m3u",
+      "logo": "https://www.accuradio.com/favicon.ico",
+      "description": "Soft rock hits from 70s-90s",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2654
+    },
+    "Radio Paradise": {
+      "name": "Radio Paradise",
+      "url": "http://stream.radioparadise.com/mp3-128",
+      "logo": "https://radioparadise.com/favicon.ico",
+      "description": "Eclectic mix, commercial-free, perfect for office",
+      "bitrate": 128,
+      "city": "California",
+      "votes": 4521
+    },
+
+    "Radio Paradise Mellow": {
+      "name": "Radio Paradise Mellow",
+      "url": "http://stream.radioparadise.com/mellow-128",
+      "logo": "https://radioparadise.com/favicon.ico",
+      "description": "Mellow mix, ideal background music",
+      "bitrate": 128,
+      "city": "California",
+      "votes": 2876
+    },
+
+    "SomaFM Groove Salad": {
+      "name": "SomaFM Groove Salad",
+      "url": "http://ice.somafm.com/groovesalad",
+      "logo": "https://somafm.com/favicon.ico",
+      "description": "Downtempo, ambient, chill",
+      "bitrate": 128,
+      "city": "San Francisco",
+      "votes": 3421
+    },
+
+    "SomaFM Suburbs of Goa": {
+      "name": "SomaFM Suburbs of Goa",
+      "url": "http://ice.somafm.com/suburbsofgoa",
+      "logo": "https://somafm.com/favicon.ico",
+      "description": "Desi-influenced electronica, downtempo",
+      "bitrate": 128,
+      "city": "San Francisco",
+      "votes": 1876
+    },
+
+    "NRJ Love Songs": {
+      "name": "NRJ Love Songs",
+      "url": "http://cdn.nrjaudio.fm/adwz1/fr/30207/mp3_128.mp3",
+      "logo": "https://www.nrj.fr/favicon.ico",
+      "description": "Soft pop love songs, office-friendly",
+      "bitrate": 128,
+      "city": "Paris",
+      "votes": 2341
+    },
+
+    "Chérie 80s": {
+      "name": "Chérie 80s",
+      "url": "http://cdn.nrjaudio.fm/adwz1/fr/30237/mp3_128.mp3",
+      "logo": "https://www.nrj.fr/favicon.ico",
+      "description": "80s hits, clean and safe for work",
+      "bitrate": 128,
+      "city": "Paris",
+      "votes": 1987
+    },
+
+    "Chérie 90s": {
+      "name": "Chérie 90s",
+      "url": "http://cdn.nrjaudio.fm/adwz1/fr/30239/mp3_128.mp3",
+      "logo": "https://www.nrj.fr/favicon.ico",
+      "description": "90s pop hits, workplace appropriate",
+      "bitrate": 128,
+      "city": "Paris",
+      "votes": 2156
+    },
+
+    "Linn Jazz": {
+      "name": "Linn Jazz",
+      "url": "http://89.16.185.174:8000/stream",
+      "logo": "https://www.linnrecords.com/favicon.ico",
+      "description": "High-quality jazz, office ambiance",
+      "bitrate": 320,
+      "city": "Glasgow",
+      "votes": 1654
+    },
+    "AccuRadio Classic Hits": {
+      "name": "AccuRadio Classic Hits",
+      "url": "https://listen.accuradio.com/wp_classichits.m3u",
+      "logo": "https://www.accuradio.com/favicon.ico",
+      "description": "Greatest hits from 60s-90s",
+      "bitrate": 128,
+      "city": null,
+      "votes": 4123
+    },
+
+    "181.FM Good Time Oldies": {
+      "name": "181.FM Good Time Oldies",
+      "url": "http://relay.181.fm:8056/",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "Feel-good classics, workplace appropriate",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1987
+    },
+
+    "181.FM The Office": {
+      "name": "181.FM The Office",
+      "url": "http://relay.181.fm:8028/",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "Music specifically designed for offices",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2341
+    },
+
+    "EasyListening.com": {
+      "name": "EasyListening.com",
+      "url": "http://listen.easylistening.com:8000/stream",
+      "logo": "https://www.easylistening.com/favicon.ico",
+      "description": "24/7 easy listening, no commercials",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1654
+    },
+
+    "24/7 Classical Radio": {
+      "name": "24/7 Classical Radio",
+      "url": "http://streams.24-7classical.com/classical",
+      "logo": "https://www.247onlineradio.com/favicon.ico",
+      "description": "Classical and instrumental, perfect for concentration",
+      "bitrate": 128,
+      "city": "London",
+      "votes": 987
+    },
+
+    "Smooth Jazz 24/7": {
+      "name": "Smooth Jazz 24/7",
+      "url": "http://relay.181.fm:8008/",
+      "logo": "https://www.181.fm/favicon.ico",
+      "description": "Smooth jazz perfect for office ambiance",
+      "bitrate": 128,
+      "city": null,
+      "votes": 1432
+    }
   }
+
 };
 
 // Search stations by name
 export const searchStations = (query) => {
   const all = getAllStations();
   const searchTerm = query.toLowerCase();
-  return all.filter(station => 
+  return all.filter(station =>
     station.name.toLowerCase().includes(searchTerm) ||
     station.description.toLowerCase().includes(searchTerm)
   );

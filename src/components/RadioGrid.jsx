@@ -270,7 +270,8 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
     { key: 'regional', label: 'Regionaal' },
     { key: 'local', label: 'Lokaal' },
     { key: 'religious', label: 'Religieus' },
-    { key: 'specialty', label: 'Specialiteit' }
+    { key: 'specialty', label: 'Specialiteit' },
+    { key: 'nonstop', label: 'Non-stop' }
   ];
 
   const handleStationSelect = (station) => {
