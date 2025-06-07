@@ -295,7 +295,7 @@ function App() {
 
           {/* Ad Break Settings - Moved back here */}
           <div className="bg-gray-800 border-b border-gray-700">
-            <ErrorBoundary>
+       <ErrorBoundary>
               <AdBreakSettings
                 adBreakMinute={adBreakTimer.adBreakMinute}
                 adBreakMinute2={adBreakTimer.adBreakMinute2}
@@ -316,6 +316,8 @@ function App() {
                 nextAdBreakIn={adBreakTimer.nextAdBreakIn}
                 currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
                 audioPlayer={audioPlayer}
+                adBreakMode={adBreakTimer.adBreakMode}                    // ← New prop
+                onAdBreakModeChange={adBreakTimer.setAdBreakMode}         // ← New prop
               />
             </ErrorBoundary>
           </div>

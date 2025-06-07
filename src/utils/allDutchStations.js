@@ -7837,7 +7837,37 @@ export const allDutchStations = {
       "bitrate": 128,
       "city": null,
       "votes": 1432
-    }
+    },
+   
+  "24/7 LoFi Radio": {
+    "name": "24/7 LoFi Radio",
+    "url": "https://streams.24-7lofiradio.com/lofi",
+    "logo": "https://www.247lofiradio.com/favicon.ico",
+    "description": "24/7 LoFi hip-hop beats for studying and working",
+    "bitrate": 128,
+    "city": "London",
+    "votes": 3421
+  },
+
+  "ChillHop Radio": {
+    "name": "ChillHop Radio", 
+    "url": "https://streams.chillhop.com/chillhop",
+    "logo": "https://chillhop.com/favicon.ico",
+    "description": "LoFi hip-hop beats 24/7",
+    "bitrate": 128,
+    "city": null,
+    "votes": 2876
+  },
+
+  "LoFi Cafe": {
+    "name": "LoFi Cafe",
+    "url": "https://stream.lofi.cafe/lofi.mp3",
+    "logo": "https://www.lofi.cafe/favicon.ico",
+    "description": "Chill LoFi music for studying and relaxing",
+    "bitrate": 128,
+    "city": null,
+    "votes": 1987
+  }
   }
 
 };

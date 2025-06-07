@@ -43,11 +43,14 @@ const AdBreakSettings = ({
   nextAdBreakIn,
   currentAdBreakTimeLeft,
   isManualTestActive,
-  audioPlayer
+  audioPlayer,
+  adBreakMode,           // ← New prop
+  onAdBreakModeChange    // ← New prop
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [daySettings, setDaySettings] = useState(getInitialDaySettings());
   const [selectedDay, setSelectedDay] = useState(0); // 0=Monday
+  const currentDay = daySettings[selectedDay] || defaultDaySettings();
 
   // Save to localStorage on change
   useEffect(() => {
@@ -63,14 +66,26 @@ const AdBreakSettings = ({
     setDaySettings(ds => ds.map((d, i) => i === selectedDay ? { ...d, startHour: start, endHour: end } : d));
   };
 
-  // Check if playlist is valid
-  const isPlaylistValid = playlistUrl && playlistInfo?.isValid;
-  const currentDay = daySettings[selectedDay];
+  // Check if current mode is valid
+  const isModeValid = () => {
+    if (adBreakMode === 'playlist') {
+      return playlistUrl && playlistInfo?.isValid;
+    }
+    return true; // nonstop and lofi don't require configuration
+  };
+
+  const getModeDescription = () => {
+    switch (adBreakMode) {
+      case 'playlist': return 'Wissel naar afspeellijst';
+      case 'nonstop': return 'Wissel naar non-stop radio';
+      case 'lofi': return 'Wissel naar Lofi Girl';
+      default: return 'Onbekende modus';
+    }
+  };
 
   return (
     <div className="p-4">
       <div className="max-w-6xl mx-auto">
-
         {/* Header with always-visible status and controls */}
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-4">
@@ -104,7 +119,14 @@ const AdBreakSettings = ({
                   </span>
                 )}
               </div>
-            </div>            {isTimerRunning && (
+            </div>
+
+            {/* Mode Display */}
+            <div className="px-3 py-1.5 rounded-lg text-center text-sm bg-blue-600/20 text-blue-400 border border-blue-500/30">
+              {getModeDescription()}
+            </div>
+
+            {isTimerRunning && (
               <span className="text-xs text-gray-400">
                 Pauzes: {String(adBreakMinute).padStart(2, '0')}:00 ({adBreakDuration}min) & {String(adBreakMinute2).padStart(2, '0')}:00 ({adBreakDuration2}min)
               </span>
@@ -115,21 +137,25 @@ const AdBreakSettings = ({
           <div className="flex gap-2">
             <button
               onClick={onManualAdBreak}
-              disabled={!isPlaylistValid || (audioPlayer && audioPlayer.isTransitioning)}
+              disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${isManualTestActive
                   ? 'bg-orange-600 hover:bg-orange-500 text-white'
                   : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
                 }`}
-              title={!isPlaylistValid ? 'Voer eerst een geldige playlist in' : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
+              title={!isModeValid() 
+                ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist in' : 'Modus niet beschikbaar') 
+                : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
             >
-              {isManualTestActive ? 'Stop Test' : 'Test Playlist'}
+              {isManualTestActive ? 'Stop Test' : 'Test pauze'}
             </button>
             {!isTimerRunning ? (
               <button
                 onClick={onStartTimer}
-                disabled={!isPlaylistValid || (audioPlayer && audioPlayer.isTransitioning)}
+                disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-                title={!isPlaylistValid ? 'Voer eerst een geldige YouTube playlist URL in' : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
+                title={!isModeValid() 
+                  ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist URL in' : 'Modus niet beschikbaar')
+                  : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
               >
                 Activeren
               </button>
@@ -148,128 +174,226 @@ const AdBreakSettings = ({
 
         {/* Collapsible Content */}
         {isExpanded && (
-          <div className="flex flex-col md:flex-row gap-1 items-start">
-            {/* Minute Input Section - now 2x2 grid and left-aligned */}
-            <div className="flex flex-col w-full md:w-1/3 max-w-xs">
-              {/* --- Column headers above grid --- */}
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <span className="text-xs mt-3 text-gray-400  font-semibold text-left">Pauzes op minuten:</span>
-                <span className="text-xs mt-3  text-gray-400 font-semibold text-left">Lengte pauzes:</span>
-              </div>
-              {/* --- 2x2 grid with swapped fields --- */}
-              <div className="grid grid-cols-2 gap-2 mb-5">
-                {/* Top left: Minute 1 */}
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={adBreakMinute}
-                  onChange={(e) => {
-                    let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 25;
-                    if (value > 59) value = 59;
-                    if (value < 0) value = 0;
-                    onMinuteChange(value);
-                  }}
-                  className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                  placeholder="Minuut 1"
-                />
-                {/* Top right: Duration 2 (SWAPPED with bottom left) */}
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={adBreakDuration2}
-                  onChange={(e) => {
-                    let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 7;
-                    if (value > 30) value = 30;
-                    if (value < 1) value = 1;
-                    onDuration2Change(value);
-                  }}
-                  className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                  placeholder="Duur 2 (min)"
-                />
-                {/* Bottom left: Minute 2 (SWAPPED with top right) */}
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={adBreakMinute2}
-                  onChange={(e) => {
-                    let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 55;
-                    if (value > 59) value = 59;
-                    if (value < 0) value = 0;
-                    onMinute2Change(value);
-                  }}
-                  className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                  placeholder="Minuut 2"
-                />
-                {/* Bottom right: Duration 1 */}
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={adBreakDuration}
-                  onChange={(e) => {
-                    let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 5;
-                    if (value > 30) value = 30;
-                    if (value < 1) value = 1;
-                    onDurationChange(value);
-                  }}
-                  className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                  placeholder="Duur 1 (min)"
-                />
+          <div className="space-y-4">
+            {/* Ad Break Mode Selector */}
+            <div className="border-b border-gray-600 pb-4">
+              <label className="block text-sm font-medium mb-3 text-gray-300">
+                Reclamepauze Modus:
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Playlist Mode */}
+                <button
+                  onClick={() => onAdBreakModeChange('playlist')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adBreakMode === 'playlist'
+                      ? 'border-blue-500 bg-blue-600/20 text-blue-300'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
+                    </svg>
+                    <span className="font-semibold">Afspeellijst</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Wissel naar YouTube/Spotify afspeellijst tijdens reclame
+                  </p>
+                </button>
+
+                {/* Nonstop Mode */}
+                <button
+                  onClick={() => onAdBreakModeChange('nonstop')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adBreakMode === 'nonstop'
+                      ? 'border-green-500 bg-green-600/20 text-green-300'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
+                    </svg>
+                    <span className="font-semibold">Non-stop Radio</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Wissel naar radio zonder reclame (automatisch selectie)
+                  </p>
+                </button>
+
+                {/* Lofi Mode */}
+                <button
+                  onClick={() => onAdBreakModeChange('lofi')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    adBreakMode === 'lofi'
+                      ? 'border-purple-500 bg-purple-600/20 text-purple-300'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                    </svg>
+                    <span className="font-semibold">Lofi Girl</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Wissel naar Lofi Girl study streams
+                  </p>
+                </button>
               </div>
             </div>
-            {/* --- Playtime slider and day grid --- */}
-            <div className="flex-1 flex flex-col md:flex-row items-right justify-center w-full md:w-[60%] max-w-2xl gap-4">
-              <div className="flex flex-col items-center w-full md:w-[60%]">
-                {/* --- Time range enable toggle for selected day --- */}
-                <div className="flex items-center gap-2 mb-6">
-                  <input
-                    type="checkbox"
-                    id="enableTimeRange"
-                    checked={!!currentDay.enabled}
-                    onChange={e => handleTimeRangeEnabled(e.target.checked)}
-                    className="accent-radio-accent w-4 h-4"
-                  />
-                  <label htmlFor="enableTimeRange" className="text-xs text-gray-400 cursor-pointer select-none">
-                    Activeer tussen:
-                  </label>
+
+            {/* Existing settings only show for playlist mode */}
+            {adBreakMode === 'playlist' && (
+              <div className="flex flex-col md:flex-row gap-1 items-start">
+                {/* Minute Input Section - now 2x2 grid and left-aligned */}
+                <div className="flex flex-col w-full md:w-1/3 max-w-xs">
+                  {/* --- Column headers above grid --- */}
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <span className="text-xs mt-3 text-gray-400  font-semibold text-left">Pauzes op minuten:</span>
+                    <span className="text-xs mt-3  text-gray-400 font-semibold text-left">Lengte pauzes:</span>
+                  </div>
+                  {/* --- 2x2 grid with swapped fields --- */}
+                  <div className="grid grid-cols-2 gap-2 mb-5">
+                    {/* Top left: Minute 1 */}
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={adBreakMinute}
+                      onChange={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (isNaN(value)) value = 25;
+                        if (value > 59) value = 59;
+                        if (value < 0) value = 0;
+                        onMinuteChange(value);
+                      }}
+                      className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                      placeholder="Minuut 1"
+                    />
+                    {/* Top right: Duration 2 (SWAPPED with bottom left) */}
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={adBreakDuration2}
+                      onChange={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (isNaN(value)) value = 7;
+                        if (value > 30) value = 30;
+                        if (value < 1) value = 1;
+                        onDuration2Change(value);
+                      }}
+                      className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                      placeholder="Duur 2 (min)"
+                    />
+                    {/* Bottom left: Minute 2 (SWAPPED with top right) */}
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={adBreakMinute2}
+                      onChange={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (isNaN(value)) value = 55;
+                        if (value > 59) value = 59;
+                        if (value < 0) value = 0;
+                        onMinute2Change(value);
+                      }}
+                      className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                      placeholder="Minuut 2"
+                    />
+                    {/* Bottom right: Duration 1 */}
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={adBreakDuration}
+                      onChange={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (isNaN(value)) value = 5;
+                        if (value > 30) value = 30;
+                        if (value < 1) value = 1;
+                        onDurationChange(value);
+                      }}
+                      className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                      placeholder="Duur 1 (min)"
+                    />
+                  </div>
                 </div>
-                {/* --- TimeRangeSlider for selected day --- */}
-                <TimeRangeSlider
-                  startHour={currentDay.startHour}
-                  endHour={currentDay.endHour}
-                  onChange={handleTimeRangeChange}
-                  step={0.5}
-                  editable={true}
-                  disabled={!currentDay.enabled}
-                />
-              </div>
-              {/* --- Minimalistic day-of-week grid --- */}
-              <div className="flex flex-col items-right mt-5 ml-7">
-                <span className="text-xs text-gray-400 mb-2">Dagen:</span>
-                <div className="grid grid-cols-3 gap-1">
-                  {dayLabels.map((label, idx) => (
-                    <button
-                      key={label+idx}
-                      onClick={() => handleDayClick(idx)}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors
-                        ${selectedDay === idx ? 'bg-radio-accent text-white' : 'bg-gray-700 text-gray-400 border border-gray-600'}`}
-                      title={dayNames[idx]}
-                      type="button"
-                    >
-                      {label}
-                    </button>
-                  ))}
+                {/* --- Playtime slider and day grid --- */}
+                <div className="flex-1 flex flex-col md:flex-row items-right justify-center w-full md:w-[60%] max-w-2xl gap-4">
+                  <div className="flex flex-col items-center w-full md:w-[60%]">
+                    {/* --- Time range enable toggle for selected day --- */}
+                    <div className="flex items-center gap-2 mb-6">
+                      <input
+                        type="checkbox"
+                        id="enableTimeRange"
+                        checked={!!currentDay.enabled}
+                        onChange={e => handleTimeRangeEnabled(e.target.checked)}
+                        className="accent-radio-accent w-4 h-4"
+                      />
+                      <label htmlFor="enableTimeRange" className="text-xs text-gray-400 cursor-pointer select-none">
+                        Activeer tussen:
+                      </label>
+                    </div>
+                    {/* --- TimeRangeSlider for selected day --- */}
+                    <TimeRangeSlider
+                      startHour={currentDay.startHour}
+                      endHour={currentDay.endHour}
+                      onChange={handleTimeRangeChange}
+                      step={0.5}
+                      editable={true}
+                      disabled={!currentDay.enabled}
+                    />
+                  </div>
+                  {/* --- Minimalistic day-of-week grid --- */}
+                  <div className="flex flex-col items-right mt-5 ml-7">
+                    <span className="text-xs text-gray-400 mb-2">Dagen:</span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {dayLabels.map((label, idx) => (
+                        <button
+                          key={label+idx}
+                          onClick={() => handleDayClick(idx)}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors
+                            ${selectedDay === idx ? 'bg-radio-accent text-white' : 'bg-gray-700 text-gray-400 border border-gray-600'}`}
+                          title={dayNames[idx]}
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-gray-400 mt-2 block">{dayNames[selectedDay]}</span>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-400 mt-2 block">{dayNames[selectedDay]}</span>
               </div>
-            </div>
+            )}
+
+            {/* Show different info for each mode */}
+            {adBreakMode === 'nonstop' && (
+              <div className="bg-green-600/10 border border-green-500/30 rounded-lg p-4">
+                <h4 className="font-semibold text-green-300 mb-2">Non-stop Radio Modus</h4>
+                <p className="text-sm text-gray-300 mb-2">
+                  Tijdens reclamepauzes wordt automatisch gewisseld naar een willekeurige non-stop radiozender zonder reclame.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Geen configuratie nodig - werkt direct na activering van de timer.
+                </p>
+              </div>
+            )}
+
+            {adBreakMode === 'lofi' && (
+              <div className="bg-purple-600/10 border border-purple-500/30 rounded-lg p-4">
+                <h4 className="font-semibold text-purple-300 mb-2">Lofi Girl Modus</h4>
+                <p className="text-sm text-gray-300 mb-2">
+                  Tijdens reclamepauzes wordt gewisseld naar rustgevende Lofi Girl study streams.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Perfect voor concentratie en studie - meerdere fallback streams beschikbaar.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
