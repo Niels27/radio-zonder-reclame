@@ -7,7 +7,7 @@ import { getStationDefinition } from '../data/stationDefinitions.js';
 
 // Popular stations list - the 24 most popular Dutch radio stations
 const popularStationNames = [
-  'TEST FAILING STATION',
+ // 'TEST FAILING STATION',
   'Radio 538',
   'Sky Radio',
   'Qmusic',

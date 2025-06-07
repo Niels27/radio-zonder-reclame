@@ -15,7 +15,7 @@ import LoadingIndicator from './components/LoadingIndicator';
 import TimeRangeSlider from './components/TimeRangeSlider';
 
 function App() {
-  const [playlistProvider, setPlaylistProvider] = useState('youtube');
+  const [playlistProvider, setPlaylistProvider] = useState('spotify');
   const audioPlayer = useAudioPlayer(playlistProvider);
   const adBreakTimer = useAdBreakTimer(audioPlayer, playlistProvider);
   const [playlistInfo, setPlaylistInfo] = useState(null);

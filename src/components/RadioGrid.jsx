@@ -148,10 +148,13 @@ const SmartText = ({ text, className, isName = false }) => {
   );
 };
 
+// Add auto-toggle functionality for search
+
 const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('popular');
+  const [previousCategory, setPreviousCategory] = useState('popular'); // ← Add this to remember previous category
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
 
   // Debug effect to monitor favorites changes
@@ -275,6 +278,102 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
     onStationSelect(station);
   };
 
+  // ✅ NEW: Auto-toggle category when searching
+  const handleSearchQueryChange = (query) => {
+    setSearchQuery(query);
+    
+    if (query.trim()) {
+      // When starting to search, switch to "all" and remember previous category
+      if (selectedCategory !== 'all') {
+        setPreviousCategory(selectedCategory);
+        setSelectedCategory('all');
+      }
+    } else {
+      // When clearing search, restore previous category
+      if (selectedCategory === 'all' && previousCategory !== 'all') {
+        setSelectedCategory(previousCategory);
+      }
+    }
+  };
+
+  // Update the search input section:
+  {!showSearch ? (
+    <button
+      onClick={() => setShowSearch(true)}
+      className="p-2 rounded-lg bg-radio-card text-radio-text hover:bg-radio-hover transition-colors"
+      title="Zoeken"
+      id="search-icon"
+    >
+      <Search size={20} />
+    </button>
+  ) : (
+    <div className="flex items-center gap-2 bg-radio-dark rounded-lg px-4 py-2">
+      <Search size={16} className="text-radio-secondary" />
+      <input
+        type="text"
+        placeholder="Zoek radiozenders..."
+        value={searchQuery}
+        onChange={(e) => handleSearchQueryChange(e.target.value)} // ← Use the new handler
+        className="bg-transparent border-none outline-none text-white placeholder-radio-secondary min-w-64"
+        autoFocus
+      />
+      <button
+        onClick={() => {
+          setShowSearch(false);
+          // Reset search and category
+          if (searchQuery.trim() && selectedCategory === 'all' && previousCategory !== 'all') {
+            setSelectedCategory(previousCategory);
+          }
+          setSearchQuery('');
+        }}
+        className="text-radio-secondary hover:text-white transition-colors"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  )}
+
+  // Update the category selection to sync with auto-toggle:
+  const handleCategoryChange = (categoryKey) => {
+    setSelectedCategory(categoryKey);
+    // If manually selecting a category while searching, update the previous category
+    if (searchQuery.trim() && categoryKey !== 'all') {
+      setPreviousCategory(categoryKey);
+    } else if (!searchQuery.trim()) {
+      setPreviousCategory(categoryKey);
+    }
+  };
+
+  // Update the category buttons:
+  {categories.map(category => (
+    <button
+      key={category.key}
+      onClick={() => handleCategoryChange(category.key)} // ← Use the new handler
+      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+        selectedCategory === category.key
+          ? 'bg-radio-accent text-white'
+          : 'bg-radio-dark text-white hover:bg-gray-700'
+      } ${searchQuery.trim() && category.key === 'all' ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`} // ← Add visual indicator when auto-selected
+    >
+      {category.label}
+      {category.key === 'favorites' && favorites.length > 0 && (
+        <span className="ml-2 bg-radio-accent/20 text-radio-accent px-2 py-0.5 rounded-full text-xs">
+          {favorites.length}
+        </span>
+      )}
+    </button>
+  ))}
+
+  // Update the results count message:
+  {(searchQuery || selectedCategory !== 'popular') && ( // ← Changed from 'all' to 'popular' since popular is now default
+    <div className="mb-4 text-radio-secondary">
+      {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} gevonden
+      {searchQuery && selectedCategory === 'all' && (
+        <span className="ml-2 text-blue-400 text-xs">(zoekt in alle categorieën)</span>
+      )}
+    </div>
+  )}
+
   return (
     <div className="flex-1 p-6">
       <div className="max-w-6xl mx-auto">
@@ -299,13 +398,17 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                   type="text"
                   placeholder="Zoek radiozenders..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchQueryChange(e.target.value)} // ← Use the new handler
                   className="bg-transparent border-none outline-none text-white placeholder-radio-secondary min-w-64"
                   autoFocus
                 />
                 <button
                   onClick={() => {
                     setShowSearch(false);
+                    // Reset search and category
+                    if (searchQuery.trim() && selectedCategory === 'all' && previousCategory !== 'all') {
+                      setSelectedCategory(previousCategory);
+                    }
                     setSearchQuery('');
                   }}
                   className="text-radio-secondary hover:text-white transition-colors"
@@ -322,12 +425,12 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
           {categories.map(category => (
             <button
               key={category.key}
-              onClick={() => setSelectedCategory(category.key)}
+              onClick={() => handleCategoryChange(category.key)} // ← Use the new handler
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 selectedCategory === category.key
                   ? 'bg-radio-accent text-white'
                   : 'bg-radio-dark text-white hover:bg-gray-700'
-              }`}
+              } ${searchQuery.trim() && category.key === 'all' ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`} // ← Add visual indicator when auto-selected
             >
               {category.label}
               {category.key === 'favorites' && favorites.length > 0 && (
@@ -340,9 +443,12 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
         </div>
 
         {/* Results count */}
-        {(searchQuery || selectedCategory !== 'all') && (
+        {(searchQuery || selectedCategory !== 'popular') && ( // ← Changed from 'all' to 'popular' since popular is now default
           <div className="mb-4 text-radio-secondary">
             {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} gevonden
+            {searchQuery && selectedCategory === 'all' && (
+              <span className="ml-2 text-blue-400 text-xs">(zoekt in alle categorieën)</span>
+            )}
           </div>
         )}
         

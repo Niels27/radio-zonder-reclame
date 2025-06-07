@@ -60,7 +60,7 @@ const handleSpotifyProductionErrors = (error) => {
   return error;
 };
 
-export const useAudioPlayer = (playlistProvider = 'youtube') => {
+export const useAudioPlayer = (playlistProvider = 'spotify') => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);

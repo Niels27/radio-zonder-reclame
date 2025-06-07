@@ -442,9 +442,26 @@ useEffect(() => {
                   placeholder="https://youtube.com/playlist?list=..."
                   className={`w-full px-3 py-2 pr-10 bg-gray-700 border ${getValidationStyle()} rounded-lg text-white focus:border-blue-500 focus:outline-none`}
                 />
-                {/* Validation icon inside input */}
+                
+                {/* Clear button for YouTube URL input */}
+                {playlistUrl && (
+                  <button
+                    onClick={() => {
+                      onPlaylistUrlChange('');
+                      onPlaylistInfoChange(null);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors z-10"
+                    title="URL wissen"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                )}
+                
+                {/* Validation icon (pushed left if clear button is present) */}
                 {getValidationIcon() && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className={`absolute top-1/2 transform -translate-y-1/2 ${playlistUrl ? 'right-8' : 'right-3'}`}>
                     {getValidationIcon()}
                   </div>
                 )}
@@ -481,11 +498,15 @@ useEffect(() => {
                 className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center justify-center"
                 title="Willekeurige afspeellijst"
               >
-          🎲              </button>
+                🎲
+              </button>
             </>
-          )}          {/* Spotify Input Section - Inline with provider selector */}
+          )}
+
+          {/* Spotify Input Section - Inline with provider selector */}
           {selectedProvider === 'spotify' && isSpotifyAuthenticated() && (
-            <div className="flex-1">              {/* Spotify player status indicator */}
+            <div className="flex-1">
+              {/* Spotify player status indicator */}
               {selectedProvider === 'spotify' && isSpotifyAuthenticated() && !spotifyPlayerReady && (
                 <div className="mb-2 px-3 py-2 bg-yellow-900 border border-yellow-600 rounded-lg">
                   <div className="flex items-center space-x-2 text-yellow-200">
@@ -515,10 +536,29 @@ useEffect(() => {
                     type="text"
                     value={playlistSearchQuery}
                     onChange={(e) => handlePlaylistSearch(e.target.value)}
-                    onFocus={() => setShowPlaylistDropdown(true)}                    placeholder="Typ om je afspeellijsten te zoeken..."
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    onFocus={() => setShowPlaylistDropdown(true)}
+                    placeholder="Typ om je afspeellijsten te zoeken..."
+                    className="w-full px-3 py-2 pr-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                     disabled={!spotifyPlayerReady}
                   />
+                  
+                  {/* Clear button for Spotify search */}
+                  {playlistSearchQuery && (
+                    <button
+                      onClick={() => {
+                        setPlaylistSearchQuery('');
+                        onPlaylistUrlChange('');
+                        onPlaylistInfoChange(null);
+                        setShowPlaylistDropdown(false);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      title="Zoekopdracht wissen"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                  )}
                   
                   {/* Playlist Dropdown */}
                   {showPlaylistDropdown && spotifyPlayerReady && (
@@ -566,15 +606,35 @@ useEffect(() => {
                       )}
                     </div>
                   )}
-                </div>              ) : (
-                /* Openbare mode - URL input */
-                <input
-                  type="text"
-                  value={playlistUrl}                  onChange={(e) => onPlaylistUrlChange(e.target.value)}
-                  placeholder="https://open.spotify.com/playlist/..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:bg-gray-800 disabled:cursor-not-allowed"
-                  disabled={!spotifyPlayerReady}
-                />
+                </div>
+              ) : (
+                /* Openbare mode - URL input with clear button */
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={playlistUrl}
+                    onChange={(e) => onPlaylistUrlChange(e.target.value)}
+                    placeholder="https://open.spotify.com/playlist/..."
+                    className="w-full px-3 py-2 pr-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:bg-gray-800 disabled:cursor-not-allowed"
+                    disabled={!spotifyPlayerReady}
+                  />
+                  
+                  {/* Clear button for Spotify URL input */}
+                  {playlistUrl && (
+                    <button
+                      onClick={() => {
+                        onPlaylistUrlChange('');
+                        onPlaylistInfoChange(null);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      title="URL wissen"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
