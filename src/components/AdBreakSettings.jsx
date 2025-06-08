@@ -351,21 +351,21 @@ const AdBreakSettings = ({
                       className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                       placeholder="Minuut 1"
                     />
-                    {/* Top right: Duration 2 (SWAPPED with bottom left) */}
+                    {/* Top right: Duration 2 */}
                     <input
                       type="number"
                       min="1"
                       max="30"
-                      value={adBreakDuration2}
+                      value={adBreakDuration}
                       onChange={(e) => {
                         let value = parseInt(e.target.value);
-                        if (isNaN(value)) value = 7;
+                        if (isNaN(value)) value = 5;
                         if (value > 30) value = 30;
                         if (value < 1) value = 1;
                         onDuration2Change(value);
                       }}
                       className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                      placeholder="Duur 2 (min)"
+                      placeholder="Duur 1 (min)"
                     />
                     {/* Bottom left: Minute 2 (SWAPPED with top right) */}
                     <input
@@ -388,16 +388,16 @@ const AdBreakSettings = ({
                       type="number"
                       min="1"
                       max="30"
-                      value={adBreakDuration}
+                      value={adBreakDuration2}
                       onChange={(e) => {
                         let value = parseInt(e.target.value);
-                        if (isNaN(value)) value = 5;
+                        if (isNaN(value)) value = 7;
                         if (value > 30) value = 30;
                         if (value < 1) value = 1;
                         onDurationChange(value);
                       }}
                       className="w-full px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                      placeholder="Duur 1 (min)"
+                      placeholder="Duur 2 (min)"
                     />
                   </div>
                 </div>
