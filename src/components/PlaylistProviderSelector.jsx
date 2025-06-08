@@ -222,11 +222,6 @@ useEffect(() => {
   const handlePlaylistSearch = (query) => {
     setPlaylistSearchQuery(query);
     
-    // Show dropdown when typing
-    if (query.length > 0) {
-      setShowPlaylistDropdown(true);
-    }
-    
     // Debounce search
     clearTimeout(window.spotifySearchTimeout);
     window.spotifySearchTimeout = setTimeout(() => {
@@ -234,6 +229,15 @@ useEffect(() => {
         loadSpotifyPlaylists(query);
       }
     }, 300);
+  };
+
+  // Add new handler for input focus
+  const handlePlaylistInputFocus = () => {
+    setShowPlaylistDropdown(true);
+    // Load all playlists if we haven't loaded any yet or if search is empty
+    if (selectedProvider === 'spotify' && (spotifyPlaylists.length === 0 || !playlistSearchQuery)) {
+      loadSpotifyPlaylists(''); // Load all playlists (empty search)
+    }
   };
 
   // Handle playlist selection
@@ -368,17 +372,14 @@ useEffect(() => {
     <div className="space-y-3">
       {/* --- BEGIN: SPOTIFY INIT ERROR/RETRY UI --- */}
       {selectedProvider === 'spotify' && error && (
-        <div className="mb-2 p-3 bg-red-900/80 border border-red-600 rounded-lg text-red-200 flex flex-col items-start">
-          <div className="mb-2">
-            <strong>Spotify fout:</strong> {error}
-          </div>
+      
           <button
             className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg font-semibold text-sm"
             onClick={() => onRetry && onRetry()}
           >
             Probeer opnieuw
           </button>
-        </div>
+       
       )}
       {/* --- END: SPOTIFY INIT ERROR/RETRY UI --- */}
 
@@ -536,7 +537,7 @@ useEffect(() => {
                     type="text"
                     value={playlistSearchQuery}
                     onChange={(e) => handlePlaylistSearch(e.target.value)}
-                    onFocus={() => setShowPlaylistDropdown(true)}
+                    onFocus={handlePlaylistInputFocus} // ← Use the new handler instead of just setShowPlaylistDropdown(true)
                     placeholder="Typ om je afspeellijsten te zoeken..."
                     className="w-full px-3 py-2 pr-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                     disabled={!spotifyPlayerReady}
@@ -601,7 +602,7 @@ useEffect(() => {
                         ))
                       ) : (
                         <div className="px-3 py-4 text-center text-gray-400">
-                          {playlistSearchQuery ? 'Geen afspeellijsten gevonden' : 'Typ om te zoeken in je afspeellijsten'}
+                          {playlistSearchQuery ? 'Geen afspeellijsten gevonden' : 'Geen afspeellijsten beschikbaar'} {/* ← Updated message for empty state */}
                         </div>
                       )}
                     </div>

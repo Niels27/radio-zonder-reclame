@@ -28,7 +28,7 @@ const ErrorBoundary = ({ children }) => {
     setHasError(false);
     setError(null);
   };
-
+/*
   if (hasError) {
     return (
       <div className="min-h-screen bg-radio-darker text-white flex items-center justify-center p-6">
@@ -66,7 +66,7 @@ const ErrorBoundary = ({ children }) => {
         </div>
       </div>
     );
-  }
+  }*/
 
   return children;
 };

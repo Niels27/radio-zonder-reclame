@@ -14,14 +14,31 @@ const dayLabels = ['M', 'D', 'W', 'D', 'V', 'Z', 'Z'];
 const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
 
 const getInitialDaySettings = () => {
-  const saved = localStorage.getItem('adbreak_day_settings');
-  if (saved) {
-    try {
+  try {
+    const saved = localStorage.getItem('adbreak_day_settings');
+    if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length === 7) return parsed;
-    } catch {}
+      if (Array.isArray(parsed) && parsed.length === 7) {
+        // Validate each day setting has required properties
+        const validSettings = parsed.every(day => 
+          typeof day === 'object' && 
+          typeof day.enabled === 'boolean' &&
+          typeof day.startHour === 'number' &&
+          typeof day.endHour === 'number'
+        );
+        if (validSettings) return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load day settings:', error);
   }
-  return Array(7).fill(0).map(defaultDaySettings);
+  
+  // Return default settings if loading failed
+  return Array(7).fill(0).map(() => ({
+    enabled: false,
+    startHour: 7,
+    endHour: 22
+  }));
 };
 
 const AdBreakSettings = ({
@@ -52,11 +69,14 @@ const AdBreakSettings = ({
   const [selectedDay, setSelectedDay] = useState(0); // 0=Monday
   const currentDay = daySettings[selectedDay] || defaultDaySettings();
 
-  // Save to localStorage on change
-  useEffect(() => {
+useEffect(() => {
+  try {
     localStorage.setItem('adbreak_day_settings', JSON.stringify(daySettings));
-  }, [daySettings]);
-
+    console.log('Day settings saved:', daySettings);
+  } catch (error) {
+    console.warn('Failed to save day settings:', error);
+  }
+}, [daySettings]);
   // Handlers for per-day settings
   const handleDayClick = (idx) => setSelectedDay(idx);
   const handleTimeRangeEnabled = (checked) => {
@@ -244,7 +264,7 @@ const AdBreakSettings = ({
             </div>
 
             {/* Existing settings only show for playlist mode */}
-            {adBreakMode === 'playlist' && (
+            {(
               <div className="flex flex-col md:flex-row gap-1 items-start">
                 {/* Minute Input Section - now 2x2 grid and left-aligned */}
                 <div className="flex flex-col w-full md:w-1/3 max-w-xs">
@@ -370,30 +390,7 @@ const AdBreakSettings = ({
               </div>
             )}
 
-            {/* Show different info for each mode */}
-            {adBreakMode === 'nonstop' && (
-              <div className="bg-green-600/10 border border-green-500/30 rounded-lg p-4">
-                <h4 className="font-semibold text-green-300 mb-2">Non-stop Radio Modus</h4>
-                <p className="text-sm text-gray-300 mb-2">
-                  Tijdens reclamepauzes wordt automatisch gewisseld naar een willekeurige non-stop radiozender zonder reclame.
-                </p>
-                <p className="text-xs text-gray-400">
-                  Geen configuratie nodig - werkt direct na activering van de timer.
-                </p>
-              </div>
-            )}
-
-            {adBreakMode === 'lofi' && (
-              <div className="bg-purple-600/10 border border-purple-500/30 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-300 mb-2">Lofi Girl Modus</h4>
-                <p className="text-sm text-gray-300 mb-2">
-                  Tijdens reclamepauzes wordt gewisseld naar rustgevende Lofi Girl study streams.
-                </p>
-                <p className="text-xs text-gray-400">
-                  Perfect voor concentratie en studie - meerdere fallback streams beschikbaar.
-                </p>
-              </div>
-            )}
+      
           </div>
         )}
       </div>

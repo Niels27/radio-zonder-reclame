@@ -8,6 +8,20 @@ import { LogoFallback } from '../utils/logoFallback.js';
 import { getBestLogoUrl, getLogoFallbacks, shouldMonitorLogo, logFailedLogo, getFailedLogos } from '../utils/logoManager.js';
 import { allDutchStations, isPopularStation, getPopularStations } from '../utils/allDutchStations.js';
 
+  const categories = [
+    { key: 'all', label: 'Alle stations' },
+    { key: 'popular', label: 'Populair' },
+    { key: 'favorites', label: 'Favorieten' },
+    { key: 'public', label: 'Publiek' },
+    { key: 'commercial', label: 'Commercieel' },
+    { key: 'news', label: 'Nieuws' },
+    { key: 'regional', label: 'Regionaal' },
+    { key: 'local', label: 'Lokaal' },
+    { key: 'religious', label: 'Religieus' },
+    { key: 'specialty', label: 'Specialiteit' },
+    { key: 'nonstop', label: 'Non-stop' }
+    
+  ];
 // Progressive Logo Component with Fallback Support
 const StationLogo = ({ station, className = "w-full h-full" }) => {
   const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
@@ -148,14 +162,41 @@ const SmartText = ({ text, className, isName = false }) => {
   );
 };
 
-// Add auto-toggle functionality for search
+// Update the RadioGrid component to cache selected category:
 
 const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('popular');
-  const [previousCategory, setPreviousCategory] = useState('popular'); // ← Add this to remember previous category
+  
+  // Load selected category from cache, default to 'popular'
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('radio_selected_category');
+      return saved ? JSON.parse(saved) : 'popular';
+    } catch {
+      return 'popular';
+    }
+  });
+  
+  const [previousCategory, setPreviousCategory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('radio_selected_category');
+      return saved ? JSON.parse(saved) : 'popular';
+    } catch {
+      return 'popular';
+    }
+  });
+  
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
+
+  // Cache selected category when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('radio_selected_category', JSON.stringify(selectedCategory));
+    } catch (error) {
+      console.warn('Failed to save selected category:', error);
+    }
+  }, [selectedCategory]);
 
   // Debug effect to monitor favorites changes
   useEffect(() => {
@@ -244,13 +285,23 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
       console.log('All stations count:', filtered.length); // Debug log
       filtered = filtered.filter(station => {
         const isFav = favorites.includes(station.name);
-        //console.log(`Station ${station.name} is favorite:`, isFav); // Debug log
         return isFav;
       });
       console.log('Filtered favorites count:', filtered.length); // Debug log
     } else if (selectedCategory === 'popular') {
       filtered = filtered.filter(station => station.isDefault || station.category === 'popular');
-    } else if (selectedCategory !== 'all') {
+    } else if (selectedCategory === 'all') {
+      // For 'all' category, only show stations that have a valid category
+      const validCategories = categories.map(cat => cat.key).filter(key => key !== 'all' && key !== 'favorites');
+      filtered = filtered.filter(station => {
+        const hasValidCategory = station.category && validCategories.includes(station.category);
+        const hasValidOriginalCategory = station.originalCategory && validCategories.includes(station.originalCategory);
+        const isPopular = station.isDefault || station.category === 'popular';
+        
+        return hasValidCategory || hasValidOriginalCategory || isPopular;
+      });
+    } else {
+      // For specific categories, only show stations that belong to that category
       filtered = filtered.filter(station => 
         station.category === selectedCategory || 
         station.originalCategory === selectedCategory
@@ -260,19 +311,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
     return filtered;
   }, [allStations, searchQuery, selectedCategory, favorites]);
 
-  const categories = [
-    { key: 'all', label: 'Alle stations' },
-    { key: 'popular', label: 'Populair' },
-    { key: 'favorites', label: 'Favorieten' },
-    { key: 'public', label: 'Publiek' },
-    { key: 'commercial', label: 'Commercieel' },
-    { key: 'news', label: 'Nieuws' },
-    { key: 'regional', label: 'Regionaal' },
-    { key: 'local', label: 'Lokaal' },
-    { key: 'religious', label: 'Religieus' },
-    { key: 'specialty', label: 'Specialiteit' },
-    { key: 'nonstop', label: 'Non-stop' }
-  ];
+
 
   const handleStationSelect = (station) => {
     if (isLoading) return;

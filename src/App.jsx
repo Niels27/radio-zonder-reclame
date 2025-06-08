@@ -274,24 +274,25 @@ function App() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col pb-32"> {/* Add bottom padding for fixed footer */}          {/* Playlist Provider Selection Section */}
-          <div className="bg-gray-800 border-b border-gray-700 p-4">
-            <div className="max-w-6xl mx-auto">
-              <PlaylistProviderSelector
-                selectedProvider={playlistProvider}
-                onProviderChange={setPlaylistProvider}
-                playlistUrl={adBreakTimer.playlistUrl}
-                onPlaylistUrlChange={adBreakTimer.setPlaylistUrl}
-                playlistInfo={playlistInfo}
-                onPlaylistInfoChange={setPlaylistInfo}
-                isValidating={isValidatingPlaylist}
-                onValidatingChange={setIsValidatingPlaylist}
-                // --- Pass error and retry function ---
-                error={audioPlayer.error}
-                onRetry={audioPlayer.manualInitializeSpotifyPlayer}
-              />
+        <div className="flex-1 flex flex-col pb-32"> {/* Add bottom padding for fixed footer */}          {/* Playlist Provider Selection Section - Only show for playlist mode */}
+          {adBreakTimer.adBreakMode === 'playlist' && (
+            <div className="bg-gray-800 border-b border-gray-700 p-4">
+              <div className="max-w-6xl mx-auto">
+                <PlaylistProviderSelector
+                  selectedProvider={playlistProvider}
+                  onProviderChange={setPlaylistProvider}
+                  playlistUrl={adBreakTimer.playlistUrl}
+                  onPlaylistUrlChange={adBreakTimer.setPlaylistUrl}
+                  playlistInfo={playlistInfo}
+                  onPlaylistInfoChange={setPlaylistInfo}
+                  isValidating={isValidatingPlaylist}
+                  onValidatingChange={setIsValidatingPlaylist}
+                  error={audioPlayer.error}
+                  onRetry={audioPlayer.manualInitializeSpotifyPlayer}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Ad Break Settings - Moved back here */}
           <div className="bg-gray-800 border-b border-gray-700">

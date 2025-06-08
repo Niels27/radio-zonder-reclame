@@ -9,7 +9,7 @@ let failedStations = new Set(); // Track failed stations to avoid retrying them
 // Initialize nonstop stations array
 const initializeNonstopStations = () => {
   if (nonstopStations.length === 0) {
-    nonstopStations = Object.values(allDutchStations.nonstop || {});
+    nonstopStations = Object.values(allDutchStations.realnonstop || {});
     // Shuffle the array for randomness
     for (let i = nonstopStations.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

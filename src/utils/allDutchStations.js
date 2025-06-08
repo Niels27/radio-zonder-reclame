@@ -7384,15 +7384,7 @@ export const allDutchStations = {
       "city": null,
       "votes": 2834
     },
-    "Alex FM Non Stop Hits": {
-      "name": "Alex FM Non Stop Hits",
-      "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Populaire hits",
-      "bitrate": 128,
-      "city": null,
-      "votes": 7
-    },
+
     "SLAM! Non Stop": {
       "name": "SLAM! Non Stop",
       "url": "http://stream.radiocorp.nl/web10_mp3",
@@ -7402,11 +7394,20 @@ export const allDutchStations = {
       "city": null,
       "votes": 1823
     },
+       "Alex FM Non Stop Hits": {
+      "name": "Alex FM Non Stop Hits",
+      "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Populaire hits",
+      "bitrate": 128,
+      "city": null,
+      "votes": 7
+    },
     "Non Stop AlexFM": {
       "name": "Non Stop AlexFM",
       "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
       "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
-      "description": "Rock muziek",
+      "description": "Non stop muziek",
       "bitrate": 128,
       "city": null,
       "votes": 2
@@ -7868,6 +7869,27 @@ export const allDutchStations = {
     "city": null,
     "votes": 1987
   }
+  },
+  "realnonstop":{
+   "Alex FM Non Stop Hits": {
+      "name": "Alex FM Non Stop Hits",
+      "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Populaire hits",
+      "bitrate": 128,
+      "city": null,
+      "votes": 7
+    },
+    "Non Stop AlexFM": {
+      "name": "Non Stop AlexFM",
+      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
+      "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
+      "description": "Non stop muziek",
+      "bitrate": 128,
+      "city": null,
+      "votes": 2
+    }
+
   }
 
 };

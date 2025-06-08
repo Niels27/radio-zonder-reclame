@@ -12,11 +12,41 @@ import {
   isLofiOverlayOpen        // ← Updated import
 } from '../utils/lofiUtils.js';
 
+// Add caching functionality to the useAdBreakTimer hook:
+
+const STORAGE_KEYS = {
+  AD_BREAK_MODE: 'adbreak_mode',
+  AD_BREAK_MINUTE: 'adbreak_minute',
+  AD_BREAK_MINUTE2: 'adbreak_minute2', 
+  AD_BREAK_DURATION: 'adbreak_duration',
+  AD_BREAK_DURATION2: 'adbreak_duration2',
+  DAY_SETTINGS: 'adbreak_day_settings',
+  SELECTED_CATEGORY: 'radio_selected_category'
+};
+
+const loadFromStorage = (key, defaultValue) => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultValue;
+  } catch (error) {
+    console.warn(`Failed to load ${key} from storage:`, error);
+    return defaultValue;
+  }
+};
+
+const saveToStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Failed to save ${key} to storage:`, error);
+  }
+};
+
 export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
-  const [adBreakMinute, setAdBreakMinute] = useState(28);
-  const [adBreakMinute2, setAdBreakMinute2] = useState(58);
-  const [adBreakDuration, setAdBreakDuration] = useState(5);
-  const [adBreakDuration2, setAdBreakDuration2] = useState(7);
+  const [adBreakMinute, setAdBreakMinute] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE, 28));
+  const [adBreakMinute2, setAdBreakMinute2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE2, 58));
+  const [adBreakDuration, setAdBreakDuration] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION, 5));
+  const [adBreakDuration2, setAdBreakDuration2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION2, 7));
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isAdBreakActive, setIsAdBreakActive] = useState(false);
   const [nextAdBreakIn, setNextAdBreakIn] = useState(null);
@@ -27,7 +57,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   const [queuedStation, setQueuedStation] = useState(null);
   const [isManualTestActive, setIsManualTestActive] = useState(false);
   const [shouldPlayPlaylistDuringAdBreak, setShouldPlayPlaylistDuringAdBreak] = useState(false);
-  const [adBreakMode, setAdBreakMode] = useState('playlist'); // 'playlist', 'nonstop', 'lofi'
+  const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
   const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);
   const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
 
@@ -448,15 +478,7 @@ const manualAdBreak = useCallback(() => {
     // ✅ Close Lofi overlay when stopping test (reliable)
     closeLofiYouTubeOverlay();
     
-    // Also close any lingering popups by name
-  try {
-    const existingPopup = window.open('', 'lofiPlayer');
-    if (existingPopup) {
-      existingPopup.close();
-    }
-  } catch (error) {
-    console.warn('Could not close popup by name:', error);
-  }
+
   
   if (audioPlayer.currentSource === 'playlist' || 
       (audioPlayer.currentStation && audioPlayer.currentStation.isNonstop) || 
@@ -766,6 +788,27 @@ const manualAdBreak = useCallback(() => {
     handleAdBreakError,
     endAdBreak
   ]);
+
+  // Add caching effects for all settings:
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.AD_BREAK_MODE, adBreakMode);
+  }, [adBreakMode]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.AD_BREAK_MINUTE, adBreakMinute);
+  }, [adBreakMinute]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.AD_BREAK_MINUTE2, adBreakMinute2);
+  }, [adBreakMinute2]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.AD_BREAK_DURATION, adBreakDuration);
+  }, [adBreakDuration]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.AD_BREAK_DURATION2, adBreakDuration2);
+  }, [adBreakDuration2]);
 
   return {
     adBreakMinute,

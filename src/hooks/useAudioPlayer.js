@@ -962,150 +962,160 @@ const pauseRadioForAdBreak = useCallback(() => {
   }
 }, [currentSource, currentStation, isTransitioning]);
   const playPlaylist = useCallback(async (playlistId, options = {}) => {
-    const provider = options.provider || currentPlaylistProvider;
-    console.log('🎵 Starting playlist:', playlistId, 'Provider:', provider);
+  const provider = options.provider || currentPlaylistProvider;
+  console.log('🎵 Starting playlist:', playlistId, 'Provider:', provider);
 
-    // ✅ FIX: ALWAYS stop any current audio first
-    console.log('🎵 Enforcing single audio stream - stopping current audio');
-    
-    // Stop radio if playing (but don't clear paused radio state for ad breaks)
-    if (currentSource === 'radio' && audioRef.current && !isRadioPausedForAdBreak) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      console.log('🎵 Stopped radio for playlist');
+  // ✅ FIX: ALWAYS stop any current audio first
+  console.log('🎵 Enforcing single audio stream - stopping current audio');
+  
+  // Stop radio if playing (but don't clear paused radio state for ad breaks)
+  if (currentSource === 'radio' && audioRef.current && !isRadioPausedForAdBreak) {
+    audioRef.current.pause();
+    audioRef.current.src = '';
+    console.log('🎵 Stopped radio for playlist');
+  }
+  
+  // Stop any existing playlist
+  if (currentSource === 'playlist') {
+    if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
+      try {
+        await spotifyPlayerRef.current.pause();
+        console.log('🎵 Stopped existing Spotify playlist');
+      } catch (error) {
+        console.warn('Could not stop Spotify:', error);
+      }
     }
     
-    // Stop any existing playlist
-    if (currentSource === 'playlist') {
-      if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
-        try {
-          await spotifyPlayerRef.current.pause();
-          console.log('🎵 Stopped existing Spotify playlist');
-        } catch (error) {
-          console.warn('Could not stop Spotify:', error);
-        }
+    if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
+      try {
+        youtubePlayerRef.current.closePopup('replaced');
+        console.log('🎵 Stopped existing YouTube playlist');
+      } catch (error) {
+        console.warn('Could not stop YouTube:', error);
       }
+    }
+  }
+
+  setIsTransitioning(true);
+  setIsLoading(true);
+  setError(null);
+  setCurrentSource('playlist');
+
+  try {
+    if (provider === 'spotify') {
+      console.log('🎵 Starting Spotify playlist');
       
-      if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
+      // ✅ FIX: Better Spotify player availability check
+      if (!spotifyPlayerRef.current || !spotifyPlayerReady) {
+        console.log('🎵 Spotify player not ready - attempting manual initialization...');
         try {
-          youtubePlayerRef.current.closePopup('replaced');
-          console.log('🎵 Stopped existing YouTube playlist');
-        } catch (error) {
-          console.warn('Could not stop YouTube:', error);
+          await manualInitializeSpotifyPlayer();
+          // Wait a bit more for player to be fully ready
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (initError) {
+          console.error('Failed to initialize Spotify player:', initError);
+          throw new Error('Kon Spotify player niet initialiseren. Probeer opnieuw.');
         }
       }
-    }
 
-    setIsTransitioning(true);
-    setIsLoading(true);
-    setError(null);
-    setCurrentSource('playlist');
+      console.log('🎵 Waiting briefly for Spotify player...');
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    try {
-      if (provider === 'spotify') {
-        console.log('🎵 Starting Spotify playlist');
+      // ✅ FIX: More robust player availability check
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while ((!spotifyPlayerRef.current || !window.audioPlayer?.spotifyPlayerReady) && attempts < maxAttempts) {
+        console.log(`🎵 Waiting for Spotify player... attempt ${attempts + 1}/${maxAttempts}`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
 
-        if (!isSpotifyAuthenticated()) {
-          throw new Error('Please login to Spotify first');
-        }
+      // ✅ FIX: Final check with better error message
+      if (!spotifyPlayerRef.current || !window.audioPlayer?.spotifyPlayerReady) {
+        console.error('🎵 Spotify player still not available after waiting');
+        throw new Error('Spotify player is nog niet klaar. Wacht even en probeer opnieuw.');
+      }
 
-        // Simple ready check - max 5 seconds, no endless waiting
-        if (!spotifyPlayerReady || !spotifyPlayerRef.current) {
-          console.log('🎵 Waiting briefly for Spotify player...');
-          setLoadingProgress('Spotify player laden...');
-
-          let attempts = 0;
-          while ((!spotifyPlayerReady || !spotifyPlayerRef.current) && attempts < 25) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            attempts++;
-          }
-
-          if (!spotifyPlayerReady || !spotifyPlayerRef.current) {
-            throw new Error('Spotify player niet beschikbaar. Herlaad de pagina.');
-          }
-        }
-
-        // Ensure device is active
-        setLoadingProgress('Apparaat activeren...');
-        await ensureWebPlaybackDeviceActive();
-
-        setLoadingProgress('Playlist starten...');
-        await playSpotifyPlaylist(playlistId, options.shuffle || false);
-
-        await setSpotifyVolume(volume * 100);
-
-        setCurrentPlaylistProvider('spotify');
-        setIsPlaying(true);
-        setIsLoading(false);
-        console.log('🎵 Spotify playlist started successfully');
-
-      } else {
-        // Enhanced YouTube popup with ad break integration
-        console.log('🎵 Opening YouTube playlist in popup');
-
-        setLoadingProgress('YouTube player openen...');
-
-        // Pass ad break duration for auto-close
-        const enhancedOptions = {
-          ...options,
-          // If we're in an ad break, pass the remaining time for auto-close
-          autoCloseDuration: window.isAdBreakActive && window.currentAdBreakTimeLeft 
-            ? Math.ceil(window.currentAdBreakTimeLeft / 60) 
-            : options.duration
-        };
-
-        const success = await popupYouTubePlayer.playPlaylist(playlistId, enhancedOptions);
-
-        if (success) {
-          youtubePlayerRef.current = popupYouTubePlayer;
-          setCurrentPlaylistProvider('youtube');
-          setIsPlaying(true);
-
-          // ✅ FIX: Sync initial volume and shuffle state
-          youtubePlayerRef.current.setVolume(volume * 100);
-          youtubePlayerRef.current.setShuffle(options.shuffle || false);
-
-          // Enhanced callback for ad break integration
-          popupYouTubePlayer.onClose((reason) => {
-            console.log('🎵 YouTube popup closed, reason:', reason);
-            setIsPlaying(false);
-            setCurrentSource(null);
-            
-            if (reason === 'ad_break_ended') {
-              console.log('🎵 YouTube popup auto-closed - ad break ended');
-            } else if (reason === 'user_close') {
-              console.log('🎵 User manually closed YouTube popup');
-              if (window.addNotification) {
-                window.addNotification('🎵 YouTube muziek gestopt', 'info', 2000);
-              }
-            }
-          });
-
-          console.log('🎵 ✅ YouTube popup opened successfully');
+      // ✅ FIX: Extract playlist ID from public URL if needed
+      let actualPlaylistId = playlistId;
+      if (typeof playlistId === 'string' && playlistId.includes('open.spotify.com')) {
+        const match = playlistId.match(/playlist\/([a-zA-Z0-9]+)/);
+        if (match) {
+          actualPlaylistId = match[1];
+          console.log('🎵 Extracted playlist ID from URL:', actualPlaylistId);
         } else {
-          throw new Error('Could not open YouTube popup');
+          throw new Error('Kon playlist ID niet extraheren uit URL');
         }
       }
 
-    } catch (error) {
-      console.error('Failed to load playlist:', error);
-
-      if (error.message.includes('Popup blocked')) {
-        setError('❌ Popup geblokkeerd. Sta popups toe voor deze site om YouTube playlists af te spelen.');
-      } else {
-        const errorMessage = provider === 'spotify'
-          ? `Kon Spotify playlist niet laden: ${error.message}`
-          : `Kon YouTube playlist niet laden: ${error.message}`;
-        setError(errorMessage);
+      // ✅ FIX: Use the Spotify utils function for playing
+      const { playSpotifyPlaylist } = await import('../utils/spotifyUtils');
+      await playSpotifyPlaylist(actualPlaylistId, options.shuffle || false);
+      
+      console.log('🎵 Spotify playlist gestart');
+      
+      if (window.addNotification) {
+        window.addNotification('🎵 Spotify playlist gestart', 'success', 2000);
       }
+    } else {
+      // Enhanced YouTube popup with ad break integration
+      console.log('🎵 Opening YouTube playlist in popup');
 
-      setIsPlaying(false);
-      setCurrentSource(null);
-    } finally {
-      setIsLoading(false);
-      setIsTransitioning(false);
+      setLoadingProgress('YouTube player openen...');
+
+      // Pass ad break duration for auto-close
+      const enhancedOptions = {
+        ...options,
+        // If we're in an ad break, pass the remaining time for auto-close
+        autoCloseDuration: window.isAdBreakActive && window.currentAdBreakTimeLeft 
+          ? Math.ceil(window.currentAdBreakTimeLeft / 60) 
+          : options.duration
+      };
+
+      const success = await popupYouTubePlayer.playPlaylist(playlistId, enhancedOptions);
+
+      if (success) {
+        youtubePlayerRef.current = popupYouTubePlayer;
+        setCurrentPlaylistProvider('youtube');
+        setIsPlaying(true);
+
+        // ✅ FIX: Sync initial volume and shuffle state
+        youtubePlayerRef.current.setVolume(volume * 100);
+        youtubePlayerRef.current.setShuffle(options.shuffle || false);
+
+        // Enhanced callback for ad break integration
+        popupYouTubePlayer.onClose((reason) => {
+          console.log('🎵 YouTube popup closed, reason:', reason);
+          setIsPlaying(false);
+          setCurrentSource(null);
+          
+          if (reason === 'ad_break_ended') {
+            console.log('🎵 YouTube popup auto-closed - ad break ended');
+          } else if (reason === 'user_close') {
+            console.log('🎵 User manually closed YouTube popup');
+            if (window.addNotification) {
+              window.addNotification('🎵 YouTube muziek gestopt', 'info', 2000);
+            }
+          }
+        });
+
+        console.log('🎵 ✅ YouTube popup opened successfully');
+      } else {
+        throw new Error('Could not open YouTube popup');
+      }
     }
-  }, [volume, pauseRadioForAdBreak, isTransitioning, currentPlaylistProvider, spotifyPlayerReady, currentSource, isRadioPausedForAdBreak]);
+
+    setCurrentSource('playlist');
+  } catch (error) {
+    console.error('Failed to load playlist:', error);
+    setError(`Kon playlist niet laden: ${error.message}`);
+    throw error;
+  } finally {
+    setIsLoading(false);
+    setIsTransitioning(false);
+  }
+}, [volume, pauseRadioForAdBreak, isTransitioning, currentPlaylistProvider, spotifyPlayerReady, currentSource, isRadioPausedForAdBreak, manualInitializeSpotifyPlayer]);
 
   // ✅ FIX: Enhanced pauseAudio with better cleanup
   const pauseAudio = useCallback(() => {
