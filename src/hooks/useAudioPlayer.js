@@ -159,11 +159,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       }
     };
 
-    const handleCanPlay = () => {
-      console.log('🎧 Audio: canplay');
-      setIsLoading(false);
-      setError(null); // Clear error if we reach canplay
-    };
+    // ✅ REMOVE THE DUPLICATE handleCanPlay - it's defined inside playRadio where workingUrl is available
 
     const handleError = (event) => {
       const mediaError = event.target.error;
@@ -176,7 +172,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         audioRef.current?.src) {
 
         // Only show error if we have a current station and it's radio
-        if (currentStationRef.current && currentSourceRef.current === 'radio') {
+        if (currentStationRef.current && currentSource === 'radio') {
           setError(`Verbinding met ${currentStationRef.current.name} verloren. Probeer een andere zender.`);
         } else {
           setError('Audio playback failed. Please try again.');
@@ -193,9 +189,8 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     const handleStalled = () => {
       console.warn('🎧 Audio: stalled. Stream may have issues or network interruption.');
-      // Consider setting loading true if playing, not intentional stop, and not transitioning
       if (isPlayingRef.current && !isIntentionalStopRef.current && !isTransitioningRef.current) {
-        // setIsLoading(true); // This might be too aggressive, could also show a subtle warning
+        // Could show a subtle warning here
       }
     };
 
@@ -206,15 +201,10 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       }
     };
 
-    const handlePlayingEvent = () => { // Renamed to avoid conflict with isPlaying state
+    const handlePlayingEvent = () => {
       console.log('🎧 Audio: native "playing" event fired.');
-      setIsLoading(false); // Ensure loading is false when playing event fires
-      setIsPlaying(true); // ← FIX: Set playing to true when audio starts playing
-      // If our state isn't isPlaying, but browser says it is, sync it.
-      if (!isPlayingRef.current) {
-        // setIsPlaying(true); // This could cause issues if play() promise hasn't resolved.
-        // Generally, setIsPlaying(true) in playRadio is the source of truth.
-      }
+      setIsLoading(false);
+      setIsPlaying(true);
     };
 
     const handleSuspend = () => {
@@ -222,7 +212,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     };
 
     audio.addEventListener('loadstart', handleLoadStart);
-    audio.addEventListener('canplay', handleCanPlay);
+    // ✅ REMOVE handleCanPlay from here - it's added in playRadio
     audio.addEventListener('error', handleError);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('stalled', handleStalled);
@@ -234,7 +224,6 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     return () => {
       console.log('🎧 Cleaning up Audio element...');
       audio.removeEventListener('loadstart', handleLoadStart);
-      audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('stalled', handleStalled);
@@ -242,9 +231,9 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       audio.removeEventListener('playing', handlePlayingEvent);
       audio.removeEventListener('suspend', handleSuspend);
       audio.pause();
-      audio.src = ''; // Release resources
+      audio.src = '';
     };
-  }, []); // Empty dependency array ensures this runs only once on mount and cleans up on unmount
+  }, []);
 
   // ✅ FIX: Add comprehensive cleanup on unmount
   useEffect(() => {

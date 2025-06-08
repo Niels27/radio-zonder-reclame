@@ -72,7 +72,7 @@ const AdBreakSettings = ({
   const [autoSkipPreroll, setAutoSkipPreroll] = useState(() => {
     try {
       const saved = localStorage.getItem('auto_skip_preroll');
-      return saved ? JSON.parse(saved) : false; // Default to enabled
+      return saved ? JSON.parse(saved) : false; // Default to disabled (handmatig)
     } catch {
       return false;
     }
@@ -102,7 +102,7 @@ const AdBreakSettings = ({
     const newTimeout = setTimeout(() => {
       try {
         localStorage.setItem('adbreak_day_settings', JSON.stringify(settings));
-       // console.log('Day settings saved (debounced):', settings);
+        // console.log('Day settings saved (debounced):', settings);
       } catch (error) {
         console.warn('Failed to save day settings:', error);
       }
@@ -140,6 +140,22 @@ const AdBreakSettings = ({
       default: return 'Onbekende modus';
     }
   };
+
+  // ✅ ADD THIS: Save to localStorage when autoSkipPreroll changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('auto_skip_preroll', JSON.stringify(autoSkipPreroll));
+      
+      // ✅ CRITICAL: Update the AdSkipUtils setting immediately
+      if (window.AdSkipUtils) {
+        window.AdSkipUtils.setAutoSkipSetting(autoSkipPreroll);
+      }
+      
+      console.log('🔧 Auto skip setting saved and synced:', autoSkipPreroll ? 'Automatisch' : 'Handmatig');
+    } catch (error) {
+      console.warn('Failed to save auto skip setting:', error);
+    }
+  }, [autoSkipPreroll]);
 
   return (
     <div className="p-4">
@@ -252,8 +268,8 @@ const AdBreakSettings = ({
                 <button
                   onClick={() => onAdBreakModeChange('playlist')}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'playlist'
-                      ? 'border-blue-500 bg-blue-600/20 text-blue-300'
-                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                    ? 'border-blue-500 bg-blue-600/20 text-blue-300'
+                    : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
                     }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
@@ -271,8 +287,8 @@ const AdBreakSettings = ({
                 <button
                   onClick={() => onAdBreakModeChange('nonstop')}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'nonstop'
-                      ? 'border-green-500 bg-green-600/20 text-green-300'
-                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                    ? 'border-green-500 bg-green-600/20 text-green-300'
+                    : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
                     }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
@@ -290,8 +306,8 @@ const AdBreakSettings = ({
                 <button
                   onClick={() => onAdBreakModeChange('lofi')}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'lofi'
-                      ? 'border-purple-500 bg-purple-600/20 text-purple-300'
-                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                    ? 'border-purple-500 bg-purple-600/20 text-purple-300'
+                    : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
                     }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
@@ -440,7 +456,17 @@ const AdBreakSettings = ({
                 Pre-roll reclame overslaan
               </span>
               <button
-                onClick={() => setAutoSkipPreroll(!autoSkipPreroll)}
+                onClick={() => {
+                  const newValue = !autoSkipPreroll;
+                  setAutoSkipPreroll(newValue);
+                  
+                  // ✅ IMMEDIATE UPDATE: Also update AdSkipUtils right away
+                  if (window.AdSkipUtils) {
+                    window.AdSkipUtils.setAutoSkipSetting(newValue);
+                  }
+                  
+                  console.log('🔧 Auto skip toggled to:', newValue ? 'Automatisch' : 'Handmatig');
+                }}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm flex items-center gap-2 ${autoSkipPreroll
                     ? 'bg-purple-600 hover:bg-purple-500 text-white'
                     : 'bg-green-600 hover:bg-green-500 text-white'

@@ -251,6 +251,11 @@ export class AdSkipUtils {
   static getAdFreeScore(url) {
     let score = 0;
 
+    // Special case: Q-music gets maximum score
+    if (url.includes('qmusic') || url.includes('QMUSIC')) {
+      return 100;
+    }
+
     // Higher scores for known ad-free patterns
     if (url.includes('_SC')) score += 50; // StreamTheWorld SC streams
     if (url.includes('triple-it.nl')) score += 45; // Triple-IT CDN
@@ -287,7 +292,7 @@ export class AdSkipUtils {
 
     try {
       console.log(`⏭️ Skipping ${seconds}s of pre-roll...`);
-      
+
       // Get current time and calculate skip time
       const currentTime = audioElement.currentTime || 0;
       const newTime = currentTime + seconds;
@@ -318,7 +323,7 @@ export class AdSkipUtils {
     try {
       // Add fade-out animation
       button.classList.add('fade-out');
-      
+
       // Remove button after animation completes
       setTimeout(() => {
         if (button && button.parentNode) {
@@ -338,6 +343,16 @@ export class AdSkipUtils {
 
   // Create pre-roll skip functionality
   static createPrerollSkipButton(audioElement, onSkip, isAutoSkip = false) {
+
+    // ✅ CRITICAL FIX: Remove any existing skip buttons first
+    const existingButtons = document.querySelectorAll('.preroll-skip-button');
+    existingButtons.forEach(button => {
+      console.log('🗑️ Removing existing pre-roll skip button');
+      if (button && button.parentNode) {
+        button.parentNode.removeChild(button);
+      }
+    });
+
     const button = document.createElement('button');
     button.innerHTML = `
       <div class="flex items-center justify-center gap-3">
@@ -347,7 +362,7 @@ export class AdSkipUtils {
         <span class="font-semibold">Pre-roll reclame overslaan</span>
       </div>
     `;
-    
+
     button.className = 'preroll-skip-button px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white text-m rounded-xl font-small transition-all transform hover:scale-105 shadow-2xl border-2 border-purple-400';
     button.style.cssText = `
       position: fixed;
@@ -417,11 +432,11 @@ export class AdSkipUtils {
     // ✅ NEW: Auto-click logic for automatic pre-roll skipping
     let autoClickTimeout;
     const isAutoSkipEnabled = this.getAutoSkipSetting();
-    
+
     if (isAutoSkipEnabled) {
       // Show auto-click styling
       button.classList.add('auto-click');
-      
+
       // Auto-click after 0.8 seconds
       autoClickTimeout = setTimeout(() => {
         console.log('🤖 Auto-clicking pre-roll skip button');
@@ -434,7 +449,7 @@ export class AdSkipUtils {
       if (autoClickTimeout) {
         clearTimeout(autoClickTimeout);
       }
-      
+
       this.skipPreroll(audioElement, 15);
       onSkip?.();
       this.removePrerollSkipButton(button);
@@ -444,7 +459,7 @@ export class AdSkipUtils {
 
     // ✅ ENHANCED: Longer display time for manual interaction
     const displayTime = isAutoSkipEnabled ? 1 : 6000; // 1.5s for auto, 7s for manual
-    
+
     setTimeout(() => {
       if (autoClickTimeout) {
         clearTimeout(autoClickTimeout);
@@ -459,131 +474,138 @@ export class AdSkipUtils {
   static getAutoSkipSetting() {
     try {
       const saved = localStorage.getItem('auto_skip_preroll');
-      return saved ? JSON.parse(saved) : true; // Default to enabled
+      return saved ? JSON.parse(saved) : false; // ✅ Should default to false (handmatig)
     } catch {
-      return true;
+      return false; // ✅ Should default to false
     }
   }
-// Update the skipPrerollSilently method:
+  // Update the skipPrerollSilently method:
+  static setAutoSkipSetting(enabled) {
+    try {
+      localStorage.setItem('auto_skip_preroll', JSON.stringify(enabled));
+      console.log('🔧 AdSkipUtils: Auto skip setting updated to:', enabled);
+    } catch (error) {
+      console.warn('Failed to save auto skip setting in AdSkipUtils:', error);
+    }
+  }
+  // ✅ ENHANCED: Silent pre-roll skip that waits for proper loading before skipping
+  static async skipPrerollSilently(audioElement, seconds = 17) {
+    if (!audioElement) return;
 
-// ✅ ENHANCED: Silent pre-roll skip that waits for proper loading before skipping
-static async skipPrerollSilently(audioElement, seconds = 17) {
-  if (!audioElement) return;
+    try {
+      console.log('🔇 Starting intelligent silent pre-roll skip...');
 
-  try {
-    console.log('🔇 Starting intelligent silent pre-roll skip...');
-    
-    // Store original volume
-    const originalVolume = audioElement.volume;
-    
-    // Mute immediately to ensure silence
-    audioElement.volume = 0;
-    
-    // Wait for audio to be properly loaded and playing
-    const waitForStablePlayback = () => {
-      return new Promise((resolve) => {
-        let stableCount = 0;
-        const requiredStableEvents = 2; // Need 2 consecutive stable events
-        
-        const checkStability = () => {
-          if (audioElement.readyState >= 3 && // HAVE_FUTURE_DATA or better
-              !audioElement.paused && 
+      // Store original volume
+      const originalVolume = audioElement.volume;
+
+      // Mute immediately to ensure silence
+      audioElement.volume = 0;
+
+      // Wait for audio to be properly loaded and playing
+      const waitForStablePlayback = () => {
+        return new Promise((resolve) => {
+          let stableCount = 0;
+          const requiredStableEvents = 2; // Need 2 consecutive stable events
+
+          const checkStability = () => {
+            if (audioElement.readyState >= 3 && // HAVE_FUTURE_DATA or better
+              !audioElement.paused &&
               audioElement.currentTime > 0 &&
               !audioElement.seeking) {
-            stableCount++;
-            console.log(`🎵 Stability check ${stableCount}/${requiredStableEvents}: readyState=${audioElement.readyState}, currentTime=${audioElement.currentTime.toFixed(3)}`);
-            
-            if (stableCount >= requiredStableEvents) {
-              resolve();
-              return;
+              stableCount++;
+              console.log(`🎵 Stability check ${stableCount}/${requiredStableEvents}: readyState=${audioElement.readyState}, currentTime=${audioElement.currentTime.toFixed(3)}`);
+
+              if (stableCount >= requiredStableEvents) {
+                resolve();
+                return;
+              }
+            } else {
+              stableCount = 0; // Reset if not stable
             }
-          } else {
-            stableCount = 0; // Reset if not stable
-          }
-          
-          // Continue checking
-          setTimeout(checkStability, 200);
-        };
-        
-        checkStability();
-      });
-    };
-    
-    // Wait for stable playback (max 3 seconds)
-    const stabilityTimeout = setTimeout(() => {
-      console.log('⚠️ Stability timeout - proceeding with skip anyway');
-    }, 3000);
-    
-    await Promise.race([
-      waitForStablePlayback(),
-      new Promise(resolve => setTimeout(resolve, 3000))
-    ]);
-    
-    clearTimeout(stabilityTimeout);
-    
-    // Now perform the skip
-    const targetTime = Math.min(audioElement.currentTime + seconds, audioElement.duration || Infinity);
-    console.log(`⏭️ Performing smooth skip: ${audioElement.currentTime.toFixed(3)}s → ${targetTime.toFixed(3)}s`);
-    
-    // Skip to target time
-    audioElement.currentTime = targetTime;
-    
-    // Wait a moment for the skip to settle
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Gradually restore volume for smooth transition
-    await this.gradualVolumeRestore(audioElement, originalVolume, 800);
-    
-    console.log('🔇 Silent pre-roll skip completed smoothly');
-    
-  } catch (error) {
-    console.error('❌ Silent pre-roll skip failed:', error);
-    
-    // Ensure volume is restored even if skip fails
-    try {
-      if (audioElement.volume === 0) {
-        audioElement.volume = originalVolume || 0.7;
-      }
-    } catch (restoreError) {
-      console.error('❌ Failed to restore volume:', restoreError);
-    }
-  }
-}
 
-// Also update the gradualVolumeRestore method for smoother transitions:
+            // Continue checking
+            setTimeout(checkStability, 200);
+          };
 
-// ✅ ENHANCED: Smoother volume restoration with cubic easing
-static async gradualVolumeRestore(audioElement, targetVolume, duration = 800) {
-  if (!audioElement || targetVolume <= 0) return;
-  
-  const steps = 25; // More steps for smoother transition
-  const stepDuration = duration / steps;
-  
-  // Cubic ease-out function for natural volume curve
-  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-  
-  for (let i = 1; i <= steps; i++) {
-    const progress = i / steps;
-    const easedProgress = easeOutCubic(progress);
-    const currentVolume = targetVolume * easedProgress;
-    
-    try {
-      audioElement.volume = Math.min(currentVolume, 1);
-      await new Promise(resolve => setTimeout(resolve, stepDuration));
+          checkStability();
+        });
+      };
+
+      // Wait for stable playback (max 3 seconds)
+      const stabilityTimeout = setTimeout(() => {
+        console.log('⚠️ Stability timeout - proceeding with skip anyway');
+      }, 3000);
+
+      await Promise.race([
+        waitForStablePlayback(),
+        new Promise(resolve => setTimeout(resolve, 3000))
+      ]);
+
+      clearTimeout(stabilityTimeout);
+
+      // Now perform the skip
+      const targetTime = Math.min(audioElement.currentTime + seconds, audioElement.duration || Infinity);
+      console.log(`⏭️ Performing smooth skip: ${audioElement.currentTime.toFixed(3)}s → ${targetTime.toFixed(3)}s`);
+
+      // Skip to target time
+      audioElement.currentTime = targetTime;
+
+      // Wait a moment for the skip to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Gradually restore volume for smooth transition
+      await this.gradualVolumeRestore(audioElement, originalVolume, 800);
+
+      console.log('🔇 Silent pre-roll skip completed smoothly');
+
     } catch (error) {
-      console.warn(`Volume restore step ${i} failed:`, error);
-      break;
+      console.error('❌ Silent pre-roll skip failed:', error);
+
+      // Ensure volume is restored even if skip fails
+      try {
+        if (audioElement.volume === 0) {
+          audioElement.volume = originalVolume || 0.7;
+        }
+      } catch (restoreError) {
+        console.error('❌ Failed to restore volume:', restoreError);
+      }
     }
   }
-  
-  // Ensure final volume is set correctly
-  try {
-    audioElement.volume = Math.min(targetVolume, 1);
-    console.log(`🔊 Volume restored to ${Math.round(audioElement.volume * 100)}%`);
-  } catch (error) {
-    console.error('❌ Final volume restore failed:', error);
+
+  // Also update the gradualVolumeRestore method for smoother transitions:
+
+  // ✅ ENHANCED: Smoother volume restoration with cubic easing
+  static async gradualVolumeRestore(audioElement, targetVolume, duration = 800) {
+    if (!audioElement || targetVolume <= 0) return;
+
+    const steps = 25; // More steps for smoother transition
+    const stepDuration = duration / steps;
+
+    // Cubic ease-out function for natural volume curve
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+    for (let i = 1; i <= steps; i++) {
+      const progress = i / steps;
+      const easedProgress = easeOutCubic(progress);
+      const currentVolume = targetVolume * easedProgress;
+
+      try {
+        audioElement.volume = Math.min(currentVolume, 1);
+        await new Promise(resolve => setTimeout(resolve, stepDuration));
+      } catch (error) {
+        console.warn(`Volume restore step ${i} failed:`, error);
+        break;
+      }
+    }
+
+    // Ensure final volume is set correctly
+    try {
+      audioElement.volume = Math.min(targetVolume, 1);
+      console.log(`🔊 Volume restored to ${Math.round(audioElement.volume * 100)}%`);
+    } catch (error) {
+      console.error('❌ Final volume restore failed:', error);
+    }
   }
-}
 
   // ✅ ENHANCED: Check if pre-roll skip should be offered with auto-skip consideration
   static shouldOfferPrerollSkip(url, stationName) {
