@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRandomNonstopStation, markStationAsFailed } from '../utils/nonstopUtils.js';
-import { 
-  getNextLofiStream, 
-  createLofiStation, 
+import {
+  getNextLofiStream,
+  createLofiStation,
   extractYouTubeVideoId,
   openLofiYouTubeOverlay,  // ← Updated import
   closeLofiYouTubeOverlay,
@@ -17,7 +17,7 @@ import {
 const STORAGE_KEYS = {
   AD_BREAK_MODE: 'adbreak_mode',
   AD_BREAK_MINUTE: 'adbreak_minute',
-  AD_BREAK_MINUTE2: 'adbreak_minute2', 
+  AD_BREAK_MINUTE2: 'adbreak_minute2',
   AD_BREAK_DURATION: 'adbreak_duration',
   AD_BREAK_DURATION2: 'adbreak_duration2',
   DAY_SETTINGS: 'adbreak_day_settings',
@@ -60,11 +60,13 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
   const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);
   const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
+  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false); // ← New state
 
   const timerRef = useRef(null);
   const adBreakTimeoutRef = useRef(null);
 
   // Calculate next ad break time
+  // ✅ FIXED: Calculate next ad break time with proper hour boundary handling
   const getNextAdBreakTime = useCallback(() => {
     const now = new Date();
     const currentHour = now.getHours();
@@ -73,7 +75,9 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
     const adBreakMinutes = [adBreakMinute, adBreakMinute2].sort((a, b) => a - b);
 
+    // Check each ad break minute in the current hour
     for (const minute of adBreakMinutes) {
+      // ✅ FIX: Only consider future if we haven't reached the minute OR we're early in that minute
       if (currentMinute < minute || (currentMinute === minute && currentSecond < 30)) {
         const nextBreak = new Date();
         nextBreak.setHours(currentHour, minute, 0, 0);
@@ -81,6 +85,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       }
     }
 
+    // ✅ FIX: If both ad breaks have passed this hour, go to next hour
     const nextBreak = new Date();
     nextBreak.setHours(currentHour + 1, adBreakMinutes[0], 0, 0);
     return nextBreak;
@@ -129,7 +134,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     if (audioPlayer.isRadioPausedForAdBreak) {
       audioPlayer.resumeRadioFromAdBreak();
     }
-    
+
     setIsAdBreakActive(false);
     setShouldPlayPlaylistDuringAdBreak(false);
     window.isAdBreakActive = false;
@@ -148,7 +153,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   // Playlist ad break (existing logic)
   const startPlaylistAdBreak = useCallback(async (duration) => {
     if (!playlistUrl) throw new Error('Geen playlist URL ingesteld');
-    
+
     const playlistId = extractPlaylistId(playlistUrl);
     if (!playlistId) throw new Error('Ongeldige playlist URL');
 
@@ -166,146 +171,146 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   }, [playlistUrl, playlistShuffle, playlistProvider, audioPlayer, extractPlaylistId]);
 
   // Nonstop radio ad break
-// Update the startNonstopAdBreak function:
+  // Update the startNonstopAdBreak function:
 
-// Replace the startNonstopAdBreak function with this fixed version:
+  // Replace the startNonstopAdBreak function with this fixed version:
 
-// Replace the startNonstopAdBreak function with this properly fixed version:
+  // Replace the startNonstopAdBreak function with this properly fixed version:
 
-const startNonstopAdBreak = useCallback(async (duration, attempt = 0) => {
-  const maxAttempts = 8;
-  
-  if (attempt >= maxAttempts) {
-    throw new Error('Alle nonstop stations zijn uitgeproeeerd');
-  }
+  const startNonstopAdBreak = useCallback(async (duration, attempt = 0) => {
+    const maxAttempts = 8;
 
-  const station = getRandomNonstopStation();
-  if (!station) {
-    throw new Error('Geen nonstop stations beschikbaar');
-  }
-
-  try {
-    console.log(`🎵 Attempting nonstop station: ${station.name} (attempt ${attempt + 1})`);
-    
-    if (window.addNotification && attempt === 0) {
-      window.addNotification(`📻 Proberen: ${station.name}...`, 'info', 2000);
+    if (attempt >= maxAttempts) {
+      throw new Error('Alle nonstop stations zijn uitgeproeeerd');
     }
-    
-    // ✅ CRITICAL FIX: Use await and let any errors bubble up
-    await audioPlayer.playRadio(station);
-    
-    // ✅ CRITICAL FIX: Only reach here if playRadio succeeded
-    console.log(`✅ SUCCESS: Playing nonstop radio: ${station.name} for ${duration} minutes`);
-    if (window.addNotification) {
-      window.addNotification(`📻 Nonstop radio: ${station.name}`, 'success', 3000);
+
+    const station = getRandomNonstopStation();
+    if (!station) {
+      throw new Error('Geen nonstop stations beschikbaar');
     }
-    
-    setCurrentNonstopAttempt(0);
-    return; // Success - exit function
-    
-  } catch (error) {
-    // ✅ CRITICAL FIX: This catch block handles ALL playRadio failures
-    console.warn(`❌ FAILED: Nonstop station ${station.name} failed:`, error);
-    
-    // Mark station as failed to avoid retrying it
-    markStationAsFailed(station.name);
-    
-    if (window.addNotification) {
-      window.addNotification(`❌ ${station.name} mislukt, proberen volgende...`, 'warning', 2000);
+
+    try {
+      console.log(`🎵 Attempting nonstop station: ${station.name} (attempt ${attempt + 1})`);
+
+      if (window.addNotification && attempt === 0) {
+        window.addNotification(`📻 Proberen: ${station.name}...`, 'info', 2000);
+      }
+
+      // ✅ CRITICAL FIX: Use await and let any errors bubble up
+      await audioPlayer.playRadio(station);
+
+      // ✅ CRITICAL FIX: Only reach here if playRadio succeeded
+      console.log(`✅ SUCCESS: Playing nonstop radio: ${station.name} for ${duration} minutes`);
+      if (window.addNotification) {
+        window.addNotification(`📻 Nonstop radio: ${station.name}`, 'success', 3000);
+      }
+
+      setCurrentNonstopAttempt(0);
+      return; // Success - exit function
+
+    } catch (error) {
+      // ✅ CRITICAL FIX: This catch block handles ALL playRadio failures
+      console.warn(`❌ FAILED: Nonstop station ${station.name} failed:`, error);
+
+      // Mark station as failed to avoid retrying it
+      markStationAsFailed(station.name);
+
+      if (window.addNotification) {
+        window.addNotification(`❌ ${station.name} mislukt, proberen volgende...`, 'warning', 2000);
+      }
+
+      console.log(`🔄 Retrying with next nonstop station (attempt ${attempt + 1}/${maxAttempts})`);
+
+      // ✅ CRITICAL FIX: Recursive retry with proper error propagation
+      return await startNonstopAdBreak(duration, attempt + 1);
     }
-    
-    console.log(`🔄 Retrying with next nonstop station (attempt ${attempt + 1}/${maxAttempts})`);
-    
-    // ✅ CRITICAL FIX: Recursive retry with proper error propagation
-    return await startNonstopAdBreak(duration, attempt + 1);
-  }
-}, [audioPlayer]);
+  }, [audioPlayer]);
 
   // Lofi ad break
-// Replace the entire startLofiAdBreak function:
+  // Replace the entire startLofiAdBreak function:
 
-// Replace the startLofiAdBreak function:
+  // Replace the startLofiAdBreak function:
 
-// Replace the startLofiAdBreak function with this version:
+  // Replace the startLofiAdBreak function with this version:
 
-const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
-  const maxAttempts = 6;
-  
-  if (attempt >= maxAttempts) {
-    throw new Error('Alle lofi streams zijn uitgeproeeerd');
-  }
+  const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
+    const maxAttempts = 6;
 
-  // ✅ CRITICAL FIX: Check if overlay is already working BEFORE trying anything
-  if (attempt === 0 && isLofiOverlayOpen()) {
-    console.log('🎵 Lofi overlay already open and working - not starting new stream');
-    if (window.addNotification) {
-      window.addNotification(`🎧 Lofi Girl: al actief`, 'success', 3000);
+    if (attempt >= maxAttempts) {
+      throw new Error('Alle lofi streams zijn uitgeproeeerd');
     }
-    setCurrentLofiAttempt(0);
-    return; // Success - overlay already working
-  }
 
-  const lofiStream = getNextLofiStream();
-  const lofiStation = createLofiStation(lofiStream);
-
-  try {
-    console.log(`🎵 Attempting lofi stream: ${lofiStation.name} (attempt ${attempt + 1})`);
-    
-    if (lofiStream.type === 'youtube_video') {
-      const videoId = extractYouTubeVideoId(lofiStream.url);
-      if (!videoId) {
-        throw new Error('Invalid YouTube video ID');
+    // ✅ CRITICAL FIX: Check if overlay is already working BEFORE trying anything
+    if (attempt === 0 && isLofiOverlayOpen()) {
+      console.log('🎵 Lofi overlay already open and working - not starting new stream');
+      if (window.addNotification) {
+        window.addNotification(`🎧 Lofi Girl: al actief`, 'success', 3000);
       }
-      
-      // ✅ Try to open overlay (always succeeds since we control it)
-      try {
-        await openLofiYouTubeOverlay(videoId, duration);
-        
-        console.log(`✅ SUCCESS: Playing lofi overlay: ${lofiStation.name} for ${duration} minutes`);
-        if (window.addNotification) {
-          window.addNotification(`🎧 Lofi Girl: ${lofiStation.name} (overlay actief)`, 'success', 3000);
+      setCurrentLofiAttempt(0);
+      return; // Success - overlay already working
+    }
+
+    const lofiStream = getNextLofiStream();
+    const lofiStation = createLofiStation(lofiStream);
+
+    try {
+      console.log(`🎵 Attempting lofi stream: ${lofiStation.name} (attempt ${attempt + 1})`);
+
+      if (lofiStream.type === 'youtube_video') {
+        const videoId = extractYouTubeVideoId(lofiStream.url);
+        if (!videoId) {
+          throw new Error('Invalid YouTube video ID');
         }
-        
+
+        // ✅ Try to open overlay (always succeeds since we control it)
+        try {
+          await openLofiYouTubeOverlay(videoId, duration);
+
+          console.log(`✅ SUCCESS: Playing lofi overlay: ${lofiStation.name} for ${duration} minutes`);
+          if (window.addNotification) {
+            window.addNotification(`🎧 Lofi Girl: ${lofiStation.name} (overlay actief)`, 'success', 3000);
+          }
+
+          setCurrentLofiAttempt(0);
+          return; // Success - exit function
+
+        } catch (overlayError) {
+          console.warn(`❌ FAILED: Overlay failed for ${lofiStation.name}:`, overlayError);
+          throw overlayError; // This should trigger retry
+        }
+
+      } else {
+        // Play as radio stream with timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        );
+
+        const playPromise = audioPlayer.playRadio(lofiStation);
+        await Promise.race([playPromise, timeoutPromise]);
+
+        console.log(`✅ SUCCESS: Playing lofi stream: ${lofiStation.name} for ${duration} minutes`);
+        if (window.addNotification) {
+          window.addNotification(`🎧 Lofi Radio: ${lofiStation.name}`, 'success', 3000);
+        }
+
         setCurrentLofiAttempt(0);
         return; // Success - exit function
-        
-      } catch (overlayError) {
-        console.warn(`❌ FAILED: Overlay failed for ${lofiStation.name}:`, overlayError);
-        throw overlayError; // This should trigger retry
       }
-      
-    } else {
-      // Play as radio stream with timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Connection timeout')), 5000)
-      );
-      
-      const playPromise = audioPlayer.playRadio(lofiStation);
-      await Promise.race([playPromise, timeoutPromise]);
-      
-      console.log(`✅ SUCCESS: Playing lofi stream: ${lofiStation.name} for ${duration} minutes`);
+
+    } catch (error) {
+      console.warn(`❌ FAILED: Lofi stream ${lofiStation.name} failed:`, error);
+
+      // Only mark as failed and retry if it's a real failure
+      markLofiStreamAsFailed(lofiStation.name);
+
       if (window.addNotification) {
-        window.addNotification(`🎧 Lofi Radio: ${lofiStation.name}`, 'success', 3000);
+        window.addNotification(`❌ ${lofiStation.name} mislukt, proberen volgende...`, 'warning', 2000);
       }
-      
-      setCurrentLofiAttempt(0);
-      return; // Success - exit function
+
+      // Recursive retry with proper error propagation
+      return await startLofiAdBreak(duration, attempt + 1);
     }
-    
-  } catch (error) {
-    console.warn(`❌ FAILED: Lofi stream ${lofiStation.name} failed:`, error);
-    
-    // Only mark as failed and retry if it's a real failure
-    markLofiStreamAsFailed(lofiStation.name);
-    
-    if (window.addNotification) {
-      window.addNotification(`❌ ${lofiStation.name} mislukt, proberen volgende...`, 'warning', 2000);
-    }
-    
-    // Recursive retry with proper error propagation
-    return await startLofiAdBreak(duration, attempt + 1);
-  }
-}, [audioPlayer]);
+  }, [audioPlayer]);
 
   // End an ad break
   const endAdBreak = useCallback(() => {
@@ -443,13 +448,13 @@ const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
       }
     }
   }, [
-    isAdBreakActive, 
-    audioPlayer, 
-    adBreakMode, 
-    adBreakDuration, 
-    adBreakDuration2, 
-    adBreakMinute, 
-    adBreakMinute2, 
+    isAdBreakActive,
+    audioPlayer,
+    adBreakMode,
+    adBreakDuration,
+    adBreakDuration2,
+    adBreakMinute,
+    adBreakMinute2,
     startPlaylistAdBreak,
     startNonstopAdBreak,
     startLofiAdBreak,
@@ -459,163 +464,178 @@ const startLofiAdBreak = useCallback(async (duration, attempt = 0) => {
   ]);
 
   // Enhanced manual ad break with mode support
-// Update the entire manual ad break function with better error handling:
+  // Update the entire manual ad break function with better error handling:
 
-const manualAdBreak = useCallback(() => {
-  if (adBreakMode === 'playlist' && !playlistUrl) {
-    if (window.addNotification) {
-      window.addNotification('❌ Voer eerst een geldige playlist URL in', 'error', 3000);
+  const manualAdBreak = useCallback(() => {
+    // ✅ CRITICAL: Prevent rapid test button clicking
+    if (isManualTestInProgress) {
+      console.log('🚫 Manual test operation already in progress');
+      return;
     }
-    return;
-  }
-  
-  if (isManualTestActive) {
-    // Stop manual test
-    console.log('🎵 Stopping manual ad break test');
-    setIsManualTestActive(false);
-    setShouldPlayPlaylistDuringAdBreak(false);
-    
-    // ✅ Close Lofi overlay when stopping test (reliable)
-    closeLofiYouTubeOverlay();
-    
 
-  
-  if (audioPlayer.currentSource === 'playlist' || 
-      (audioPlayer.currentStation && audioPlayer.currentStation.isNonstop) || 
-      (audioPlayer.currentStation && audioPlayer.currentStation.isLofi)) {
-    audioPlayer.pauseAudio();
-  }
-    if (audioPlayer.isRadioPausedForAdBreak && audioPlayer.pausedRadioStation) {
+    if (adBreakMode === 'playlist' && !playlistUrl) {
+      if (window.addNotification) {
+        window.addNotification('❌ Voer eerst een geldige playlist URL in', 'error', 3000);
+      }
+      return;
+    }
+
+    setIsManualTestInProgress(true);
+
+    try {
+      if (isManualTestActive) {
+        // Stop manual test
+        console.log('🎵 Stopping manual ad break test');
+        setIsManualTestActive(false);
+        setShouldPlayPlaylistDuringAdBreak(false);
+
+        // ✅ NUCLEAR CLEANUP: Stop ALL audio sources
+        if (audioPlayer.currentSource === 'playlist') {
+          if (audioPlayer.currentPlaylistProvider === 'spotify' && audioPlayer.spotifyPlayerRef?.current) {
+            import('../utils/spotifyUtils').then(({ pauseSpotify }) => pauseSpotify());
+          }
+          if (audioPlayer.currentPlaylistProvider === 'youtube' && audioPlayer.youtubePlayerRef?.current) {
+            audioPlayer.youtubePlayerRef.current.pauseVideo();
+            audioPlayer.youtubePlayerRef.current.stopVideo();
+          }
+        }
+
+        if (audioPlayer.currentSource === 'radio' && audioPlayer.audioRef?.current) {
+          audioPlayer.audioRef.current.pause();
+        }
+
+        // Close Lofi overlay
+        closeLofiYouTubeOverlay();
+
+        // Resume radio if it was paused
+        if (audioPlayer.isRadioPausedForAdBreak && audioPlayer.pausedRadioStation) {
+          setTimeout(() => {
+            audioPlayer.resumeRadioFromAdBreak();
+          }, 300);
+        }
+
+        if (window.addNotification) {
+          window.addNotification('🛑 Test pauze gestopt', 'info', 2000);
+        }
+      } else {
+        // Start manual test with proper sequencing
+        console.log(`🎵 Starting manual ad break test with mode: ${adBreakMode}`);
+        setIsManualTestActive(true);
+        setShouldPlayPlaylistDuringAdBreak(true);
+
+        const isRadioPlaying = audioPlayer.isPlaying && audioPlayer.currentStation && audioPlayer.currentSource === 'radio';
+
+        if (isRadioPlaying) {
+          console.log('🎵 Pausing radio for manual test');
+          audioPlayer.pauseRadioForAdBreak();
+
+          setTimeout(async () => {
+            try {
+              if (adBreakMode === 'playlist') {
+                const playlistId = extractPlaylistId(playlistUrl);
+                if (playlistId) {
+                  await audioPlayer.playPlaylist(playlistId, {
+                    shuffle: playlistShuffle,
+                    repeat: 'all',
+                    provider: playlistProvider
+                  });
+                }
+              } else if (adBreakMode === 'nonstop') {
+                // ✅ FIX: Better error handling for nonstop test
+                try {
+                  await startNonstopAdBreak(5); // 5 minute test
+                } catch (error) {
+                  console.error('Nonstop test failed completely:', error);
+                  if (window.addNotification) {
+                    window.addNotification(`❌ Alle nonstop stations mislukt: ${error.message}`, 'error', 5000);
+                  }
+                  // Reset manual test state on complete failure
+                  setIsManualTestActive(false);
+                  setShouldPlayPlaylistDuringAdBreak(false);
+                }
+              } else if (adBreakMode === 'lofi') {
+                try {
+                  await startLofiAdBreak(5); // 5 minute test
+                } catch (error) {
+                  console.error('Lofi test failed completely:', error);
+                  if (window.addNotification) {
+                    window.addNotification(`❌ Alle lofi streams mislukt: ${error.message}`, 'error', 5000);
+                  }
+                  // Reset manual test state on complete failure
+                  setIsManualTestActive(false);
+                  setShouldPlayPlaylistDuringAdBreak(false);
+                }
+              }
+            } catch (error) {
+              console.error('Manual test failed:', error);
+              if (window.addNotification) {
+                window.addNotification(`❌ Test mislukt: ${error.message}`, 'error', 3000);
+              }
+              // Reset states on error
+              setIsManualTestActive(false);
+              setShouldPlayPlaylistDuringAdBreak(false);
+            }
+          }, 500);
+        } else {
+          // No radio playing, start immediately
+          (async () => {
+            try {
+              if (adBreakMode === 'playlist') {
+                const playlistId = extractPlaylistId(playlistUrl);
+                if (playlistId) {
+                  await audioPlayer.playPlaylist(playlistId, {
+                    shuffle: playlistShuffle,
+                    repeat: 'all',
+                    provider: playlistProvider
+                  });
+                }
+              } else if (adBreakMode === 'nonstop') {
+                try {
+                  await startNonstopAdBreak(5);
+                } catch (error) {
+                  console.error('Nonstop test failed completely:', error);
+                  if (window.addNotification) {
+                    window.addNotification(`❌ Alle nonstop stations mislukt`, 'error', 5000);
+                  }
+                  setIsManualTestActive(false);
+                  setShouldPlayPlaylistDuringAdBreak(false);
+                }
+              } else if (adBreakMode === 'lofi') {
+                try {
+                  await startLofiAdBreak(5);
+                } catch (error) {
+                  console.error('Lofi test failed completely:', error);
+                  if (window.addNotification) {
+                    window.addNotification(`❌ Alle lofi streams mislukt`, 'error', 5000);
+                  }
+                  setIsManualTestActive(false);
+                  setShouldPlayPlaylistDuringAdBreak(false);
+                }
+              }
+            } catch (error) {
+              console.error('Manual test failed:', error);
+              if (window.addNotification) {
+                window.addNotification(`❌ Test mislukt: ${error.message}`, 'error', 3000);
+              }
+              setIsManualTestActive(false);
+              setShouldPlayPlaylistDuringAdBreak(false);
+            }
+          })();
+        }
+
+        if (window.addNotification) {
+          window.addNotification(`🧪 Test pauze gestart (${getAdBreakModeDescription()}) - klik opnieuw om te stoppen`, 'info', 3000);
+        }
+      }
+    } catch (error) {
+      console.error('Manual ad break operation failed:', error);
+    } finally {
+      // ✅ Always reset the lock after a delay
       setTimeout(() => {
-        audioPlayer.resumeRadioFromAdBreak();
-      }, 300);
+        setIsManualTestInProgress(false);
+      }, 1000);
     }
-
-    if (window.addNotification) {
-      window.addNotification('🛑 Test pauze gestopt', 'info', 2000);
-    }
-  } else {
-    // Start manual test
-    console.log(`🎵 Starting manual ad break test with mode: ${adBreakMode}`);
-    setIsManualTestActive(true);
-    setShouldPlayPlaylistDuringAdBreak(true);
-    
-    const isRadioPlaying = audioPlayer.isPlaying && audioPlayer.currentStation && audioPlayer.currentSource === 'radio';
-    
-    if (isRadioPlaying) {
-      console.log('🎵 Pausing radio for manual test');
-      audioPlayer.pauseRadioForAdBreak();
-      
-      setTimeout(async () => {
-        try {
-          if (adBreakMode === 'playlist') {
-            const playlistId = extractPlaylistId(playlistUrl);
-            if (playlistId) {
-              await audioPlayer.playPlaylist(playlistId, {
-                shuffle: playlistShuffle,
-                repeat: 'all',
-                provider: playlistProvider
-              });
-            }
-          } else if (adBreakMode === 'nonstop') {
-            // ✅ FIX: Better error handling for nonstop test
-            try {
-              await startNonstopAdBreak(5); // 5 minute test
-            } catch (error) {
-              console.error('Nonstop test failed completely:', error);
-              if (window.addNotification) {
-                window.addNotification(`❌ Alle nonstop stations mislukt: ${error.message}`, 'error', 5000);
-              }
-              // Reset manual test state on complete failure
-              setIsManualTestActive(false);
-              setShouldPlayPlaylistDuringAdBreak(false);
-            }
-          } else if (adBreakMode === 'lofi') {
-            try {
-              await startLofiAdBreak(5); // 5 minute test
-            } catch (error) {
-              console.error('Lofi test failed completely:', error);
-              if (window.addNotification) {
-                window.addNotification(`❌ Alle lofi streams mislukt: ${error.message}`, 'error', 5000);
-              }
-              // Reset manual test state on complete failure
-              setIsManualTestActive(false);
-              setShouldPlayPlaylistDuringAdBreak(false);
-            }
-          }
-        } catch (error) {
-          console.error('Manual test failed:', error);
-          if (window.addNotification) {
-            window.addNotification(`❌ Test mislukt: ${error.message}`, 'error', 3000);
-          }
-          // Reset states on error
-          setIsManualTestActive(false);
-          setShouldPlayPlaylistDuringAdBreak(false);
-        }
-      }, 500);
-    } else {
-      // No radio playing, start immediately
-      (async () => {
-        try {
-          if (adBreakMode === 'playlist') {
-            const playlistId = extractPlaylistId(playlistUrl);
-            if (playlistId) {
-              await audioPlayer.playPlaylist(playlistId, {
-                shuffle: playlistShuffle,
-                repeat: 'all',
-                provider: playlistProvider
-              });
-            }
-          } else if (adBreakMode === 'nonstop') {
-            try {
-              await startNonstopAdBreak(5);
-            } catch (error) {
-              console.error('Nonstop test failed completely:', error);
-              if (window.addNotification) {
-                window.addNotification(`❌ Alle nonstop stations mislukt`, 'error', 5000);
-              }
-              setIsManualTestActive(false);
-              setShouldPlayPlaylistDuringAdBreak(false);
-            }
-          } else if (adBreakMode === 'lofi') {
-            try {
-              await startLofiAdBreak(5);
-            } catch (error) {
-              console.error('Lofi test failed completely:', error);
-              if (window.addNotification) {
-                window.addNotification(`❌ Alle lofi streams mislukt`, 'error', 5000);
-              }
-              setIsManualTestActive(false);
-              setShouldPlayPlaylistDuringAdBreak(false);
-            }
-          }
-        } catch (error) {
-          console.error('Manual test failed:', error);
-          if (window.addNotification) {
-            window.addNotification(`❌ Test mislukt: ${error.message}`, 'error', 3000);
-          }
-          setIsManualTestActive(false);
-          setShouldPlayPlaylistDuringAdBreak(false);
-        }
-      })();
-    }
-
-    if (window.addNotification) {
-      window.addNotification(`🧪 Test pauze gestart (${getAdBreakModeDescription()}) - klik opnieuw om te stoppen`, 'info', 3000);
-    }
-  }
-}, [
-  adBreakMode, 
-  playlistUrl, 
-  playlistShuffle, 
-  audioPlayer, 
-  isManualTestActive, 
-  playlistProvider, 
-  startNonstopAdBreak, 
-  startLofiAdBreak, 
-  getAdBreakModeDescription,
-  extractPlaylistId
-]);
+  }, [audioPlayer, adBreakMode, playlistUrl, playlistShuffle, isManualTestActive, setIsManualTestActive, setShouldPlayPlaylistDuringAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, extractPlaylistId]);
 
   // Check ad break time
   const checkAdBreakTime = useCallback(() => {
@@ -661,77 +681,28 @@ const manualAdBreak = useCallback(() => {
     };
   }, [isTimerRunning, isAdBreakActive, checkAdBreakTime, getNextAdBreakTime, formatTimeRemaining]);
 
-  // Start timer - ONLY when user explicitly clicks
-  const startTimer = useCallback(() => {
-    // Only check playlist URL for playlist mode
-    if (adBreakMode === 'playlist' && !playlistUrl) {
-      if (window.addNotification) {
-        window.addNotification('❌ Voer eerst een geldige playlist URL in', 'error', 3000);
-      }
+  // ✅ NEW: Ad break countdown timer for current active ad break
+  useEffect(() => {
+    if (!isAdBreakActive) {
+      setCurrentAdBreakTimeLeft(null);
       return;
     }
 
-    console.log(`🎵 User manually started ad break timer (${adBreakMode} mode)`);
-    setIsTimerRunning(true);
-
-    const now = new Date();
-    const currentMinute = now.getMinutes();
-    const currentSecond = now.getSeconds();
-
-    console.log(`🕐 Timer started at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
-    console.log(`🎯 Ad break windows: ${adBreakMinute}:00-${adBreakMinute + adBreakDuration}:00 and ${adBreakMinute2}:00-${adBreakMinute2 + adBreakDuration2}:00`);
-
-    // Helper function to check if current time is within an ad break window (handles hour boundary)
-    const checkAdBreakWindow = (startMinute, duration) => {
-      const endMinute = startMinute + duration;
-
-      if (endMinute < 60) {
-        // Same hour
-        return currentMinute >= startMinute && currentMinute < endMinute;
+    const interval = setInterval(() => {
+      if (window.currentAdBreakTimeLeft && window.currentAdBreakTimeLeft > 0) {
+        window.currentAdBreakTimeLeft--;
+        setCurrentAdBreakTimeLeft(window.currentAdBreakTimeLeft);
       } else {
-        // Next hour
-        return currentMinute >= startMinute || currentMinute < (endMinute % 60);
+        setCurrentAdBreakTimeLeft(null);
       }
-    };
+    }, 1000);
 
-    // Check if we are already within an ad break window
-    const withinFirstWindow = checkAdBreakWindow(adBreakMinute, adBreakDuration);
-    const withinSecondWindow = checkAdBreakWindow(adBreakMinute2, adBreakDuration2);
+    return () => clearInterval(interval);
+  }, [isAdBreakActive]);
 
-    if (withinFirstWindow || withinSecondWindow) {
-      console.log('⏸️ Binnen reclamepauze venster, ad break direct gestart');
-      startAdBreak();
-    } else {
-      console.log('✅ Buiten reclamepauze vensters, timer actief');
-    }
+  // Move the startAdBreakWithRemainingTime function BEFORE the startTimer function:
 
-    if (window.addNotification) {
-      window.addNotification(`🎵 Timer geactiveerd (${adBreakMode} mode) - pauzes elk uur op minuut ${adBreakMinute} (${adBreakDuration}min) en ${adBreakMinute2} (${adBreakDuration2}min)`, 'success', 4000);
-    }
-  }, [adBreakMode, playlistUrl, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startAdBreak]);
-
-  // Stop timer
-  const stopTimer = useCallback(() => {
-    console.log('🛑 User manually stopped ad break timer');
-    setIsTimerRunning(false);
-    
-    // If currently in ad break, end it
-    if (isAdBreakActive) {
-      endAdBreak();
-    }
-    
-    // Clear any pending timeouts
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
-    if (window.addNotification) {
-      window.addNotification('⏹️ Timer gestopt', 'info', 2000);
-    }
-  }, [isAdBreakActive, endAdBreak]);
-
-  // Start ad break with specific remaining time
+  // Start ad break with specific remaining time - MOVED UP BEFORE startTimer
   const startAdBreakWithRemainingTime = useCallback((remainingMinutes) => {
     if (isAdBreakActive || audioPlayer.isTransitioning) return;
 
@@ -778,16 +749,128 @@ const manualAdBreak = useCallback(() => {
       }
     }
   }, [
-    isAdBreakActive, 
-    audioPlayer, 
-    adBreakMode, 
-    startPlaylistAdBreak, 
-    startNonstopAdBreak, 
-    startLofiAdBreak, 
-    getAdBreakModeDescription, 
+    isAdBreakActive,
+    audioPlayer,
+    adBreakMode,
+    startPlaylistAdBreak,
+    startNonstopAdBreak,
+    startLofiAdBreak,
+    getAdBreakModeDescription,
     handleAdBreakError,
     endAdBreak
   ]);
+
+  // ✅ FIXED: Start timer with proper ad break window detection - NOW AFTER startAdBreakWithRemainingTime
+  const startTimer = useCallback(() => {
+    // Only check playlist URL for playlist mode
+    if (adBreakMode === 'playlist' && !playlistUrl) {
+      if (window.addNotification) {
+        window.addNotification('❌ Voer eerst een geldige playlist URL in', 'error', 3000);
+      }
+      return;
+    }
+
+    console.log(`🎵 User manually started ad break timer (${adBreakMode} mode)`);
+    setIsTimerRunning(true);
+
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const currentSecond = now.getSeconds();
+
+    console.log(`🕐 Timer started at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
+    console.log(`🎯 Ad break windows: ${adBreakMinute}:00-${adBreakMinute + adBreakDuration}:00 and ${adBreakMinute2}:00-${adBreakMinute2 + adBreakDuration2}:00`);
+
+    // ✅ FIXED: Helper function to check if current time is within an ad break window
+    const checkAdBreakWindow = (startMinute, duration) => {
+      // Calculate remaining minutes in this ad break
+      let remainingMinutes = 0;
+
+      if (currentMinute >= startMinute && currentMinute < startMinute + duration) {
+        // We're in the same hour ad break window
+        remainingMinutes = (startMinute + duration) - currentMinute;
+        if (currentSecond > 30) remainingMinutes -= 1; // Round down if we're past 30 seconds
+        return { inWindow: true, remaining: Math.max(0, remainingMinutes) };
+      }
+
+      // ✅ NEW: Handle hour boundary cases (e.g., ad break at minute 59 for 7 minutes = 59-06 next hour)
+      if (startMinute + duration > 60) {
+        const endMinuteNextHour = (startMinute + duration) % 60;
+
+        if (currentMinute >= startMinute) {
+          // We're in the first part (same hour)
+          remainingMinutes = (60 - currentMinute) + endMinuteNextHour;
+          if (currentSecond > 30) remainingMinutes -= 1;
+          return { inWindow: true, remaining: Math.max(0, remainingMinutes) };
+        } else if (currentMinute < endMinuteNextHour) {
+          // We're in the second part (next hour)
+          remainingMinutes = endMinuteNextHour - currentMinute;
+          if (currentSecond > 30) remainingMinutes -= 1;
+          return { inWindow: true, remaining: Math.max(0, remainingMinutes) };
+        }
+      }
+
+      return { inWindow: false, remaining: 0 };
+    };
+
+    // Check if we are already within an ad break window
+    const firstWindow = checkAdBreakWindow(adBreakMinute, adBreakDuration);
+    const secondWindow = checkAdBreakWindow(adBreakMinute2, adBreakDuration2);
+
+    if (firstWindow.inWindow || secondWindow.inWindow) {
+      const activeWindow = firstWindow.inWindow ? firstWindow : secondWindow;
+      const whichBreak = firstWindow.inWindow ? 1 : 2;
+
+      console.log(`⏸️ Binnen reclamepauze venster ${whichBreak}, ${activeWindow.remaining} minuten resterend`);
+
+      if (activeWindow.remaining > 0) {
+        startAdBreakWithRemainingTime(activeWindow.remaining);
+
+        if (window.addNotification) {
+          window.addNotification(
+            `⏸️ Reclamepauze actief - ${activeWindow.remaining} min resterend`,
+            'info',
+            3000
+          );
+        }
+      } else {
+        console.log('✅ Ad break window bijna afgelopen, normale timer gestart');
+      }
+    } else {
+      console.log('✅ Buiten reclamepauze vensters, timer actief');
+    }
+
+    if (window.addNotification) {
+      window.addNotification(
+        `🎵 Timer geactiveerd (${adBreakMode} mode) - pauzes elk uur op minuut ${adBreakMinute} (${adBreakDuration}min) en ${adBreakMinute2} (${adBreakDuration2}min)`,
+        'success',
+        4000
+      );
+    }
+  }, [adBreakMode, playlistUrl, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startAdBreakWithRemainingTime]);
+
+  // Stop timer
+  const stopTimer = useCallback(() => {
+    console.log('🛑 User manually stopped ad break timer');
+    setIsTimerRunning(false);
+
+    // If currently in ad break, end it
+    if (isAdBreakActive) {
+      endAdBreak();
+    }
+
+    // Clear any pending timeouts
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (window.addNotification) {
+      window.addNotification('⏹️ Timer gestopt', 'info', 2000);
+    }
+  }, [isAdBreakActive, endAdBreak]);
+
+  // Remove the duplicate startAdBreakWithRemainingTime function at the bottom
+
 
   // Add caching effects for all settings:
   useEffect(() => {
@@ -839,6 +922,7 @@ const manualAdBreak = useCallback(() => {
     setAdBreakMode,
     currentNonstopAttempt,
     currentLofiAttempt,
+    isManualTestInProgress,
     startAdBreak,
     endAdBreak,
     manualAdBreak,

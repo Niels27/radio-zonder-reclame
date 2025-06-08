@@ -1,6 +1,6 @@
 // utils/streamProxy.js - Much faster with parallel testing and user feedback
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\utils\streamProxy.js
-import { getStationDefinition } from '../data/stationDefinitions.js';
+import { getStationDefinition } from '../data/fallbackStations.js';
 
 export class StreamProxy {
   // Smarter alternatives generation - avoid redundant URLs

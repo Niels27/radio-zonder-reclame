@@ -241,12 +241,12 @@ const fetchDutchStations = async () => {
 // Generated on: ${new Date().toISOString()}
 // Total stations: ${unique.length}
 
-export const allDutchStations = ${JSON.stringify(categorized, null, 2)};
+export const allStations = ${JSON.stringify(categorized, null, 2)};
 
 // Get all stations as flat array
-export const getAllStations = () => {
+export const getAllRadioStations = () => {
   const all = [];
-  Object.values(allDutchStations).forEach(category => {
+  Object.values(allStations).forEach(category => {
     Object.values(category).forEach(station => {
       all.push(station);
     });
@@ -256,7 +256,7 @@ export const getAllStations = () => {
 
 // Search stations by name
 export const searchStations = (query) => {
-  const all = getAllStations();
+  const all = getAllRadioStations();
   const searchTerm = query.toLowerCase();
   return all.filter(station => 
     station.name.toLowerCase().includes(searchTerm) ||
@@ -266,7 +266,7 @@ export const searchStations = (query) => {
 
 // Get stations by category
 export const getStationsByCategory = (category) => {
-  return Object.values(allDutchStations[category] || {});
+  return Object.values(allStations[category] || {});
 };
 
 // Statistics
@@ -284,7 +284,7 @@ export const getStats = () => ({
 `;
     
     // Write to file
-    fs.writeFileSync('./src/utils/allDutchStations.js', output);
+    fs.writeFileSync('./src/data/allRadioStations.js', output);
     
     // Generate stats
     const stats = {
@@ -304,7 +304,7 @@ export const getStats = () => ({
     });
     
     console.log('✅ Files generated:');
-    console.log('  - src/utils/allDutchStations.js');
+    console.log('  - src/data/allRadioStations.js');
     console.log('  - src/utils/stationStats.json');
     
   } catch (error) {

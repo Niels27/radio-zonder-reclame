@@ -1,5 +1,4 @@
-// utils/adSkipUtils.js - Ad skipping functionality for Dutch radio streams
-// Implements ad-free stream alternatives and pre-roll skip functionality
+// utils/adSkipUtils.js - Enhanced pre-roll skip functionality with automatic skipping
 
 export class AdSkipUtils {
 
@@ -47,6 +46,7 @@ export class AdSkipUtils {
 
     return uniqueStreams;
   }
+
   // Triple-IT CDN alternatives (known to be ad-free)
   static getTripleItAlternatives(stationKey) {
     const tripleItBase = 'https://icecast-qmusicnl-cdp.triple-it.nl/';
@@ -81,6 +81,7 @@ export class AdSkipUtils {
 
     return streams;
   }
+
   // Station-specific known ad-free streams
   static getStationSpecificAdFree(stationKey) {
     const adFreeStreams = {
@@ -245,6 +246,7 @@ export class AdSkipUtils {
       return scoreB - scoreA; // Higher score first
     });
   }
+
   // Get ad-free likelihood score for a URL
   static getAdFreeScore(url) {
     let score = 0;
@@ -279,122 +281,314 @@ export class AdSkipUtils {
     return score;
   }
 
-  // Create pre-roll skip functionality
-  static createPrerollSkipButton(audioElement, onSkip) {
-    const button = document.createElement('button');
-    button.innerHTML = `
-      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z"/>
-      </svg>
-      Pre-roll reclame overslaan
-    `;
-    button.className = 'preroll-skip-button px-3 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded-lg font-medium transition-colors flex items-center space-x-2 shadow-lg';
-    button.style.cssText = `
-      position: fixed;
-      bottom: 140px;
-      right: 20px;
-      z-index: 1000;
-      animation: fadeInSlide 0.3s ease-out;
-    `;
-
-    // Add CSS animation
-    if (!document.getElementById('preroll-skip-styles')) {
-      const styles = document.createElement('style');
-      styles.id = 'preroll-skip-styles';
-      styles.textContent = `
-        @keyframes fadeInSlide {
-          from { opacity: 0; transform: translateX(100px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes fadeOutSlide {
-          from { opacity: 1; transform: translateX(0); }
-          to { opacity: 0; transform: translateX(100px); }
-        }
-        .preroll-skip-button.fade-out {
-          animation: fadeOutSlide 0.3s ease-in forwards;
-        }
-      `;
-      document.head.appendChild(styles);
-    }
-
-    button.addEventListener('click', () => {
-      this.skipPreroll(audioElement, 20); // Skip 20 seconds
-      onSkip?.();
-      this.removePrerollSkipButton(button);
-    });
-
-    document.body.appendChild(button);
-
-    // Auto-remove after 6 seconds
-    setTimeout(() => {
-      this.removePrerollSkipButton(button);
-    }, 6000);
-
-    return button;
-  }
-
-  // Remove pre-roll skip button with animation
-  static removePrerollSkipButton(button) {
-    if (!button || !button.parentNode) return;
-
-    button.classList.add('fade-out');
-    setTimeout(() => {
-      if (button.parentNode) {
-        button.parentNode.removeChild(button);
-      }
-    }, 300);
-  }
-
-  // Skip pre-roll ads by seeking forward
-  static skipPreroll(audioElement, seconds = 30) {
+  // ✅ MISSING METHOD: Skip preroll functionality
+  static skipPreroll(audioElement, seconds = 15) {
     if (!audioElement) return false;
 
     try {
+      console.log(`⏭️ Skipping ${seconds}s of pre-roll...`);
+      
+      // Get current time and calculate skip time
       const currentTime = audioElement.currentTime || 0;
       const newTime = currentTime + seconds;
 
-      console.log(`⏭️ Skipping ${seconds}s of pre-roll: ${currentTime}s → ${newTime}s`);
+      console.log(`⏭️ Skipping ${seconds}s: ${currentTime}s → ${newTime}s`);
 
-      // Check if we can seek to the new position
+      // Perform the skip
       if (audioElement.duration && newTime < audioElement.duration) {
         audioElement.currentTime = newTime;
-        return true;
       } else if (!audioElement.duration) {
-        // For live streams, just set the time and let it handle it
+        // For live streams, just advance the current time
         audioElement.currentTime = newTime;
-        return true;
       }
 
-      return false;
+      console.log(`✅ Pre-roll skip completed`);
+      return true;
+
     } catch (error) {
       console.warn('Could not skip pre-roll:', error);
       return false;
     }
   }
 
-  // Enhanced stream sorting with ad-free priority
-  static sortStreamsWithAdFreePriority(urls, stationName) {
-    const adFreeAlternatives = this.getAdFreeAlternatives(urls[0], stationName);
-    const allUrls = [...adFreeAlternatives, ...urls];
+  // ✅ MISSING METHOD: Remove pre-roll skip button
+  static removePrerollSkipButton(button) {
+    if (!button) return;
 
-    // Remove duplicates while preserving order
-    const uniqueUrls = [];
-    const seen = new Set();
+    try {
+      // Add fade-out animation
+      button.classList.add('fade-out');
+      
+      // Remove button after animation completes
+      setTimeout(() => {
+        if (button && button.parentNode) {
+          button.parentNode.removeChild(button);
+        }
+      }, 300);
 
-    for (const url of allUrls) {
-      if (!seen.has(url)) {
-        seen.add(url);
-        uniqueUrls.push(url);
+      console.log('🗑️ Pre-roll skip button removed');
+    } catch (error) {
+      console.warn('Error removing pre-roll skip button:', error);
+      // Force remove if animation fails
+      if (button && button.parentNode) {
+        button.parentNode.removeChild(button);
       }
     }
-
-    // Sort by ad-free likelihood
-    return this.sortByAdFreeLikelihood(uniqueUrls);
   }
-  // Check if pre-roll skip should be offered
+
+  // Create pre-roll skip functionality
+  static createPrerollSkipButton(audioElement, onSkip, isAutoSkip = false) {
+    const button = document.createElement('button');
+    button.innerHTML = `
+      <div class="flex items-center justify-center gap-3">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z"/>
+        </svg>
+        <span class="font-semibold">Pre-roll reclame overslaan</span>
+      </div>
+    `;
+    
+    button.className = 'preroll-skip-button px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white text-m rounded-xl font-small transition-all transform hover:scale-105 shadow-2xl border-2 border-purple-400';
+    button.style.cssText = `
+      position: fixed;
+      bottom: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      animation: ${isAutoSkip ? 'fastFadeInSlide' : 'fadeInSlide'} 0.4s ease-out;
+      min-width: 200px;
+      min-height: 50px;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(145deg,rgba(234, 171, 12, 0),rgba(135, 38, 220, 0));
+    `;
+
+    // Add enhanced CSS animations
+    if (!document.getElementById('preroll-skip-styles')) {
+      const styles = document.createElement('style');
+      styles.id = 'preroll-skip-styles';
+      styles.textContent = `
+        @keyframes fadeInSlide {
+          from { 
+            opacity: 0; 
+            transform: translateX(-50%) translateY(50px) scale(0.8); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateX(-50%) translateY(0) scale(1); 
+          }
+        }
+        
+        @keyframes fastFadeInSlide {
+          from { 
+            opacity: 0; 
+            transform: translateX(-50%) translateY(20px) scale(0.95); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateX(-50%) translateY(0) scale(1); 
+          }
+        }
+        
+        @keyframes fadeOutSlide {
+          from { 
+            opacity: 1; 
+            transform: translateX(-50%) translateY(0) scale(1); 
+          }
+          to { 
+            opacity: 0; 
+            transform: translateX(-50%) translateY(-20px) scale(0.95); 
+          }
+        }
+        
+        .preroll-skip-button.fade-out {
+          animation: fadeOutSlide 0.3s ease-in forwards;
+        }
+
+        .preroll-skip-button.auto-click {
+          background: linear-gradient(145deg, #16a34a, #15803d);
+          transform: translateX(-50%) scale(0.9);
+        }
+
+      
+      `;
+      document.head.appendChild(styles);
+    }
+
+    // ✅ NEW: Auto-click logic for automatic pre-roll skipping
+    let autoClickTimeout;
+    const isAutoSkipEnabled = this.getAutoSkipSetting();
+    
+    if (isAutoSkipEnabled) {
+      // Show auto-click styling
+      button.classList.add('auto-click');
+      
+      // Auto-click after 0.8 seconds
+      autoClickTimeout = setTimeout(() => {
+        console.log('🤖 Auto-clicking pre-roll skip button');
+        button.click();
+      }, 800);
+    }
+
+    button.addEventListener('click', () => {
+      // Clear auto-click timeout if user clicks manually
+      if (autoClickTimeout) {
+        clearTimeout(autoClickTimeout);
+      }
+      
+      this.skipPreroll(audioElement, 15);
+      onSkip?.();
+      this.removePrerollSkipButton(button);
+    });
+
+    document.body.appendChild(button);
+
+    // ✅ ENHANCED: Longer display time for manual interaction
+    const displayTime = isAutoSkipEnabled ? 1 : 6000; // 1.5s for auto, 7s for manual
+    
+    setTimeout(() => {
+      if (autoClickTimeout) {
+        clearTimeout(autoClickTimeout);
+      }
+      this.removePrerollSkipButton(button);
+    }, displayTime);
+
+    return button;
+  }
+
+  // ✅ NEW: Get auto-skip setting from localStorage
+  static getAutoSkipSetting() {
+    try {
+      const saved = localStorage.getItem('auto_skip_preroll');
+      return saved ? JSON.parse(saved) : true; // Default to enabled
+    } catch {
+      return true;
+    }
+  }
+// Update the skipPrerollSilently method:
+
+// ✅ ENHANCED: Silent pre-roll skip that waits for proper loading before skipping
+static async skipPrerollSilently(audioElement, seconds = 15) {
+  if (!audioElement) return;
+
+  try {
+    console.log('🔇 Starting intelligent silent pre-roll skip...');
+    
+    // Store original volume
+    const originalVolume = audioElement.volume;
+    
+    // Mute immediately to ensure silence
+    audioElement.volume = 0;
+    
+    // Wait for audio to be properly loaded and playing
+    const waitForStablePlayback = () => {
+      return new Promise((resolve) => {
+        let stableCount = 0;
+        const requiredStableEvents = 2; // Need 2 consecutive stable events
+        
+        const checkStability = () => {
+          if (audioElement.readyState >= 3 && // HAVE_FUTURE_DATA or better
+              !audioElement.paused && 
+              audioElement.currentTime > 0 &&
+              !audioElement.seeking) {
+            stableCount++;
+            console.log(`🎵 Stability check ${stableCount}/${requiredStableEvents}: readyState=${audioElement.readyState}, currentTime=${audioElement.currentTime.toFixed(3)}`);
+            
+            if (stableCount >= requiredStableEvents) {
+              resolve();
+              return;
+            }
+          } else {
+            stableCount = 0; // Reset if not stable
+          }
+          
+          // Continue checking
+          setTimeout(checkStability, 200);
+        };
+        
+        checkStability();
+      });
+    };
+    
+    // Wait for stable playback (max 3 seconds)
+    const stabilityTimeout = setTimeout(() => {
+      console.log('⚠️ Stability timeout - proceeding with skip anyway');
+    }, 3000);
+    
+    await Promise.race([
+      waitForStablePlayback(),
+      new Promise(resolve => setTimeout(resolve, 3000))
+    ]);
+    
+    clearTimeout(stabilityTimeout);
+    
+    // Now perform the skip
+    const targetTime = Math.min(audioElement.currentTime + seconds, audioElement.duration || Infinity);
+    console.log(`⏭️ Performing smooth skip: ${audioElement.currentTime.toFixed(3)}s → ${targetTime.toFixed(3)}s`);
+    
+    // Skip to target time
+    audioElement.currentTime = targetTime;
+    
+    // Wait a moment for the skip to settle
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Gradually restore volume for smooth transition
+    await this.gradualVolumeRestore(audioElement, originalVolume, 800);
+    
+    console.log('🔇 Silent pre-roll skip completed smoothly');
+    
+  } catch (error) {
+    console.error('❌ Silent pre-roll skip failed:', error);
+    
+    // Ensure volume is restored even if skip fails
+    try {
+      if (audioElement.volume === 0) {
+        audioElement.volume = originalVolume || 0.7;
+      }
+    } catch (restoreError) {
+      console.error('❌ Failed to restore volume:', restoreError);
+    }
+  }
+}
+
+// Also update the gradualVolumeRestore method for smoother transitions:
+
+// ✅ ENHANCED: Smoother volume restoration with cubic easing
+static async gradualVolumeRestore(audioElement, targetVolume, duration = 800) {
+  if (!audioElement || targetVolume <= 0) return;
+  
+  const steps = 25; // More steps for smoother transition
+  const stepDuration = duration / steps;
+  
+  // Cubic ease-out function for natural volume curve
+  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+  
+  for (let i = 1; i <= steps; i++) {
+    const progress = i / steps;
+    const easedProgress = easeOutCubic(progress);
+    const currentVolume = targetVolume * easedProgress;
+    
+    try {
+      audioElement.volume = Math.min(currentVolume, 1);
+      await new Promise(resolve => setTimeout(resolve, stepDuration));
+    } catch (error) {
+      console.warn(`Volume restore step ${i} failed:`, error);
+      break;
+    }
+  }
+  
+  // Ensure final volume is set correctly
+  try {
+    audioElement.volume = Math.min(targetVolume, 1);
+    console.log(`🔊 Volume restored to ${Math.round(audioElement.volume * 100)}%`);
+  } catch (error) {
+    console.error('❌ Final volume restore failed:', error);
+  }
+}
+
+  // ✅ ENHANCED: Check if pre-roll skip should be offered with auto-skip consideration
   static shouldOfferPrerollSkip(url, stationName) {
-    // Don't offer skip for known ad-free streams
-    if (this.getAdFreeScore(url) > 100) {
+    // Don't offer skip for known ad-free streams with very high scores
+    if (this.getAdFreeScore(url) > 90) {
       console.log(`🚫 Not offering skip - high ad-free score (${this.getAdFreeScore(url)}) for:`, url);
       return false;
     }
@@ -427,16 +621,34 @@ export class AdSkipUtils {
       stationLower?.includes(station.replace(/[^a-z0-9]/g, ''))
     );
 
-    // Enhanced URL pattern detection for likely ad injection
-    //const hasLikelyAds = this.isLikelyToHaveAds(url);
-    const hasLikelyAds = true;
+    // Always offer for commercial stations (regardless of URL patterns)
+    const shouldOffer = isCommercial;
 
-    const shouldOffer = isCommercial && hasLikelyAds;
-
-    console.log(`🚫 Pre-roll skip decision for ${stationName}: commercial=${isCommercial}, hasAds=${hasLikelyAds}, offer=${shouldOffer}`);
+    console.log(`🚫 Pre-roll skip decision for ${stationName}: commercial=${isCommercial}, offer=${shouldOffer}`);
 
     return shouldOffer;
   }
+
+  // ✅ EXISTING: Enhanced stream sorting (unchanged)
+  static sortStreamsWithAdFreePriority(urls, stationName) {
+    const adFreeAlternatives = this.getAdFreeAlternatives(urls[0], stationName);
+    const allUrls = [...adFreeAlternatives, ...urls];
+
+    // Remove duplicates while preserving order
+    const uniqueUrls = [];
+    const seen = new Set();
+
+    for (const url of allUrls) {
+      if (!seen.has(url)) {
+        seen.add(url);
+        uniqueUrls.push(url);
+      }
+    }
+
+    // Sort by ad-free likelihood
+    return this.sortByAdFreeLikelihood(uniqueUrls);
+  }
+
   // Test function to verify ad-free detection (for debugging)
   static testAdFreeDetection() {
     console.log('🧪 Testing ad-free stream detection...');

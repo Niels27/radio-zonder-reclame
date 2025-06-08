@@ -6,9 +6,12 @@ import LoadingIndicator from './LoadingIndicator';
 import { useFavorites } from '../hooks/useFavorites';
 import { LogoFallback } from '../utils/logoFallback.js';
 import { getBestLogoUrl, getLogoFallbacks, shouldMonitorLogo, logFailedLogo, getFailedLogos } from '../utils/logoManager.js';
-import { allDutchStations, isPopularStation, getPopularStations } from '../utils/allDutchStations.js';
+import { allRadioStations, isPopularStation, getPopularStations } from '../data/allRadioStations.js';
+import { RadioStreamTester } from '../utils/radioStreamTester';
+// Import the failed stations from the codebase file
+import { isFailedStation } from '../data/failedStations.js';
 
-  const categories = [
+const categories = [
     { key: 'all', label: 'Alle stations' },
     { key: 'popular', label: 'Populair' },
     { key: 'favorites', label: 'Favorieten' },
@@ -180,7 +183,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
   
   const [previousCategory, setPreviousCategory] = useState(() => {
     try {
-      const saved = localStorage.getItem('radio_selected_category');
+      const saved = localStorage.getItem('radio_previous_category');
       return saved ? JSON.parse(saved) : 'popular';
     } catch {
       return 'popular';
@@ -234,7 +237,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
     };
   }, []);
 
-  // Combine all stations from allDutchStations
+  // Combine all stations from allStations
   const allStations = useMemo(() => {
     const stations = [];
     
@@ -246,8 +249,8 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
       isDefault: true
     })));
     
-    // Add other categories from allDutchStations
-    Object.entries(allDutchStations).forEach(([category, categoryStations]) => {
+    // Add other categories from allStations
+    Object.entries(allRadioStations).forEach(([category, categoryStations]) => {
       if (category !== 'popular') {
         Object.values(categoryStations).forEach(station => {
           // Only add if not already in popular stations
@@ -512,7 +515,11 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
               {/* Station Name - Smart scrolling text */}
               <SmartText 
                 text={station.name}
-                className="station-name leading-tight font-medium text-white"
+                className={`station-name leading-tight font-medium ${
+                  isFailedStation(station.name) 
+                    ? 'text-red-400'     // ✅ Red text for failed stations
+                    : 'text-white'       // ✅ White text for working stations
+                }`}
                 isName={true}
               />
 
@@ -571,11 +578,16 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
               </button>
-            </div>
-          ))}
-        </div>
 
-        {/* No results message */}
+             { /* Failed Station Indicator */}
+                    {/* {failedStations.includes(station.name) && (
+                      <div className="absolute top-1 left-1 w-2 h-2 bg-red-500 rounded-full" title="Station gerapporteerd als niet werkend"></div>
+                    )} */}
+                    </div>
+                    ))}
+                  </div>
+
+                  {/* No results message */}
         {filteredStations.length === 0 && (
           <div className="text-center py-12">
             <div className="text-radio-secondary text-lg mb-2">

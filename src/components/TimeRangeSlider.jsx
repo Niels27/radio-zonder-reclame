@@ -6,7 +6,7 @@ import React, { useRef } from "react";
  * @param {number} endHour - 0-23
  * @param {function} onChange - (start, end) => void
  */
-export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange }) {
+export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange, step = 0.25, editable = true, disabled = false }) {
   const min = 0;
   const max = 23;
   const sliderRef = useRef();
@@ -27,13 +27,13 @@ export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange 
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     let percent = (x - rect.left) / rect.width;
     percent = Math.max(0, Math.min(1, percent));
-    let hour = Math.round(percent * 23);
+    let hour = Math.round(percent * 23 * 4) / 4;
     if (dragType.current === 'start') {
-      if (hour >= endHour) hour = endHour - 1;
+      if (hour >= endHour) hour = endHour - step;
       if (hour < min) hour = min;
       onChange(hour, endHour);
     } else if (dragType.current === 'end') {
-      if (hour <= startHour) hour = startHour + 1;
+      if (hour <= startHour) hour = startHour + step;
       if (hour > max) hour = max;
       onChange(startHour, hour);
     }
@@ -52,28 +52,36 @@ export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange 
     const x = e.clientX;
     let percent = (x - rect.left) / rect.width;
     percent = Math.max(0, Math.min(1, percent));
-    let hour = Math.round(percent * 23);
+    let hour = Math.round(percent * 23 * 4) / 4;
     // Move the closest handle
     if (Math.abs(hour - startHour) < Math.abs(hour - endHour)) {
-      if (hour >= endHour) hour = endHour - 1;
+      if (hour >= endHour) hour = endHour - step;
       if (hour < min) hour = min;
       onChange(hour, endHour);
     } else {
-      if (hour <= startHour) hour = startHour + 1;
+      if (hour <= startHour) hour = startHour + step;
       if (hour > max) hour = max;
       onChange(startHour, hour);
     }
   };
 
   // Ruler dashes
-  const dashes = Array.from({ length: 25 }, (_, i) => (
+  const dashes = Array.from({ length: 97 }, (_, i) => (
     <div key={i} style={{ width: '4%' }} className="flex flex-col items-center">
-      <div className="h-3 w-0.5 bg-gray-400" style={{ opacity: i % 6 === 0 ? 1 : 0.5 }} />
-      {i % 6 === 0 && (
-        <span className="text-xs text-gray-400 mt-1">{String(i).padStart(2, '0')}</span>
+      <div className="h-3 w-0.5 bg-gray-400" style={{ opacity: i % 24 === 0 ? 1 : 0.5 }} />
+      {i % 24 === 0 && (
+        <span className="text-xs text-gray-400 mt-1">{String(i / 4).padStart(2, '0')}</span>
       )}
     </div>
   ));
+
+  // Format time to show 15-minute increments properly
+  const formatTime = (hour) => {
+    const h = Math.floor(hour);
+    const m = Math.round((hour - h) * 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex flex-col items-center w-full select-none">
       <div
@@ -131,8 +139,8 @@ export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange 
         {dashes}
       </div>
       <div className="flex justify-between w-full text-xs mt-1">
-        <span className="text-blue-400 font-semibold">Start: {String(startHour).padStart(2, '0')}:00</span>
-        <span className="text-purple-400 font-semibold">Einde: {String(endHour).padStart(2, '0')}:00</span>
+        <span className="text-blue-400 font-semibold">Start: {formatTime(startHour)}</span>
+        <span className="text-purple-400 font-semibold">Einde: {formatTime(endHour)}</span>
       </div>
     </div>
   );

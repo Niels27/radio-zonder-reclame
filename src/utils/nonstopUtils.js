@@ -1,6 +1,6 @@
 // Non-stop radio management with enhanced error handling
 
-import { allDutchStations } from './allDutchStations.js';
+import { allRadioStations } from '../data/allRadioStations.js';
 
 let currentNonstopIndex = 0;
 let nonstopStations = [];
@@ -9,7 +9,7 @@ let failedStations = new Set(); // Track failed stations to avoid retrying them
 // Initialize nonstop stations array
 const initializeNonstopStations = () => {
   if (nonstopStations.length === 0) {
-    nonstopStations = Object.values(allDutchStations.realnonstop || {});
+    nonstopStations = Object.values(allRadioStations.realnonstop || {});
     // Shuffle the array for randomness
     for (let i = nonstopStations.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

@@ -227,6 +227,30 @@ function App() {
     };
   }, []);
 
+  // Add transition timeout enforcement
+  useEffect(() => {
+    let transitionTimeoutId;
+    
+    if (audioPlayer.isTransitioning) {
+      // Force reset transition state after 30 seconds
+      transitionTimeoutId = setTimeout(() => {
+        console.warn('🚨 Forcing reset of stuck transition state');
+        audioPlayer.setIsTransitioning(false);
+        audioPlayer.setIsLoading(false);
+        
+        if (window.addNotification) {
+          window.addNotification('⚠️ Reset na vastgelopen overgang', 'warning', 3000);
+        }
+      }, 30000);
+    }
+    
+    return () => {
+      if (transitionTimeoutId) {
+        clearTimeout(transitionTimeoutId);
+      }
+    };
+  }, [audioPlayer.isTransitioning]);
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">
@@ -317,8 +341,9 @@ function App() {
                 nextAdBreakIn={adBreakTimer.nextAdBreakIn}
                 currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
                 audioPlayer={audioPlayer}
-                adBreakMode={adBreakTimer.adBreakMode}                    // ← New prop
-                onAdBreakModeChange={adBreakTimer.setAdBreakMode}         // ← New prop
+                adBreakMode={adBreakTimer.adBreakMode}
+                onAdBreakModeChange={adBreakTimer.setAdBreakMode}
+                isManualTestInProgress={adBreakTimer.isManualTestInProgress}  // ← Add this missing prop
               />
             </ErrorBoundary>
           </div>

@@ -91,9 +91,9 @@ const ReportStationButton = ({ currentStation, error }) => {
       onClick={handleReport}
       disabled={isReporting}
       className="ml-2 px-3 py-1 text-sm bg-orange-600 text-orange-100 hover:bg-orange-500 rounded-md border border-orange-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      title="Meld deze radio als niet werkend"
+      title="Melden dat radio niet werkt / Verzoek tot fixen"
     >
-      {isReporting ? '...' : 'Melden dat deze radio niet werkt'}
+      {isReporting ? '...' : 'Melden dat radio niet werkt / Verzoek tot fixen'}
     </button>
   );
 };

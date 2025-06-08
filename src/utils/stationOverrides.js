@@ -1,4 +1,4 @@
-// Simple station override system that directly modifies allDutchStations.js
+// Simple station override system that directly modifies allRadioStations.js
 // This replaces the complex localStorage-based override system
 
 import fs from 'fs';
@@ -6,10 +6,10 @@ import path from 'path';
 
 class StationOverrides {
   constructor() {
-    this.stationsFilePath = path.join(process.cwd(), 'src', 'utils', 'allDutchStations.js');
+    this.stationsFilePath = path.join(process.cwd(), 'src', 'utils', 'allRadioStations.js');
   }
 
-  // Read the current allDutchStations.js file
+  // Read the current allRadioStations.js file
   async readStationsFile() {
     try {
       const content = await fs.promises.readFile(this.stationsFilePath, 'utf-8');
@@ -19,11 +19,11 @@ class StationOverrides {
     }
   }
 
-  // Write the updated content back to allDutchStations.js
+  // Write the updated content back to allRadioStations.js
   async writeStationsFile(content) {
     try {
       await fs.promises.writeFile(this.stationsFilePath, content, 'utf-8');
-      console.log('✅ Successfully updated allDutchStations.js');
+      console.log('✅ Successfully updated allRadioStations.js');
     } catch (error) {
       throw new Error(`Failed to write stations file: ${error.message}`);
     }
@@ -81,7 +81,7 @@ class StationOverrides {
       }
 
       if (!stationFound) {
-        throw new Error(`Station "${stationName}" not found in allDutchStations.js`);
+        throw new Error(`Station "${stationName}" not found in allRadioStations.js`);
       }
 
       // Write the updated content
@@ -123,14 +123,14 @@ class StationOverrides {
     }
   }
 
-  // Create a backup of the current allDutchStations.js
+  // Create a backup of the current allRadioStations.js
   async createBackup() {
     try {
       const content = await this.readStationsFile();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupPath = path.join(
         path.dirname(this.stationsFilePath), 
-        `allDutchStations.backup.${timestamp}.js`
+        `allRadioStations.backup.${timestamp}.js`
       );
       
       await fs.promises.writeFile(backupPath, content, 'utf-8');
@@ -182,7 +182,7 @@ export class BrowserStationOverrides {
     console.log(`📝 Queued URL change for ${stationName}: ${newUrl}`);
     return {
       success: true,
-      message: `URL change queued for ${stationName}. Changes will be applied to allDutchStations.js when you export/apply them.`,
+      message: `URL change queued for ${stationName}. Changes will be applied to allRadioStations.js when you export/apply them.`,
       stationName,
       newUrl,
       newLogo

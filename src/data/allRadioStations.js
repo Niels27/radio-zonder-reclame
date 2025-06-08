@@ -2,8 +2,8 @@
 // Generated on: 2025-05-29T16:41:14.814Z
 // Total stations: 806
 
-// Station overrides are now applied from stationDefinitions.js
-import { getStationDefinition } from '../data/stationDefinitions.js';
+// Station overrides are now applied from fallbackStations.js
+import { getStationDefinition } from './fallbackStations.js';
 
 // Popular stations list - the 24 most popular Dutch radio stations
 const popularStationNames = [
@@ -25,7 +25,6 @@ const popularStationNames = [
   'JOE',
   'Sublime',
   'Joy Radio',
-  'Classic FM',
   'Vibe Radio',
   'Radio 538 Non-Stop',
   'Sky Radio Non-Stop @ Work',
@@ -43,7 +42,7 @@ export const getPopularStations = () => {
   const popularStations = [];
 
   // Search through all categories to find popular stations
-  Object.entries(allDutchStations).forEach(([category, stations]) => {
+  Object.entries(allRadioStations).forEach(([category, stations]) => {
     Object.values(stations).forEach(station => {
       if (isPopularStation(station.name)) {
         popularStations.push({
@@ -75,44 +74,51 @@ export const getStats = () => ({
   other: 488
 });
 
-// Get all stations from all categories
-export const getAllStations = () => {
-  const allStations = [];
+// Get all stations from all categories - ENHANCED DEBUG VERSION
+// Get all stations from all categories - ENHANCED with fallback-first integration
+export const getAllRadioStations = () => {
+  const allRadioStations = [];
 
-  Object.entries(allDutchStations).forEach(([category, stations]) => {
+  Object.entries(allRadioStations).forEach(([category, stations]) => {
     Object.values(stations).forEach(station => {
-      // Check if there's a custom definition for this station
-      const customDefinition = getStationDefinition(station.name);
+      // ✅ ALWAYS check for fallback definition first
+      const fallbackDefinition = getStationDefinition(station.name);
 
-      if (customDefinition) {
-        // Use custom definition with multiple URLs
-        allStations.push({
+      if (fallbackDefinition) {
+        // Use fallback definition with multiple URLs (fallback-first strategy)
+        allRadioStations.push({
           ...station,
-          url: customDefinition.urls[0], // Primary URL for compatibility
-          urls: customDefinition.urls,   // All URLs for fallback
-          logo: customDefinition.logo || station.logo,
-          description: customDefinition.description || station.description,
+          url: fallbackDefinition.urls[0], // Primary URL for compatibility
+          urls: fallbackDefinition.urls,   // All URLs for fallback-first testing
+          logo: fallbackDefinition.logo || station.logo,
+          description: fallbackDefinition.description || station.description,
           category,
           originalCategory: category,
-          hasCustomDefinition: true
+          hasFallbackDefinition: true,
+          fallbackFirst: true // ✅ NEW: Flag indicating this uses fallback-first
         });
+        console.log(`🔄 Station ${station.name} will use fallback-first strategy (${fallbackDefinition.urls.length} URLs)`);
       } else {
-        // Use original station data
-        allStations.push({
+        // Use original station data (will be tested, might get fallback added later)
+        allRadioStations.push({
           ...station,
           urls: [station.url], // Convert single URL to array for consistency
           category,
           originalCategory: category,
-          hasCustomDefinition: false
+          hasFallbackDefinition: false,
+          fallbackFirst: false // ✅ NEW: Will test original first, then try fallbacks if fails
         });
       }
     });
   });
 
-  return allStations;
+  const fallbackCount = allRadioStations.filter(s => s.hasFallbackDefinition).length;
+  console.log(`📊 Loaded ${allRadioStations.length} stations (${fallbackCount} with fallback definitions)`);
+
+  return allRadioStations;
 };
 
-export const allDutchStations = {
+export const allRadioStations = {
   "public": {
     "TEST FAILING STATION": {
       "name": "TEST FAILING STATION",
@@ -7896,7 +7902,7 @@ export const allDutchStations = {
 
 // Search stations by name
 export const searchStations = (query) => {
-  const all = getAllStations();
+  const all = getAllRadioStations();
   const searchTerm = query.toLowerCase();
   return all.filter(station =>
     station.name.toLowerCase().includes(searchTerm) ||
@@ -7906,5 +7912,5 @@ export const searchStations = (query) => {
 
 // Get stations by category
 export const getStationsByCategory = (category) => {
-  return Object.values(allDutchStations[category] || {});
+  return Object.values(allRadioStations[category] || {});
 };

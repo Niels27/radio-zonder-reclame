@@ -37,6 +37,7 @@ const PlaylistProviderSelector = ({
   // Add local state to force re-render when Spotify player state changes
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // New loading state
+  const [isProviderSwitching, setIsProviderSwitching] = useState(false); // <-- new state
   
   const dropdownRef = useRef(null);
   const playlistDropdownRef = useRef(null);
@@ -147,21 +148,61 @@ useEffect(() => {
   }, []);
 
   // Handle provider change
-  const handleProviderChange = (providerId) => {
-    onProviderChange(providerId);
-    setIsDropdownOpen(false);
-    setSpotifyError(null);
+  const handleProviderChange = async (providerId) => {
+    if (isProviderSwitching) {
+      console.log('🚫 Provider switch already in progress');
+      return;
+    }
+
+    setIsProviderSwitching(true);
     
-    // Clear current playlist when switching providers
-    onPlaylistUrlChange('');
-    onPlaylistInfoChange(null);
-    
-    // If switching to Spotify and not authenticated, trigger login
-    if (providerId === 'spotify' && !isSpotifyAuthenticated()) {
-      handleSpotifyLogin();
-    } else if (providerId === 'spotify' && isSpotifyAuthenticated()) {
-      // Load playlists if already authenticated
-      loadSpotifyPlaylists();
+    try {
+      // ✅ CRITICAL: Force stop current playlist before switching
+      if (window.audioPlayer) {
+        if (window.audioPlayer.currentSource === 'playlist') {
+          console.log('🛑 Stopping current playlist before provider switch');
+          
+          if (window.audioPlayer.currentPlaylistProvider === 'spotify' && window.audioPlayer.spotifyPlayerRef?.current) {
+            try {
+              import('../utils/spotifyUtils').then(({ pauseSpotify }) => pauseSpotify());
+            } catch (error) {
+              console.warn('Error pausing Spotify during switch:', error);
+            }
+          }
+          
+          if (window.audioPlayer.currentPlaylistProvider === 'youtube' && window.audioPlayer.youtubePlayerRef?.current) {
+            try {
+              window.audioPlayer.youtubePlayerRef.current.pauseVideo();
+              window.audioPlayer.youtubePlayerRef.current.stopVideo();
+            } catch (error) {
+              console.warn('Error stopping YouTube during switch:', error);
+            }
+          }
+        }
+      }
+
+      onProviderChange(providerId);
+      setIsDropdownOpen(false);
+      setSpotifyError(null);
+      
+      // Clear current playlist when switching providers
+      onPlaylistUrlChange('');
+      onPlaylistInfoChange(null);
+      
+      // Wait a moment for cleanup before proceeding
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // If switching to Spotify and not authenticated, trigger login
+      if (providerId === 'spotify' && !isSpotifyAuthenticated()) {
+        await handleSpotifyLogin();
+      } else if (providerId === 'spotify' && isSpotifyAuthenticated()) {
+        // Load playlists if already authenticated
+        await loadSpotifyPlaylists();
+      }
+    } catch (error) {
+      console.error('Provider change failed:', error);
+    } finally {
+      setIsProviderSwitching(false);
     }
   };
   // Handle Spotify login

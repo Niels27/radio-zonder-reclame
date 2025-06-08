@@ -1,7 +1,7 @@
 // components/AdBreakSettings.jsx - Show current ad break countdown instead of next break countdown
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\AdBreakSettings.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import TimeRangeSlider from './TimeRangeSlider';
 
 const defaultDaySettings = () => ({
@@ -20,8 +20,8 @@ const getInitialDaySettings = () => {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length === 7) {
         // Validate each day setting has required properties
-        const validSettings = parsed.every(day => 
-          typeof day === 'object' && 
+        const validSettings = parsed.every(day =>
+          typeof day === 'object' &&
           typeof day.enabled === 'boolean' &&
           typeof day.startHour === 'number' &&
           typeof day.endHour === 'number'
@@ -32,7 +32,7 @@ const getInitialDaySettings = () => {
   } catch (error) {
     console.warn('Failed to load day settings:', error);
   }
-  
+
   // Return default settings if loading failed
   return Array(7).fill(0).map(() => ({
     enabled: false,
@@ -61,29 +61,67 @@ const AdBreakSettings = ({
   currentAdBreakTimeLeft,
   isManualTestActive,
   audioPlayer,
-  adBreakMode,           // ← New prop
-  onAdBreakModeChange    // ← New prop
+  adBreakMode,
+  onAdBreakModeChange,
+  isManualTestInProgress
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [daySettings, setDaySettings] = useState(getInitialDaySettings());
   const [selectedDay, setSelectedDay] = useState(0); // 0=Monday
   const currentDay = daySettings[selectedDay] || defaultDaySettings();
+  const [autoSkipPreroll, setAutoSkipPreroll] = useState(() => {
+    try {
+      const saved = localStorage.getItem('auto_skip_preroll');
+      return saved ? JSON.parse(saved) : true; // Default to enabled
+    } catch {
+      return true;
+    }
+  });
 
-useEffect(() => {
-  try {
-    localStorage.setItem('adbreak_day_settings', JSON.stringify(daySettings));
-    console.log('Day settings saved:', daySettings);
-  } catch (error) {
-    console.warn('Failed to save day settings:', error);
-  }
-}, [daySettings]);
+  useEffect(() => {
+    // Remove the immediate save - we'll save on drag end instead
+    // Commented out to prevent spam during dragging:
+    // try {
+    //   localStorage.setItem('adbreak_day_settings', JSON.stringify(daySettings));
+    //   console.log('Day settings saved:', daySettings);
+    // } catch (error) {
+    //   console.warn('Failed to save day settings:', error);
+    // }
+  }, [daySettings]);
+
+  // ✅ NEW: Add debounced save function
+  const [saveTimeout, setSaveTimeout] = useState(null);
+
+  const saveDaySettings = useCallback((settings) => {
+    // Clear any existing timeout
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+
+    // Set new timeout to save after 500ms of no changes
+    const newTimeout = setTimeout(() => {
+      try {
+        localStorage.setItem('adbreak_day_settings', JSON.stringify(settings));
+       // console.log('Day settings saved (debounced):', settings);
+      } catch (error) {
+        console.warn('Failed to save day settings:', error);
+      }
+    }, 500);
+
+    setSaveTimeout(newTimeout);
+  }, [saveTimeout]);
+
   // Handlers for per-day settings
   const handleDayClick = (idx) => setSelectedDay(idx);
   const handleTimeRangeEnabled = (checked) => {
-    setDaySettings(ds => ds.map((d, i) => i === selectedDay ? { ...d, enabled: checked } : d));
+    const newSettings = daySettings.map((d, i) => i === selectedDay ? { ...d, enabled: checked } : d);
+    setDaySettings(newSettings);
+    saveDaySettings(newSettings); // Save immediately for checkbox changes
   };
   const handleTimeRangeChange = (start, end) => {
-    setDaySettings(ds => ds.map((d, i) => i === selectedDay ? { ...d, startHour: start, endHour: end } : d));
+    const newSettings = daySettings.map((d, i) => i === selectedDay ? { ...d, startHour: start, endHour: end } : d);
+    setDaySettings(newSettings);
+    saveDaySettings(newSettings); // This will be debounced for slider changes
   };
 
   // Check if current mode is valid
@@ -125,8 +163,8 @@ useEffect(() => {
 
             {/* Timer Status with Countdown - Always Visible */}
             <div className={`px-3 py-1.5 rounded-lg text-center text-sm ${isTimerRunning
-                ? 'bg-green-600/20 text-green-400 border border-green-500/30'
-                : 'bg-gray-600/20 text-gray-400 border border-gray-500/30'
+              ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+              : 'bg-gray-600/20 text-gray-400 border border-gray-500/30'
               }`}>
               <div className="flex items-center gap-2">
                 <span>{isTimerRunning ? 'Timer Actief' : 'Timer Inactief'}</span>
@@ -157,14 +195,23 @@ useEffect(() => {
           <div className="flex gap-2">
             <button
               onClick={onManualAdBreak}
-              disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
+              disabled={
+                !isModeValid() ||
+                (audioPlayer && audioPlayer.isTransitioning) ||
+                isManualTestInProgress || // ← Add this new state
+                audioPlayer.isOperationInProgress // ← Add this if exposed
+              }
               className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${isManualTestActive
-                  ? 'bg-orange-600 hover:bg-orange-500 text-white'
-                  : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
+                ? 'bg-orange-600 hover:bg-orange-500 text-white'
+                : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
                 }`}
-              title={!isModeValid() 
-                ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist in' : 'Modus niet beschikbaar') 
-                : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
+              title={
+                !isModeValid()
+                  ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist in' : 'Modus niet beschikbaar')
+                  : (audioPlayer && (audioPlayer.isTransitioning || audioPlayer.isOperationInProgress))
+                    ? 'Bezig met audio operatie...'
+                    : ''
+              }
             >
               {isManualTestActive ? 'Stop Test' : 'Test pauze'}
             </button>
@@ -173,7 +220,7 @@ useEffect(() => {
                 onClick={onStartTimer}
                 disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-                title={!isModeValid() 
+                title={!isModeValid()
                   ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist URL in' : 'Modus niet beschikbaar')
                   : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
               >
@@ -204,11 +251,10 @@ useEffect(() => {
                 {/* Playlist Mode */}
                 <button
                   onClick={() => onAdBreakModeChange('playlist')}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    adBreakMode === 'playlist'
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'playlist'
                       ? 'border-blue-500 bg-blue-600/20 text-blue-300'
                       : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -224,11 +270,10 @@ useEffect(() => {
                 {/* Nonstop Mode */}
                 <button
                   onClick={() => onAdBreakModeChange('nonstop')}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    adBreakMode === 'nonstop'
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'nonstop'
                       ? 'border-green-500 bg-green-600/20 text-green-300'
                       : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -244,11 +289,10 @@ useEffect(() => {
                 {/* Lofi Mode */}
                 <button
                   onClick={() => onAdBreakModeChange('lofi')}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    adBreakMode === 'lofi'
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'lofi'
                       ? 'border-purple-500 bg-purple-600/20 text-purple-300'
                       : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -362,7 +406,7 @@ useEffect(() => {
                       startHour={currentDay.startHour}
                       endHour={currentDay.endHour}
                       onChange={handleTimeRangeChange}
-                      step={0.5}
+                      step={0.25}
                       editable={true}
                       disabled={!currentDay.enabled}
                     />
@@ -373,7 +417,7 @@ useEffect(() => {
                     <div className="grid grid-cols-3 gap-1">
                       {dayLabels.map((label, idx) => (
                         <button
-                          key={label+idx}
+                          key={label + idx}
                           onClick={() => handleDayClick(idx)}
                           className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors
                             ${selectedDay === idx ? 'bg-radio-accent text-white' : 'bg-gray-700 text-gray-400 border border-gray-600'}`}
@@ -390,7 +434,22 @@ useEffect(() => {
               </div>
             )}
 
-      
+            {/* ✅ UPDATED: Auto pre-roll skip toggle button */}
+            <div className="inline-flex  items-center gap-3 p-1 bg-gray-700 rounded-lg">
+              <span className="text-sm font-medium text-gray-200 ml-1">
+                Pre-roll reclame overslaan
+              </span>
+              <button
+                onClick={() => setAutoSkipPreroll(!autoSkipPreroll)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm flex items-center gap-2 ${autoSkipPreroll
+                    ? 'bg-purple-600 hover:bg-purple-500 text-white'
+                    : 'bg-green-600 hover:bg-green-500 text-white'
+                  }`}
+              >
+                <span>{autoSkipPreroll ? '🤖' : '👆'}</span>
+                <span>{autoSkipPreroll ? 'Automatisch' : 'Handmatig'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
