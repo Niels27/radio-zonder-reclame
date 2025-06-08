@@ -72,9 +72,9 @@ const AdBreakSettings = ({
   const [autoSkipPreroll, setAutoSkipPreroll] = useState(() => {
     try {
       const saved = localStorage.getItem('auto_skip_preroll');
-      return saved ? JSON.parse(saved) : true; // Default to enabled
+      return saved ? JSON.parse(saved) : false; // Default to enabled
     } catch {
-      return true;
+      return false;
     }
   });
 

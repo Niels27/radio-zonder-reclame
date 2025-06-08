@@ -100,15 +100,15 @@ export const initializeLogging = () => {
     }`);
     
     // Override console methods to be silent in production
-   // console.log = () => {};
-   // console.info = () => {};
+    console.log = () => {};
+   console.info = () => {};
    console.warn = () => {};
-   // console.debug = () => {};
-   // console.trace = () => {};
+    console.debug = () => {};
+    console.trace = () => {};
     
     // Keep console.error for critical issues in production
     // Comment out the line below if you want to disable ALL logging including errors
-    // console.error = () => {};
+     console.error = () => {};
     
     return true; // Logging disabled
   } else {

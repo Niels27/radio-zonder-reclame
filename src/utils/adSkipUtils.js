@@ -282,7 +282,7 @@ export class AdSkipUtils {
   }
 
   // ✅ MISSING METHOD: Skip preroll functionality
-  static skipPreroll(audioElement, seconds = 15) {
+  static skipPreroll(audioElement, seconds = 17) {
     if (!audioElement) return false;
 
     try {
@@ -467,7 +467,7 @@ export class AdSkipUtils {
 // Update the skipPrerollSilently method:
 
 // ✅ ENHANCED: Silent pre-roll skip that waits for proper loading before skipping
-static async skipPrerollSilently(audioElement, seconds = 15) {
+static async skipPrerollSilently(audioElement, seconds = 17) {
   if (!audioElement) return;
 
   try {
