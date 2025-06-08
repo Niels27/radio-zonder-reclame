@@ -60,6 +60,10 @@ const AudioPlayer = ({
 
   const handleVolumeSliderChange = (newVolume) => {
     onVolumeChange(newVolume);
+      if (window.audioPlayer?.audioRef?.current) {
+    window.audioPlayer.audioRef.current.volume = newVolume;
+  }
+  
     if (newVolume > 0 && isMuted) {
       setIsMuted(false);
     }

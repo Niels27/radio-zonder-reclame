@@ -106,7 +106,32 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+  // Update volume when it changes - ALSO apply to currently playing audio
+  useEffect(() => {
+    // Apply volume to active audio source
+    if (volume !== undefined) {
+      if (currentSource === 'radio' && audioRef.current) {
+        audioRef.current.volume = volume;
+      } else if (currentSource === 'playlist') {
+        if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
+          import('../utils/spotifyUtils').then(({ setSpotifyVolume }) => {
+            setSpotifyVolume(Math.round(volume * 100));
+          });
+        } else if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
+          youtubePlayerRef.current.setVolume(Math.round(volume * 100));
+        }
+      }
+    }
+  }, [volume, currentSource, isPlaying, currentPlaylistProvider]);
 
+  // ✅ NEW: Add this useEffect to sync volume when audio loads:
+  useEffect(() => {
+    // Sync volume whenever audio element changes or loads
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      //console.log(`🔊 Synced audio volume to ${Math.round(volume * 100)}%`);
+    }
+  }, [volume]); // Dependencies: volume changes
   // Initialize audio element - runs ONCE on mount
   useEffect(() => {
     console.log('🎧 Initializing Audio element...');
@@ -659,6 +684,12 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       const handleCanPlay = async () => {
         console.log('🎵 Audio can play - checking pre-roll skip options');
 
+        // ✅ FIX: Use volumeRef.current instead of volume
+        if (audioRef.current) {
+          audioRef.current.volume = volumeRef.current;
+          console.log(`🔊 Volume set to ${Math.round(volumeRef.current * 100)}% on canplay`);
+        }
+
         const isAutoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
         const shouldOfferSkip = AdSkipUtils.shouldOfferPrerollSkip(workingUrl, effectiveStationData.name);
 
@@ -736,6 +767,11 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       };
 
       const handlePlay = () => {
+        // ✅ FIX: Ensure volume is correct when play event fires
+        if (audioRef.current) {
+          audioRef.current.volume = volumeRef.current;
+          console.log(`🔊 Volume ensured at ${Math.round(volumeRef.current * 100)}% on play`);
+        }
         setIsPlaying(true);
         console.log('🎵 Audio play event fired');
       };
