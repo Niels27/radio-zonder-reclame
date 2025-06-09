@@ -25,7 +25,6 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    /* Ensure proper height */
   }
 
   .radio-card.active {
@@ -42,7 +41,6 @@
     font-size: clamp(0.625rem, 2vw, 0.75rem);
     line-height: 1.2;
     height: 2.4em;
-    /* Fixed height for 2 lines */
     transition: all 0.3s ease;
   }
 
@@ -190,126 +188,134 @@
     overflow: hidden;
   }
 
-  /* Volume slider styles */
+  /* ✅ ENHANCED: Super Smooth Custom Volume Slider - FIXED VERSION */
   .volume-slider {
     height: 8px;
     width: 120px;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
     border-radius: 8px;
-    background: linear-gradient(
-      to right,
-      #3b82f6 0%,
-      #3b82f6 var(--volume-percent, 0%),
-      #374151 var(--volume-percent, 0%),
-      #374151 100%
-    );
-    outline: none;
-    cursor: pointer;
     position: relative;
+    cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-   
+    background: #374151;
+    user-select: none;
+    /* ✅ FIX: Prevent page scrolling when using mouse wheel */
+    overscroll-behavior: contain;
   }
 
   .volume-slider:hover {
     height: 10px;
-  
     transform: translateY(-1px);
   }
 
-  .volume-slider:active {
-    transform: translateY(1px) scale(0.98);
- 
+  .volume-slider.dragging {
+    height: 12px;
+    transform: translateY(-2px);
+    cursor: grabbing;
   }
 
-  /* Webkit Thumb Styling */
-  .volume-slider::-webkit-slider-thumb {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    -webkit-appearance: none;
-    appearance: none;
-    border-radius: 50%;
+  /* Volume track (background) */
+  .volume-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #374151;
+    border-radius: 8px;
+  }
+
+  /* Volume fill (active portion) */
+  .volume-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #60a5fa, #3b82f6);
+    transition: width 0.05s ease-out;
+    pointer-events: none;
+    min-width: 2px;
+  }
+
+  /* Volume thumb (draggable handle) */
+  .volume-thumb {
+    position: absolute;
+    top: 50%;
+    width: 18px;
+    height: 18px;
     background: linear-gradient(145deg, #60a5fa, #3b82f6);
     border: 2px solid #ffffff;
-   
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-  }
-
-  .volume-slider:hover::-webkit-slider-thumb {
-    width: 24px;
-    height: 24px;
-    background: linear-gradient(145deg, #93c5fd, #2563eb);
-
-    transform: scale(1.05);
-  }
-
-  .volume-slider:active::-webkit-slider-thumb {
-    background: linear-gradient(145deg, #2563eb, #1d4ed8);
-   
-    transform: scale(0.95);
-  }
-
-  /* Firefox Thumb Styling */
-  .volume-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
     border-radius: 50%;
-    border: 2px solid #ffffff;
-    background: linear-gradient(145deg, #60a5fa, #3b82f6);
-  
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translate(-50%, -50%);
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: grab;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
   }
 
-  .volume-slider:hover::-moz-range-thumb {
+  .volume-slider:hover .volume-thumb {
+    width: 22px;
+    height: 22px;
+    background: linear-gradient(145deg, #93c5fd, #2563eb);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .volume-slider.dragging .volume-thumb {
     width: 24px;
     height: 24px;
-    background: linear-gradient(145deg, #93c5fd, #2563eb);
- 
-    transform: scale(1.05);
-  }
-
-  .volume-slider:active::-moz-range-thumb {
     background: linear-gradient(145deg, #2563eb, #1d4ed8);
-  
-    transform: scale(0.95);
+    cursor: grabbing;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    transition: none;
   }
 
-  /* Volume Level Indicator Glow */
-  .volume-slider.volume-high {
-    background: linear-gradient(
-      to right,
-      #10b981 0%,
-      #10b981 var(--volume-percent, 0%),
-      #374151 var(--volume-percent, 0%),
-      #374151 100%
-    );
-  
+  /* Volume Level Color Themes */
+  .volume-slider.volume-high .volume-fill {
+    background: linear-gradient(145deg, #34d399, #10b981);
   }
 
-  .volume-slider.volume-medium {
-    background: linear-gradient(
-      to right,
-      #f59e0b 0%,
-      #f59e0b var(--volume-percent, 0%),
-      #374151 var(--volume-percent, 0%),
-      #374151 100%
-    );
-
+  .volume-slider.volume-high .volume-thumb {
+    background: linear-gradient(145deg, #34d399, #10b981);
   }
 
-  .volume-slider.volume-low {
-    background: linear-gradient(
-      to right,
-      #ef4444 0%,
-      #ef4444 var(--volume-percent, 0%),
-      #374151 var(--volume-percent, 0%),
-      #374151 100%
-    );
- 
+  .volume-slider.volume-high:hover .volume-thumb {
+    background: linear-gradient(145deg, #6ee7b7, #059669);
+  }
+
+  .volume-slider.volume-high.dragging .volume-thumb {
+    background: linear-gradient(145deg, #059669, #047857);
+  }
+
+  .volume-slider.volume-medium .volume-fill {
+    background: linear-gradient(145deg, #fbbf24, #f59e0b);
+  }
+
+  .volume-slider.volume-medium .volume-thumb {
+    background: linear-gradient(145deg, #fbbf24, #f59e0b);
+  }
+
+  .volume-slider.volume-medium:hover .volume-thumb {
+    background: linear-gradient(145deg, #fcd34d, #d97706);
+  }
+
+  .volume-slider.volume-medium.dragging .volume-thumb {
+    background: linear-gradient(145deg, #d97706, #b45309);
+  }
+
+  .volume-slider.volume-low .volume-fill {
+    background: linear-gradient(145deg, #f87171, #ef4444);
+  }
+
+  .volume-slider.volume-low .volume-thumb {
+    background: linear-gradient(145deg, #f87171, #ef4444);
+  }
+
+  .volume-slider.volume-low:hover .volume-thumb {
+    background: linear-gradient(145deg, #fca5a5, #dc2626);
+  }
+
+  .volume-slider.volume-low.dragging .volume-thumb {
+    background: linear-gradient(145deg, #dc2626, #b91c1c);
   }
 
   /* Volume Change Animation */
@@ -345,8 +351,9 @@
     opacity: 0;
     pointer-events: none;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
     border: 1px solid rgba(59, 130, 246, 0.3);
+    white-space: nowrap;
+    z-index: 1000;
   }
 
   .volume-tooltip:after {
@@ -363,6 +370,20 @@
   .volume-container.volume-changing .volume-tooltip {
     opacity: 1;
     transform: translateX(-50%) translateY(-12px);
+  }
+
+  /* ✅ NEW: Drag indicator for tooltip */
+  .tooltip-drag-indicator {
+    display: inline-block;
+    margin-left: 4px;
+    opacity: 0.7;
+    font-size: 10px;
+    animation: dragPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes dragPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
   }
 
   /* Banner Wave Animation - Updated for slower, text-preserving effects */
@@ -394,7 +415,7 @@
   }
 
   .banner-container:hover::before {
-    animation: waveSlide 6s ease-in-out infinite; /* Doubled from 3s to 6s */
+    animation: waveSlide 6s ease-in-out infinite;
     opacity: 1;
   }
 
@@ -417,12 +438,12 @@
     transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     opacity: 0;
     z-index: 1;
-    animation-delay: 3s; /* Doubled from 1.5s to 3s */
+    animation-delay: 3s;
   }
 
   .banner-container:hover::after {
-    animation: waveSlideReverse 6s ease-in-out infinite; /* Doubled from 3s to 6s */
-    animation-delay: 3s; /* Doubled from 1.5s to 3s */
+    animation: waveSlideReverse 6s ease-in-out infinite;
+    animation-delay: 3s;
     opacity: 1;
   }
 
@@ -472,40 +493,38 @@
   .banner-text {
     position: relative;
     z-index: 2;
-    /* Removed all hover-triggered transforms and animations */
   }
 
   .banner-title {
-    /* Removed hover-triggered gradient animations */
     /* Text remains static and unaffected by wave animations */
   }
 
   /* Enhanced Background Animation - Slower timing */
-.banner-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(45deg, #093d87, #553662, #522993, #5e59b9);
-  background-size: 400% 400%;
-  animation: bannerGradient 8s ease infinite; /* Changed from 4s to 8s and always animate */
-}
+  .banner-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #093d87, #553662, #522993, #5e59b9);
+    background-size: 400% 400%;
+    animation: bannerGradient 8s ease infinite;
+  }
 
-@keyframes bannerGradient {
-  0% {
-    background-position: 0% 50%;
+  @keyframes bannerGradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
   }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
 
   .banner-container:hover .banner-background {
-    animation: gradientWave 8s ease-in-out infinite; /* Doubled from 4s to 8s */
+    animation: gradientWave 8s ease-in-out infinite;
     background-size: 600% 600%;
   }
 
@@ -546,8 +565,8 @@
   .banner-container:hover .banner-shimmer {
     left: 100%;
     opacity: 1;
-    animation: shimmerSweep 2s ease-in-out infinite; /* Doubled from 2s to 4s */
-    animation-delay: 0.5s; /* Doubled from 0.5s to 1s */
+    animation: shimmerSweep 2s ease-in-out infinite;
+    animation-delay: 0.5s;
   }
 
   @keyframes shimmerSweep {
@@ -566,8 +585,6 @@
       opacity: 0;
     }
   }
-
-  /* ...existing code... */
 }
 
 @layer utilities {
@@ -591,7 +608,6 @@
       @apply bg-gray-700;
     }
   }
-  /* Add this to your existing index.css file */
 
 /* Enhanced pre-roll skip button styles */
 .preroll-skip-button {

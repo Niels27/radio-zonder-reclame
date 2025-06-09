@@ -458,14 +458,14 @@ export class AdSkipUtils {
     document.body.appendChild(button);
 
     // ✅ ENHANCED: Longer display time for manual interaction
-    const displayTime = isAutoSkipEnabled ? 1 : 6000; // 1.5s for auto, 7s for manual
+    const displayTime = isAutoSkipEnabled ? 1500 : 7000; // 1.5s for auto, 7s for manual
 
     setTimeout(() => {
       if (autoClickTimeout) {
         clearTimeout(autoClickTimeout);
       }
       this.removePrerollSkipButton(button);
-    }, displayTime);
+    }, displayTime); // ✅ FIX: This was set to wrong values (1 vs 6000)
 
     return button;
   }

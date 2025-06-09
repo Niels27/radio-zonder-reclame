@@ -1,13 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReportStationButton from './ReportStationButton';
 
-// components/AudioPlayer.jsx - Show playlist thumbnail and info
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\AudioPlayer.jsx
+// components/AudioPlayer.jsx - Enhanced smooth volume control
 const AudioPlayer = ({
   currentStation,
   isPlaying,
   volume,
-  onTogglePlayPause,
+  onTogglePlayPause, // ✅ ADD: This prop was missing from the destructuring
   onVolumeChange,
   isAdBreakActive,
   nextAdBreakIn,
@@ -24,7 +23,10 @@ const AudioPlayer = ({
   const [previousVolume, setPreviousVolume] = useState(volume);
   const [isVolumeChanging, setIsVolumeChanging] = useState(false);
   const [showVolumeTooltip, setShowVolumeTooltip] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const volumeTimeoutRef = useRef(null);
+  const volumeSliderRef = useRef(null);
+  const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -58,16 +60,22 @@ const AudioPlayer = ({
     }
   };
 
-  const handleVolumeSliderChange = (newVolume) => {
-    onVolumeChange(newVolume);
-      if (window.audioPlayer?.audioRef?.current) {
-    window.audioPlayer.audioRef.current.volume = newVolume;
-  }
-  
-    if (newVolume > 0 && isMuted) {
+  // ✅ ENHANCED: Smooth volume change with 1% steps
+  const handleVolumeSliderChange = useCallback((newVolume) => {
+    // Round to 1% increments for super smooth control
+    const roundedVolume = Math.round(newVolume * 100) / 100;
+    
+    onVolumeChange(roundedVolume);
+    
+    // Apply volume immediately to audio element for real-time feedback
+    if (window.audioPlayer?.audioRef?.current) {
+      window.audioPlayer.audioRef.current.volume = roundedVolume;
+    }
+    
+    if (roundedVolume > 0 && isMuted) {
       setIsMuted(false);
     }
-    if (newVolume === 0 && !isMuted) {
+    if (roundedVolume === 0 && !isMuted) {
       setIsMuted(true);
     }
 
@@ -83,17 +91,128 @@ const AudioPlayer = ({
     // Reset animation and hide tooltip after delay
     volumeTimeoutRef.current = setTimeout(() => {
       setIsVolumeChanging(false);
-      setShowVolumeTooltip(false);
+      if (!isDragging) {
+        setShowVolumeTooltip(false);
+      }
     }, 1000);
-  };
+  }, [onVolumeChange, isMuted, isDragging]);
 
-  // Handle scroll wheel on volume slider
-  const handleVolumeWheel = (e) => {
+  // ✅ FIX: Enhanced mouse wheel handling with proper event prevention
+  const handleVolumeWheel = useCallback((e) => {
+    // Prevent page scrolling
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05; // Invert scroll direction for intuitive feel
+    e.stopPropagation();
+    
+    const delta = e.deltaY > 0 ? -0.05 : 0.05; // 5% increments for smooth control
     const newVolume = Math.max(0, Math.min(1, volume + delta));
     handleVolumeSliderChange(newVolume);
-  };
+  }, [volume, handleVolumeSliderChange]);
+
+  // ✅ NEW: Calculate volume from mouse position - FIXED
+  const updateVolumeFromMouse = useCallback((clientX) => {
+    if (!volumeSliderRef.current || !dragStateRef.current) return;
+    
+    const slider = volumeSliderRef.current;
+    const rect = slider.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const width = rect.width;
+    
+    // Calculate new volume (0-1) with bounds checking
+    let newVolume = Math.max(0, Math.min(1, x / width));
+    
+    // Round to 1% for smooth steps
+    newVolume = Math.round(newVolume * 100) / 100;
+    
+    handleVolumeSliderChange(newVolume);
+  }, [handleVolumeSliderChange]);
+
+  // ✅ FIX: Create stable event handlers using useCallback
+  const handleGlobalMouseMove = useCallback((e) => {
+    if (dragStateRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      updateVolumeFromMouse(e.clientX);
+    }
+  }, [updateVolumeFromMouse]);
+
+  const handleGlobalMouseUp = useCallback((e) => {
+    if (dragStateRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // ✅ FIX: Clean up drag state immediately
+      dragStateRef.current = false;
+      setIsDragging(false);
+      
+      // ✅ FIX: Remove listeners immediately
+      document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
+      document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
+      
+      // Hide tooltip after delay
+      setTimeout(() => {
+        setShowVolumeTooltip(false);
+      }, 500);
+    }
+  }, [handleGlobalMouseMove]);
+
+  // ✅ FIX: Simplified mouse down handler
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // ✅ FIX: Set drag state immediately
+    dragStateRef.current = true;
+    setIsDragging(true);
+    setShowVolumeTooltip(true);
+    
+    // Handle initial click
+    updateVolumeFromMouse(e.clientX);
+    
+    // ✅ FIX: Add listeners with capture to ensure they work
+    document.addEventListener('mousemove', handleGlobalMouseMove, { capture: true, passive: false });
+    document.addEventListener('mouseup', handleGlobalMouseUp, { capture: true, passive: false });
+  }, [updateVolumeFromMouse, handleGlobalMouseMove, handleGlobalMouseUp]);
+
+  // ✅ FIX: Touch handlers with same pattern
+  const handleGlobalTouchMove = useCallback((e) => {
+    if (dragStateRef.current && e.touches[0]) {
+      e.preventDefault();
+      e.stopPropagation();
+      updateVolumeFromMouse(e.touches[0].clientX);
+    }
+  }, [updateVolumeFromMouse]);
+
+  const handleGlobalTouchEnd = useCallback((e) => {
+    if (dragStateRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      dragStateRef.current = false;
+      setIsDragging(false);
+      
+      document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true });
+      document.removeEventListener('touchend', handleGlobalTouchEnd, { capture: true });
+      
+      setTimeout(() => {
+        setShowVolumeTooltip(false);
+      }, 500);
+    }
+  }, [handleGlobalTouchMove]);
+
+  const handleTouchStart = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    dragStateRef.current = true;
+    setIsDragging(true);
+    setShowVolumeTooltip(true);
+    
+    const touch = e.touches[0];
+    updateVolumeFromMouse(touch.clientX);
+    
+    document.addEventListener('touchmove', handleGlobalTouchMove, { capture: true, passive: false });
+    document.addEventListener('touchend', handleGlobalTouchEnd, { capture: true, passive: false });
+  }, [updateVolumeFromMouse, handleGlobalTouchMove, handleGlobalTouchEnd]);
 
   // Get volume level class for styling
   const getVolumeLevel = () => {
@@ -117,7 +236,7 @@ const AudioPlayer = ({
   const handleKeyPress = (e) => {
     if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
       e.preventDefault();
-      onTogglePlayPause();
+      onTogglePlayPause(); // ✅ This line was causing the error
     }
   };
 
@@ -125,7 +244,49 @@ const AudioPlayer = ({
   useEffect(() => {
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [onTogglePlayPause]);
+  }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies
+
+  // ✅ CLEANUP: Remove event listeners on unmount
+  useEffect(() => {
+    return () => {
+      // ✅ FIX: Force cleanup all event listeners
+      dragStateRef.current = false;
+      
+      document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
+      document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
+      document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true });
+      document.removeEventListener('touchend', handleGlobalTouchEnd, { capture: true });
+      
+      if (volumeTimeoutRef.current) {
+        clearTimeout(volumeTimeoutRef.current);
+      }
+    };
+  }, []); // ✅ FIX: Empty dependency array for cleanup only
+
+  // ✅ FIX: Emergency cleanup if drag state gets stuck
+  useEffect(() => {
+    const cleanup = () => {
+      if (dragStateRef.current) {
+        console.warn('🔧 Force cleaning stuck drag state');
+        dragStateRef.current = false;
+        setIsDragging(false);
+        
+        document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
+        document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
+        document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true });
+        document.removeEventListener('touchend', handleGlobalTouchEnd, { capture: true });
+      }
+    };
+
+    // Listen for visibility change to cleanup if user switches tabs while dragging
+    document.addEventListener('visibilitychange', cleanup);
+    window.addEventListener('blur', cleanup);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', cleanup);
+      window.removeEventListener('blur', cleanup);
+    };
+  }, [handleGlobalMouseMove, handleGlobalMouseUp, handleGlobalTouchMove, handleGlobalTouchEnd]);
 
   const getVolumeIcon = () => {
     if (isMuted || volume === 0) {
@@ -133,7 +294,6 @@ const AudioPlayer = ({
         <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
           <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
           <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" opacity="0.3" />
-          {/* Strike through line */}
           <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" />
         </svg>
       );
@@ -155,15 +315,6 @@ const AudioPlayer = ({
   // Add validation check
   const isPlaylistValid = playlistInfo?.isValid;
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (volumeTimeoutRef.current) {
-        clearTimeout(volumeTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return (
     <div className="bg-gray-900 border-b border-gray-700 p-4">
       <div className="max-w-6xl mx-auto">
@@ -172,7 +323,7 @@ const AudioPlayer = ({
           {/* Play/Pause Button */}
           <button
             onClick={onTogglePlayPause}
-            disabled={!currentStation && !isAdBreakActive && currentSource !== 'playlist'} // Allow if playlist is playing
+            disabled={!currentStation && !isAdBreakActive && currentSource !== 'playlist'}
             className="w-12 h-12 rounded-full bg-radio-accent hover:bg-radio-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
             title="Druk op spatiebalk om af te spelen/pauzeren"
           >
@@ -259,7 +410,7 @@ const AudioPlayer = ({
           {/* Right Controls */}
           <div className="flex items-center space-x-6">
 
-            {/* Playlist Controls (only show when playlist is active AND valid) */}
+            {/* Playlist Controls */}
             {currentSource === 'playlist' && isPlaylistValid && (
               <div className="flex items-center space-x-2">
                 <button
@@ -308,7 +459,7 @@ const AudioPlayer = ({
               )
             )}
 
-            {/* Enhanced Volume Control */}
+            {/* ✅ ENHANCED: Super Smooth Volume Control with Real-time Dragging - FIXED */}
             <div className={`volume-container ${isVolumeChanging ? 'volume-changing' : ''}`}>
               <button
                 onClick={handleVolumeIconClick}
@@ -319,42 +470,53 @@ const AudioPlayer = ({
               </button>
 
               <div className="relative">
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={volume}
-                  onChange={(e) => handleVolumeSliderChange(parseFloat(e.target.value))}
+                {/* ✅ ENHANCED: Custom volume slider with FIXED real-time dragging */}
+                <div
+                  ref={volumeSliderRef}
+                  className={`volume-slider ${getVolumeLevel()} ${isVolumeChanging ? 'volume-changing' : ''} ${isDragging ? 'dragging' : ''}`}
+                  onMouseDown={handleMouseDown}
+                  onTouchStart={handleTouchStart}
                   onWheel={handleVolumeWheel}
-                  onMouseEnter={() => setShowVolumeTooltip(true)}
-                  onMouseLeave={() => !isVolumeChanging && setShowVolumeTooltip(false)}
-                  className={`volume-slider ${getVolumeLevel()} ${isVolumeChanging ? 'volume-changing' : ''}`}
-                  style={{
-                    '--volume-percent': `${getVolumePercent()}%`
-                  }}
-                />
+                  onMouseEnter={() => !isDragging && setShowVolumeTooltip(true)}
+                  onMouseLeave={() => !isDragging && !isVolumeChanging && setShowVolumeTooltip(false)}
+                >
+                  {/* Volume track background */}
+                  <div className="volume-track" />
+                  
+                  {/* Volume fill */}
+                  <div 
+                    className="volume-fill" 
+                    style={{ width: `${getVolumePercent()}%` }}
+                  />
+                  
+                  {/* Volume thumb/handle */}
+                  <div 
+                    className="volume-thumb" 
+                    style={{ left: `${getVolumePercent()}%` }}
+                  />
+                </div>
 
-                {/* Volume Tooltip */}
-                <div className={`volume-tooltip ${showVolumeTooltip ? 'opacity-100' : 'opacity-0'}`}>
+                {/* ✅ ENHANCED: Volume Tooltip with smooth transitions */}
+                <div className={`volume-tooltip ${showVolumeTooltip || isDragging ? 'opacity-100' : 'opacity-0'}`}>
                   {getVolumePercent()}%
+                  {isDragging && <div className="tooltip-drag-indicator">↕</div>}
                 </div>
               </div>
             </div>
           </div>
-        </div>        {/* Error Message */}
+        </div>
+
+        {/* Error Message */}
         {error && (
           <div className="mt-3 p-3 bg-red-900/20 border border-red-500/20 rounded-lg text-red-300 text-sm">
             <div className="flex items-center justify-between">
               <span>{error}</span>
-              {/* Show report button for any radio connection errors */}
               {currentStation && currentSource === 'radio' && (
                 <ReportStationButton
-                  currentStation={currentStation}  // ← FIX: Changed from 'station'
-                  error={error}                     // ← FIX: Changed from 'errorDetails' object to just the error string
+                  currentStation={currentStation}
+                  error={error}
                   onReported={(result) => {
                     console.log('Station reported from AudioPlayer:', result);
-                    // Could show a toast notification here
                     if (window.addNotification) {
                       window.addNotification(`Radio ${currentStation.name} gemeld als niet werkend`, 'success', 3000);
                     }

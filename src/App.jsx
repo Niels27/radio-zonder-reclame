@@ -88,7 +88,7 @@ function App() {
       }));
     }
 
-    console.log('🔄 Global state updated - Spotify ready:', audioPlayer.spotifyPlayerReady, 'Provider:', playlistProvider);
+  //  console.log('🔄 Global state updated - Spotify ready:', audioPlayer.spotifyPlayerReady, 'Provider:', playlistProvider);
   }, [
     adBreakTimer.isAdBreakActive, 
     adBreakTimer.queueStationSwitch, 
@@ -270,7 +270,7 @@ function App() {
             onClick={(e) => {
               if (e.detail === 3) { // Triple click
                 const password = prompt('Enter developer password:');
-                if (password === '42069') {
+                if (password === 'xd') {
                   setShowDeveloperDashboard(true);
                   if (window.addNotification) {
                     window.addNotification('🛠️ Developer Dashboard geopend', 'success', 2000);
