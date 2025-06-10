@@ -564,7 +564,7 @@ export class AdSkipUtils {
       // Ensure volume is restored even if skip fails
       try {
         if (audioElement.volume === 0) {
-          audioElement.volume = originalVolume || 0.7;
+          audioElement.volume = originalVolume ||0.5;
         }
       } catch (restoreError) {
         console.error('❌ Failed to restore volume:', restoreError);

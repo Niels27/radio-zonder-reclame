@@ -44,10 +44,10 @@ const saveToStorage = (key, value) => {
 };
 
 export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
-  const [adBreakMinute, setAdBreakMinute] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE, 28));
-  const [adBreakMinute2, setAdBreakMinute2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE2, 58));
-  const [adBreakDuration, setAdBreakDuration] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION, 5));
-  const [adBreakDuration2, setAdBreakDuration2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION2, 7));
+  const [adBreakMinute, setAdBreakMinute] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE, 29));
+  const [adBreakMinute2, setAdBreakMinute2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE2, 59));
+  const [adBreakDuration, setAdBreakDuration] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION, 6));
+  const [adBreakDuration2, setAdBreakDuration2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION2, 9));
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isAdBreakActive, setIsAdBreakActive] = useState(false);
   const [nextAdBreakIn, setNextAdBreakIn] = useState(null);
@@ -57,15 +57,22 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   const [enforcingAdBreak, setEnforcingAdBreak] = useState(false);
   const [queuedStation, setQueuedStation] = useState(null);
   const [isManualTestActive, setIsManualTestActive] = useState(false);
-  const [shouldPlayPlaylistDuringAdBreak, setShouldPlayPlaylistDuringAdBreak] = useState(false);  const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
+  const [shouldPlayPlaylistDuringAdBreak, setShouldPlayPlaylistDuringAdBreak] = useState(false); const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
   const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);
   const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
   const [isManualTestInProgress, setIsManualTestInProgress] = useState(false); // ← New state
 
   // Automatic ad detection states
-  const [autoAdDetectionEnabled, setAutoAdDetectionEnabled] = useState(() => 
-    loadFromStorage('auto_ad_detection', false)
-  );
+  const [autoAdDetectionEnabled, setAutoAdDetectionEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('auto_ad_detection');
+      const value = saved ? JSON.parse(saved) : false;
+      console.log('🤖 Loaded auto detection setting:', value); // ✅ ADD: Debug log
+      return value;
+    } catch {
+      return false;
+    }
+  });
   const autoDetectorRef = useRef(null);
   const detectionTriggeredRef = useRef(false);
 
@@ -469,181 +476,130 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     handleAdBreakError,
     endAdBreak
   ]);
-// ...existing code...
+  // ...existing code...
 
-// ✅ ADD THIS MISSING FUNCTION: Smart ad detection handler with 5-minute detection windows
-const handleSmartAdDetection = useCallback((detectionResult) => {
-  if (!autoAdDetectionEnabled || !isTimerRunning || isAdBreakActive) {
-    return;
-  }
-
-  const now = new Date();
-  const currentMinute = now.getMinutes();
-  const currentSecond = now.getSeconds();
-  
-  console.log('🤖 Smart detection result:', {
-    isMusic: detectionResult.isMusic,
-    confidence: Math.round(detectionResult.confidence * 100) + '%',
-    currentTime: `${currentMinute}:${String(currentSecond).padStart(2, '0')}`,
-    triggerAdBreak: detectionResult.triggerAdBreak
-  });
-
-  // ✅ NEW: Calculate 5-minute detection windows around configured times
-  const getDetectionWindows = () => {
-    const windows = [];
-    
-    // Ad break 1 detection window: 5 minutes before and after start time
-    const startWindow1 = {
-      type: 'start',
-      breakNumber: 1,
-      startMinute: (adBreakMinute - 5 + 60) % 60, // 5 minutes before
-      endMinute: (adBreakMinute + 5) % 60,        // 5 minutes after
-      targetMinute: adBreakMinute,
-      duration: adBreakDuration,
-      windowSize: 10 // Total 10-minute window
-    };
-    
-    // Ad break 1 end detection window: 5 minutes before and after end time
-    const endMinute1 = (adBreakMinute + adBreakDuration) % 60;
-    const endWindow1 = {
-      type: 'end',
-      breakNumber: 1,
-      startMinute: (endMinute1 - 5 + 60) % 60, // 5 minutes before end
-      endMinute: (endMinute1 + 5) % 60,        // 5 minutes after end
-      targetMinute: endMinute1,
-      duration: adBreakDuration,
-      windowSize: 10
-    };
-    
-    // Ad break 2 detection window: 5 minutes before and after start time
-    const startWindow2 = {
-      type: 'start',
-      breakNumber: 2,
-      startMinute: (adBreakMinute2 - 5 + 60) % 60,
-      endMinute: (adBreakMinute2 + 5) % 60,
-      targetMinute: adBreakMinute2,
-      duration: adBreakDuration2,
-      windowSize: 10
-    };
-    
-    // Ad break 2 end detection window: 5 minutes before and after end time
-    const endMinute2 = (adBreakMinute2 + adBreakDuration2) % 60;
-    const endWindow2 = {
-      type: 'end',
-      breakNumber: 2,
-      startMinute: (endMinute2 - 5 + 60) % 60,
-      endMinute: (endMinute2 + 5) % 60,
-      targetMinute: endMinute2,
-      duration: adBreakDuration2,
-      windowSize: 10
-    };
-    
-    windows.push(startWindow1, endWindow1, startWindow2, endWindow2);
-    return windows;
-  };
-
-  const isInWindow = (minute, window) => {
-    // Handle hour boundary crossings for 10-minute windows
-    if (window.startMinute <= window.endMinute) {
-      return minute >= window.startMinute && minute <= window.endMinute;
-    } else {
-      // Crosses hour boundary (e.g., 55-5 = 55,56,57,58,59,0,1,2,3,4,5)
-      return minute >= window.startMinute || minute <= window.endMinute;
-    }
-  };
-
-  const getCurrentWindow = () => {
-    const windows = getDetectionWindows();
-    return windows.find(window => isInWindow(currentMinute, window));
-  };
-
-  const currentWindow = getCurrentWindow();
-  
-  if (!currentWindow) {
-    // Not in any detection window - reset detection state
-    detectionTriggeredRef.current = false;
-    return;
-  }
-
-  console.log('🤖 In 5-minute detection window:', {
-    type: currentWindow.type,
-    breakNumber: currentWindow.breakNumber,
-    target: `${currentWindow.targetMinute}:00`,
-    window: `${currentWindow.startMinute}-${currentWindow.endMinute} (±5min)`,
-    duration: currentWindow.duration + 'min',
-    windowSize: currentWindow.windowSize + 'min'
-  });
-
-  // ✅ ENHANCED: Handle start detection with 5-minute window logic
-  if (currentWindow.type === 'start' && !isAdBreakActive) {
-    // If we detect NOT MUSIC (ads/silence) within the 5-minute window, start immediately
-    if (!detectionResult.isMusic && detectionResult.confidence > 0.6 && !detectionTriggeredRef.current) {
-      console.log('🤖 SMART START DETECTED: NOT MUSIC detected within 5-minute window - starting ad break');
-      detectionTriggeredRef.current = true;
-      startAdBreak();
-      
-      if (window.addNotification) {
-        window.addNotification(
-          `🤖 Smart start: Reclame gedetecteerd in pauze ${currentWindow.breakNumber} venster (${currentWindow.duration}min)`,
-          'success',
-          4000
-        );
-      }
+  // ✅ FIXED: Detection handler with proper function calls
+  const handleSmartAdDetection = useCallback((detectionResult) => {
+    // ✅ NEW: Ignore detections during warm-up phase
+    if (detectionResult.isWarmingUp) {
+      console.log('🔥 Detection warming up, ignoring result');
       return;
     }
     
-    // ✅ NEW: Force start at scheduled time if we've reached it and haven't detected yet
-    if (currentMinute === currentWindow.targetMinute && currentSecond <= 5 && !detectionTriggeredRef.current) {
-      console.log('🤖 FALLBACK START: No ads detected in 5-minute window, starting at scheduled time');
-      detectionTriggeredRef.current = true;
-      startAdBreak();
-      
-      if (window.addNotification) {
-        window.addNotification(
-          `⏰ Fallback start: Pauze ${currentWindow.breakNumber} op schema gestart (${currentWindow.duration}min)`,
-          'info',
-          4000
-        );
-      }
+    if (!autoAdDetectionEnabled || !isTimerRunning) {
+      return;
     }
-  }
-  
-  // ✅ ENHANCED: Handle end detection with 5-minute window logic
-  else if (currentWindow.type === 'end' && isAdBreakActive) {
-    // If we detect MUSIC within the 5-minute window, end immediately
-    if (detectionResult.isMusic && detectionResult.confidence > 0.7 && !detectionTriggeredRef.current) {
-      console.log('🤖 SMART END DETECTED: MUSIC detected within 5-minute window - ending ad break');
-      detectionTriggeredRef.current = true;
-      endAdBreak();
-      
-      if (window.addNotification) {
-        window.addNotification(
-          `🤖 Smart end: Muziek hervat in pauze ${currentWindow.breakNumber} venster`,
-          'success',
-          4000
-        );
+
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const currentSecond = now.getSeconds();
+
+    // ✅ ALWAYS log detection attempts for debugging
+    console.log('🤖 Detection attempt:', {
+      time: `${currentMinute}:${String(currentSecond).padStart(2, '0')}`,
+      isMusic: detectionResult.isMusic,
+      confidence: `${Math.round(detectionResult.confidence * 100)}%`,
+      silences: detectionResult.silenceInfo?.consecutiveSilences || 0,
+      adBreakMinute,
+      adBreakMinute2,
+      isTimerRunning,
+      autoAdDetectionEnabled
+    });
+
+    // ✅ FIX: Call function with required parameters
+    const windows = getStartDetectionWindows(adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2);
+
+    const getCurrentWindow = () => {
+      return windows.find(window => {
+        // Handle hour boundary crossings
+        if (window.startMinute <= window.endMinute) {
+          return currentMinute >= window.startMinute && currentMinute <= window.endMinute;
+        } else {
+          // Crosses hour boundary
+          return currentMinute >= window.startMinute || currentMinute <= window.endMinute;
+        }
+      });
+    };
+
+    const currentWindow = getCurrentWindow();
+
+    if (!currentWindow) {
+      // ✅ ENHANCED: Always log when outside detection window for debugging
+      console.log(`🤖 Outside detection window at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
+      console.log(`🤖 Detection windows: ${windows.map(w => `${w.startMinute}-${w.endMinute} (break ${w.breakNumber})`).join(', ')}`);
+
+      // Stop detection when outside window
+      if (autoDetectorRef.current && !isAdBreakActive) {
+        console.log('🤖 Stopping detection - outside window');
+        autoDetectorRef.current.stopDetection();
+        autoDetectorRef.current = null;
+        detectionTriggeredRef.current = false;
       }
       return;
     }
-    
-    // ✅ NEW: Force end at scheduled time if we've reached it and haven't detected yet
-    if (currentMinute === currentWindow.targetMinute && currentSecond <= 5 && !detectionTriggeredRef.current) {
-      console.log('🤖 FALLBACK END: No music detected in 5-minute window, ending at scheduled time');
-      detectionTriggeredRef.current = true;
-      endAdBreak();
-      
-      if (window.addNotification) {
-        window.addNotification(
-          `⏰ Fallback end: Pauze ${currentWindow.breakNumber} op schema beëindigd`,
-          'info',
-          4000
-        );
+
+    // ✅ ENHANCED: Always log when in detection window
+    console.log('🤖 IN DETECTION WINDOW:', {
+      type: detectionResult.isMusic ? '🎵 Music' : '📢 NOT Music (Ads)',
+      confidence: `${Math.round(detectionResult.confidence * 100)}%`,
+      window: `${currentWindow.startMinute}-${currentWindow.endMinute} (±${DETECTION_WINDOW_MINUTES}min)`,
+      breakNumber: currentWindow.breakNumber,
+      targetTime: `${currentWindow.targetMinute}:00`,
+      silences: detectionResult.silenceInfo?.consecutiveSilences || 0
+    });
+
+    // Handle start detection
+    if (currentWindow.type === 'start_detection' && !isAdBreakActive) {
+      // If we detect NOT MUSIC within the window, start immediately
+      if (!detectionResult.isMusic && detectionResult.confidence > 0.6 && !detectionTriggeredRef.current) {
+        console.log('🚨 SMART START DETECTED: Starting ad break early');
+        detectionTriggeredRef.current = true;
+
+        // Stop detection immediately when ad break starts
+        if (autoDetectorRef.current) {
+          console.log('🤖 Stopping detection - ad break started');
+          autoDetectorRef.current.stopDetection();
+          autoDetectorRef.current = null;
+        }
+
+        startAdBreak();
+
+        if (window.addNotification) {
+          window.addNotification(
+            `🤖 Smart start: Reclame gedetecteerd in pauze ${currentWindow.breakNumber} venster (${currentWindow.duration}min)`,
+            'success',
+            4000
+          );
+        }
+        return;
+      }
+
+      // Force start at scheduled time if we've reached it
+      if (currentMinute === currentWindow.targetMinute && currentSecond <= 5 && !detectionTriggeredRef.current) {
+        console.log('🤖 FALLBACK START: Starting at scheduled time');
+        detectionTriggeredRef.current = true;
+
+        // Stop detection when ad break starts
+        if (autoDetectorRef.current) {
+          console.log('🤖 Stopping detection - scheduled ad break started');
+          autoDetectorRef.current.stopDetection();
+          autoDetectorRef.current = null;
+        }
+
+        startAdBreak();
+
+        if (window.addNotification) {
+          window.addNotification(
+            `⏰ Fallback start: Pauze ${currentWindow.breakNumber} op schema gestart (${currentWindow.duration}min)`,
+            'info',
+            4000
+          );
+        }
       }
     }
-  }
-}, [autoAdDetectionEnabled, isTimerRunning, isAdBreakActive, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startAdBreak, endAdBreak]);
 
-// ...existing code...  // Enhanced manual ad break with mode support
+  }, [autoAdDetectionEnabled, isTimerRunning, isAdBreakActive, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startAdBreak]);
+  // ...existing code...  // Enhanced manual ad break with mode support
   // Update the entire manual ad break function with better error handling:
 
   const manualAdBreak = useCallback(() => {
@@ -887,11 +843,11 @@ const handleSmartAdDetection = useCallback((detectionResult) => {
   }, []); // Run once on mount
 
   useEffect(() => {
-    // ✅ CRITICAL FIX: Actually start/stop detection when setting changes
+    let detectionRestartTimeout;
+
     if (!audioPlayer?.audioRef?.current) {
-      // No audio element available yet
       if (autoDetectorRef.current) {
-        console.log('🤖 No audio element - stopping auto detection');
+        console.log('🤖 No audio element - stopping detection');
         autoDetectorRef.current.stopDetection();
         autoDetectorRef.current = null;
       }
@@ -899,79 +855,100 @@ const handleSmartAdDetection = useCallback((detectionResult) => {
       return;
     }
 
-    if (autoAdDetectionEnabled && isTimerRunning) {
-      // ✅ START auto detection when enabled
-      console.log('🤖 Starting automatic ad detection (timer active + setting enabled)');
-      
-      const setupDetection = async () => {
-        try {
-          // Stop any existing detector first
-          if (autoDetectorRef.current) {
-            autoDetectorRef.current.stopDetection();
+    // ✅ ENHANCED: Check if we're currently in a detection window
+    const getCurrentDetectionWindow = () => {
+      const now = new Date();
+      const currentMinute = now.getMinutes();
+
+      const windows = getStartDetectionWindows(adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2);
+
+      return windows.find(window => {
+        if (window.startMinute <= window.endMinute) {
+          return currentMinute >= window.startMinute && currentMinute <= window.endMinute;
+        } else {
+          return currentMinute >= window.startMinute || currentMinute <= window.endMinute;
+        }
+      });
+    };
+
+    console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
+
+    if (autoAdDetectionEnabled && isTimerRunning && !isAdBreakActive) {
+      const currentWindow = getCurrentDetectionWindow();
+
+      console.log(`🤖 Current detection window:`, currentWindow || 'NONE');
+
+      if (currentWindow && !autoDetectorRef.current) {
+        console.log(`🤖 Starting detection for window ${currentWindow.breakNumber} (±${DETECTION_WINDOW_MINUTES}min)`);
+        console.log('🎯 Detection mode: START-ONLY (stops when ad break starts)');
+
+        const setupDetection = async () => {
+          try {
+            const { setupAdDetection } = await import('../utils/musicDetection');
+
+            const detector = await setupAdDetection(
+              audioPlayer.audioRef.current,
+              handleSmartAdDetection
+            );
+
+            autoDetectorRef.current = detector;
+            console.log('🤖 ✅ Detection started successfully');
+
+          } catch (error) {
+            console.error('🤖 ❌ Failed to start detection:', error);
             autoDetectorRef.current = null;
           }
-          
-          const { setupAdDetection } = await import('../utils/musicDetection.js');
-          
-          autoDetectorRef.current = await setupAdDetection(
-            audioPlayer.audioRef.current,
-            (detectionResult) => {
-              // Enhanced detection callback that uses manual timing
-              handleSmartAdDetection(detectionResult);
-            }
-          );
-          
-          console.log('🤖 ✅ Automatic detection active with 5-minute windows:', {
-            adBreak1: `${adBreakMinute}:00 (${adBreakDuration}min)`,
-            adBreak2: `${adBreakMinute2}:00 (${adBreakDuration2}min)`,
-            detectionWindows: '±5min around start/end times'
-          });
-          
-        } catch (error) {
-          console.error('❌ Failed to setup automatic detection:', error);
-          setAutoAdDetectionEnabled(false); // Auto-disable on error
-          
-          if (window.addNotification) {
-            window.addNotification('❌ Automatische detectie kon niet starten', 'error', 3000);
-          }
-        }
-      };
+        };
 
-      setupDetection();
+        setupDetection();
+      } else if (!currentWindow && autoDetectorRef.current) {
+        console.log(`🤖 Outside detection window - stopping to reduce logging`);
+        autoDetectorRef.current.stopDetection();
+        autoDetectorRef.current = null;
+        detectionTriggeredRef.current = false;
+      } else if (!currentWindow && !autoDetectorRef.current) {
+        console.log(`🤖 Outside detection window - no detection running (correct)`);
+      }
     } else {
-      // ✅ STOP auto detection when disabled or timer not running
+      // Stop detection when disabled, timer inactive, or ad break active
       if (autoDetectorRef.current) {
-        console.log('🤖 Stopping automatic ad detection (disabled or timer inactive)');
+        const reason = !autoAdDetectionEnabled ? 'disabled' :
+          !isTimerRunning ? 'timer inactive' :
+            'ad break active';
+        console.log(`🤖 Stopping detection (${reason})`);
         autoDetectorRef.current.stopDetection();
         autoDetectorRef.current = null;
       }
       detectionTriggeredRef.current = false;
     }
 
-    // Cleanup on unmount or dependency change
+    // Cleanup function
     return () => {
+      if (detectionRestartTimeout) {
+        clearTimeout(detectionRestartTimeout);
+      }
+
       if (autoDetectorRef.current) {
-        console.log('🤖 Cleanup: Stopping automatic detection');
+        console.log('🤖 Cleanup: Stopping detection');
         autoDetectorRef.current.stopDetection();
         autoDetectorRef.current = null;
       }
     };
   }, [
-    autoAdDetectionEnabled, 
-    isTimerRunning, 
-    audioPlayer?.audioRef?.current, 
-    isAdBreakActive, 
-    startAdBreak, 
-    adBreakMinute, 
-    adBreakMinute2, 
-    adBreakDuration, 
-    adBreakDuration2,
-    handleSmartAdDetection
+    autoAdDetectionEnabled,
+    isTimerRunning,
+    isAdBreakActive,
+    adBreakMinute,
+    adBreakMinute2,
+    adBreakDuration,
+    adBreakDuration2, // ✅ ADD: Missing dependencies
+    !!audioPlayer?.audioRef?.current,
+    handleSmartAdDetection // ✅ ADD: Missing dependency
   ]);
 
   // Move the startAdBreakWithRemainingTime function BEFORE the startTimer function:
 
-  // Start ad break with specific remaining time - MOVED UP BEFORE startTimer
+  // Start ad break with specific remaining time - MOVED UP BEFORE startAdBreakWithRemainingTime
   const startAdBreakWithRemainingTime = useCallback((remainingMinutes) => {
     if (isAdBreakActive || audioPlayer.isTransitioning) return;
 
@@ -1138,8 +1115,25 @@ const handleSmartAdDetection = useCallback((detectionResult) => {
     }
   }, [isAdBreakActive, endAdBreak]);
 
-  // Remove the duplicate startAdBreakWithRemainingTime function at the bottom
+  // ✅ NEW: Function to cancel active ad break timer
+  const cancelAdBreakTimer = useCallback(() => {
+    console.log('🛑 User manually canceled ad break timer');
 
+    if (adBreakTimeoutRef.current) {
+      clearTimeout(adBreakTimeoutRef.current);
+      adBreakTimeoutRef.current = null;
+    }
+
+    // Keep the current state but remove the auto-end timer
+    setCurrentAdBreakTimeLeft(null);
+    window.currentAdBreakTimeLeft = null;
+
+    console.log('✅ Ad break timer canceled - staying in current mode indefinitely');
+
+    if (window.addNotification) {
+      window.addNotification('⏰ Timer gestopt - blijft in huidige modus', 'success', 3000);
+    }
+  }, []);
 
   // Add caching effects for all settings:
   useEffect(() => {
@@ -1199,7 +1193,41 @@ const handleSmartAdDetection = useCallback((detectionResult) => {
     startTimer,
     stopTimer,
     startAdBreakWithRemainingTime,
+    cancelAdBreakTimer, // ✅ ADD: Export the new function
     nextAdBreakInFormatted: formatTimeRemaining(getNextAdBreakTime()),
     getAdBreakModeDescription
   };
+};
+
+// ✅ NEW: Configurable detection window settings
+const DETECTION_WINDOW_MINUTES = 4; // Minutes before/after ad break times to listen for detection
+
+// ✅ ADD: Missing function that's being called in handleSmartAdDetection
+const getStartDetectionWindows = (adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2) => {
+  const windows = [];
+
+  // Ad break 1 start detection window
+  const startWindow1 = {
+    type: 'start_detection',
+    breakNumber: 1,
+    startMinute: (adBreakMinute - DETECTION_WINDOW_MINUTES + 60) % 60,
+    endMinute: (adBreakMinute + DETECTION_WINDOW_MINUTES) % 60,
+    targetMinute: adBreakMinute,
+    duration: adBreakDuration,
+    windowSize: DETECTION_WINDOW_MINUTES * 2
+  };
+
+  // Ad break 2 start detection window
+  const startWindow2 = {
+    type: 'start_detection',
+    breakNumber: 2,
+    startMinute: (adBreakMinute2 - DETECTION_WINDOW_MINUTES + 60) % 60,
+    endMinute: (adBreakMinute2 + DETECTION_WINDOW_MINUTES) % 60,
+    targetMinute: adBreakMinute2,
+    duration: adBreakDuration2,
+    windowSize: DETECTION_WINDOW_MINUTES * 2
+  };
+
+  windows.push(startWindow1, startWindow2);
+  return windows;
 };

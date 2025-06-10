@@ -6,10 +6,12 @@ const AudioPlayer = ({
   currentStation,
   isPlaying,
   volume,
-  onTogglePlayPause, // ✅ ADD: This prop was missing from the destructuring
+  onTogglePlayPause,
   onVolumeChange,
   isAdBreakActive,
   nextAdBreakIn,
+  currentAdBreakTimeLeft, // ✅ ADD: This prop
+  onCancelAdBreakTimer,   // ✅ ADD: This prop
   currentSource,
   error,
   playlistShuffle,
@@ -49,7 +51,7 @@ const AudioPlayer = ({
   const handleVolumeIconClick = () => {
     if (isMuted || volume === 0) {
       // Unmute - restore previous volume
-      const restoreVolume = previousVolume > 0 ? previousVolume : 0.7;
+      const restoreVolume = previousVolume > 0 ? previousVolume : 0.5;
       onVolumeChange(restoreVolume);
       setIsMuted(false);
     } else {
@@ -315,6 +317,14 @@ const AudioPlayer = ({
   // Add validation check
   const isPlaylistValid = playlistInfo?.isValid;
 
+  // ✅ NEW: Format ad break timer display
+  const formatAdBreakTimer = (timeLeft) => {
+    if (!timeLeft) return '';
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
+
   return (
     <div className="bg-gray-900 border-b border-gray-700 p-4">
       <div className="max-w-6xl mx-auto">
@@ -438,13 +448,37 @@ const AudioPlayer = ({
               </div>
             )}
 
-            {/* Ad Break Status */}
+            {/* Ad Break Status - ENHANCED with timer and cancel button */}
             {isAdBreakActive ? (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
-                </svg>
-                <span>Reclamepauze Actief</span>
+              <div className="flex items-center space-x-3">
+                {/* Timer Display with Cancel Button */}
+                {currentAdBreakTimeLeft !== null ? (
+                  <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                    </svg>
+                    <span>Pauze eindigt over:</span>
+                    <span className="font-mono bg-purple-700 px-2 py-0.5 rounded">
+                      {formatAdBreakTimer(currentAdBreakTimeLeft)}
+                    </span>
+                    <button
+                      onClick={onCancelAdBreakTimer}
+                      className="ml-2 w-5 h-5 rounded-full bg-purple-700 hover:bg-purple-800 text-white flex items-center justify-center text-xs transition-colors"
+                      title="Niet eindigen"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  // Fallback display if timer is not available
+                  <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
+                    </svg>
+                    <span>Reclamepauze Actief</span>
+                  </div>
+                )}
               </div>
             ) : (
               nextAdBreakIn && (

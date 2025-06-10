@@ -197,8 +197,8 @@ const handleTestDetection = async () => {
     console.log('🛑 Stopping ad detection test...');
     
     // ✅ CRITICAL FIX: Store current volume BEFORE stopping detection
-    const currentVolume = audioPlayer?.audioRef?.current?.volume || audioPlayer?.volume || 0.7;
-    const currentVolumeSlider = audioPlayer?.volume || 0.7; // UI volume
+    const currentVolume = audioPlayer?.audioRef?.current?.volume || audioPlayer?.volume || 0.5;
+    const currentVolumeSlider = audioPlayer?.volume || 0.5; // UI volume
     
     console.log(`🔊 Preserving volume before test cleanup: Audio=${Math.round(currentVolume * 100)}%, UI=${Math.round(currentVolumeSlider * 100)}%`);
     
@@ -284,14 +284,21 @@ const handleTestDetection = async () => {
 
   try {
     const { setupTestDetection } = await import('../utils/musicDetection');
+const detector = await setupTestDetection(
+  audioPlayer.audioRef.current,
+  (result) => {
+    // ✅ NEW: Handle warm-up results differently
+    if (result.isWarmingUp || result.showAsListening) {
+      setDetectionResult(result);
+      setDetectionStatus('warming_up'); // Set a specific warm-up status
+      return;
+    }
 
-    const detector = await setupTestDetection(
-      audioPlayer.audioRef.current,
-      (result) => {
-        setDetectionResult(result);
-        setDetectionStatus(result.isMusic ? 'music' : 'no-music');
-      }
-    );
+    // ✅ Regular results after warm-up
+    setDetectionResult(result);
+    setDetectionStatus(result.isMusic ? 'music' : 'no-music');
+  }
+);
 
     detectorRef.current = detector;
     setDetectionStatus('listening');
@@ -334,25 +341,40 @@ const handleTestDetection = async () => {
       return { text: 'Niet actief', color: 'text-gray-400' };
     }
 
+    // ✅ NEW: Handle warm-up phase
+    if (detectionResult?.isWarmingUp || detectionResult?.showAsListening) {
+      return { 
+        text: detectionResult.displayStatus || `Opstarten...`, 
+        color: 'text-yellow-400' 
+      };
+    }
+
     switch (detectionStatus) {
+      case 'initializing':
+        return { text: '🔧 Initializing...', color: 'text-blue-400' };
+        case 'warming_up': 
+         return { 
+      text: detectionResult?.displayStatus || `Opstarten...`, 
+      color: 'text-yellow-400' 
+    };
       case 'listening':
-        return { text: 'Luistert...', color: 'text-blue-400' };
+        return { text: '👂 Listening...', color: 'text-blue-400' };
       case 'processing':
-        return { text: 'Verwerkt...', color: 'text-yellow-400' };
+        return { text: '⚙️ Processing...', color: 'text-yellow-400' };
       case 'music':
         return {
-          text: `Muziek `,
+          text: `🎵 Muziek`,
           color: 'text-green-400'
         };
       case 'no-music':
         return {
-          text: `Geen muziek `,
+          text: `📢 Geen Muziek`,
           color: 'text-orange-400'
         };
       case 'error':
-        return { text: 'Fout', color: 'text-red-400' };
+        return { text: '❌ Error', color: 'text-red-400' };
       default:
-        return { text: 'Onbekend', color: 'text-gray-400' };
+        return { text: 'Unknown', color: 'text-gray-400' };
     }
   };
 
@@ -413,48 +435,47 @@ const handleTestDetection = async () => {
               disabled={
                 !isModeValid() ||
                 (audioPlayer && audioPlayer.isTransitioning) ||
-                isManualTestInProgress || // ← Add this new state
-                audioPlayer.isOperationInProgress // ← Add this if exposed
+                isManualTestInProgress
               }
-              className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${isManualTestActive
-                ? 'bg-orange-600 hover:bg-orange-500 text-white'
-                : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
-                }`}
-              title={
-                !isModeValid()
-                  ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist in' : 'Modus niet beschikbaar')
-                  : (audioPlayer && (audioPlayer.isTransitioning || audioPlayer.isOperationInProgress))
-                    ? 'Bezig met audio operatie...'
-                    : ''
-              }
-            >
-              {isManualTestActive ? 'Stop Test' : 'Test pauze'}
-            </button>
-            {!isTimerRunning ? (
-              <button
-                onClick={onStartTimer}
-                disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-                title={!isModeValid()
-                  ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist URL in' : 'Modus niet beschikbaar')
-                  : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
-              >
-                Activeren
-              </button>
-            ) : (
-              <button
-                onClick={onStopTimer}
-                disabled={audioPlayer && audioPlayer.isTransitioning}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-                title={(audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : ''}
-              >
-                Deactiveren
-              </button>
-            )}
-          </div>
-        </div>
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${isManualTestActive
+                        ? 'bg-orange-600 hover:bg-orange-500 text-white'
+                        : 'bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
+                        }`}
+                        title={
+                        !isModeValid()
+                          ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist in' : 'Modus niet beschikbaar')
+                          : (audioPlayer && (audioPlayer.isTransitioning || audioPlayer.isOperationInProgress))
+                          ? 'Bezig met audio operatie...'
+                          : ''
+                        }
+                      >
+                        {isManualTestActive ? 'Stop Test' : 'Test pauze'}
+                      </button>
+                      {!isTimerRunning ? (
+                        <button
+                        onClick={onStartTimer}
+                        disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
+                        title={!isModeValid()
+                          ? (adBreakMode === 'playlist' ? 'Voer eerst een geldige playlist URL in' : 'Modus niet beschikbaar')
+                          : (audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : 'Klik om radio/playlist switching aan te zetten'}
+                        >
+                        Activeer
+                        </button>
+                      ) : (
+                        <button
+                        onClick={onStopTimer}
+                        disabled={audioPlayer && audioPlayer.isTransitioning}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
+                        title={(audioPlayer && audioPlayer.isTransitioning) ? 'Even wachten...' : 'Klik om radio/playlist switching uit te zetten'}
+                        >
+                        Deactiveer
+                        </button>
+                      )}
+                      </div>
+                    </div>
 
-        {/* Collapsible Content */}
+                    {/* Collapsible Content */}
         {isExpanded && (
           <div className="space-y-4">
             {/* Ad Break Mode Selector */}
@@ -589,7 +610,7 @@ const handleTestDetection = async () => {
                         </button>
                         {showAdDetectionTooltip && (
                           <div className="absolute left-6 top-0 z-50 w-64 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
-                            Gebruikt AI om beter te detecteren wanneer muziek niet meer speelt, rondom de ingestelde tijdstippen.
+                            Gebruikt AI om te detecteren wanneer muziek niet meer speelt, schakelt vervolgens naar playlist. Werkt niet perfect. Test het hieronder.
                           </div>
                         )}
                       </div>
@@ -638,7 +659,15 @@ const handleTestDetection = async () => {
                           <div className="flex items-center gap-3 mb-2">
                             <span className="text-sm text-gray-300">Status:</span>
                             <span className={`text-sm font-medium ${getStatusDisplay().color}`}>
-                              {getStatusDisplay().text}{detectionResult && '|' + ' Zekerheid: ' + Math.round(detectionResult.confidence * 100) + '%'}
+                              {getStatusDisplay().text}
+                              {/* ✅ CRITICAL: Only show confidence AFTER warm-up */}
+                              {detectionResult && !detectionResult.isWarmingUp && 
+                                ' | Zekerheid: ' + Math.round(detectionResult.confidence * 100) + '%'
+                              }
+                              {/* ✅ NEW: Show warm-up progress if warming up */}
+                              {detectionResult?.isWarmingUp && detectionResult.warmupProgress !== undefined &&
+                                ` (${Math.round(detectionResult.warmupProgress)}%)`
+                              }
                             </span>
                           </div>
                         </div>

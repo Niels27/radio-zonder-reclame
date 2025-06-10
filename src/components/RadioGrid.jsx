@@ -22,8 +22,8 @@ const categories = [
     { key: 'local', label: 'Lokaal' },
     { key: 'religious', label: 'Religieus' },
     { key: 'specialty', label: 'Specialiteit' },
-    { key: 'nonstop', label: 'Non-stop' }
-    
+    { key: 'nonstop', label: 'Non-stop' },
+     { key: 'realnonstop', label: '' }
   ];
 // Progressive Logo Component with Fallback Support
 const StationLogo = ({ station, className = "w-full h-full" }) => {
@@ -464,16 +464,16 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
         </div>
 
         {/* Category filters */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {categories.map(category => (
+       <div className="flex flex-wrap gap-2 mb-6">
+          {categories.filter(category => category.key !== 'realnonstop').map(category => (
             <button
               key={category.key}
-              onClick={() => handleCategoryChange(category.key)} // ← Use the new handler
+              onClick={() => handleCategoryChange(category.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 selectedCategory === category.key
                   ? 'bg-radio-accent text-white'
                   : 'bg-radio-dark text-white hover:bg-gray-700'
-              } ${searchQuery.trim() && category.key === 'all' ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`} // ← Add visual indicator when auto-selected
+              } ${searchQuery.trim() && category.key === 'all' ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
             >
               {category.label}
               {category.key === 'favorites' && favorites.length > 0 && (

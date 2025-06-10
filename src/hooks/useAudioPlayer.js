@@ -53,7 +53,7 @@ const handleSpotifyProductionErrors = (error) => {
 export const useAudioPlayer = (playlistProvider = 'spotify') => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.7);
+  const [volume, setVolume] = useState(0.5);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState('');
   const [error, setError] = useState(null);
@@ -67,17 +67,17 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
   const [currentPlaylistProvider, setCurrentPlaylistProvider] = useState('youtube');
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
   const [forceUpdateCounter, setForceUpdateCounter] = useState(0);
-  
+
   const audioRef = useRef(null);
   const youtubePlayerRef = useRef(null);
   const spotifyPlayerRef = useRef(null);
   const timeoutRef = useRef(null);
   const connectionTimeoutRef = useRef(null);
-  
+
   // ✅ Volume synchronization refs
   const volumeRef = useRef(volume);
   const lastAppliedVolumeRef = useRef(volume);
-  
+
   // Refs to hold the latest state for use in event handlers
   const currentStationRef = useRef(currentStation);
   const isIntentionalStopRef = useRef(isIntentionalStop);
@@ -99,33 +99,74 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
   useEffect(() => {
     currentStationRef.current = currentStation;
   }, [currentStation]);
-  
+
   useEffect(() => {
     isIntentionalStopRef.current = isIntentionalStop;
   }, [isIntentionalStop]);
-  
+
   useEffect(() => {
     isTransitioningRef.current = isTransitioning;
   }, [isTransitioning]);
-  
+
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
-  // ✅ CRITICAL FIX: Enhanced volume synchronization with enforcement
-  const enforceVolumeSync = useCallback((targetVolume = volume) => {
+  // ✅ NEW: Enhanced Spotify volume enforcement - MOVED UP to fix initialization order
+  const enforceSpotifyVolumeSync = useCallback(async (targetVolume = volume) => {
+    if (currentSource !== 'playlist' || currentPlaylistProvider !== 'spotify') {
+      return; // Only sync when Spotify is active
+    }
+
+    if (!spotifyPlayerRef.current || !spotifyPlayerReady) {
+      return; // Only sync when Spotify player is ready
+    }
+
+    try {
+      const safeVolume = Math.max(0, Math.min(1, targetVolume));
+
+      // Method 1: SDK volume control (preferred)
+      try {
+        await spotifyPlayerRef.current.setVolume(safeVolume);
+        console.log(`🔊 Spotify volume synced via SDK: ${Math.round(safeVolume * 100)}%`);
+      } catch (sdkError) {
+        console.warn('SDK volume sync failed, trying Web API...');
+
+        // Method 2: Web API fallback
+        const { setSpotifyVolume } = await import('../utils/spotifyUtils');
+        await setSpotifyVolume(Math.round(safeVolume * 100));
+        console.log(`🔊 Spotify volume synced via Web API: ${Math.round(safeVolume * 100)}%`);
+      }
+
+    } catch (error) {
+      console.warn('Failed to sync Spotify volume:', error);
+    }
+  }, [volume, currentSource, currentPlaylistProvider, spotifyPlayerReady]);
+
+  // In useAudioPlayer.js, replace the volume synchronization logic:
+
+  // ✅ CRITICAL FIX: Volume isolation between sources
+  const sourceVolumeRef = useRef({
+    radio: 0.5,     // Separate volume for radio
+    spotify: 0.5,   // Separate volume for Spotify
+    youtube: 0.5    // Separate volume for YouTube
+  });
+
+  // Update the enforceVolumeSync function to be simpler and not cache source volumes:
+
+  const enforceVolumeSync = useCallback((targetVolume = volume, forceSync = false) => {
     const safeVolume = Math.max(0, Math.min(1, targetVolume));
-    
-    // Apply to radio audio
-    if (audioRef.current && currentSource === 'radio') {
+
+    // Apply to radio audio - ONLY sync if radio is active or force sync
+    if (audioRef.current && (currentSource === 'radio' || forceSync)) {
       const currentAudioVolume = audioRef.current.volume;
       if (Math.abs(currentAudioVolume - safeVolume) > 0.01) {
-        console.log(`🔊 Volume sync: Audio was ${Math.round(currentAudioVolume * 100)}%, setting to ${Math.round(safeVolume * 100)}%`);
+        //console.log(`🔊 Volume sync: Radio was ${Math.round(currentAudioVolume * 100)}%, setting to ${Math.round(safeVolume * 100)}%`);
         audioRef.current.volume = safeVolume;
       }
     }
-    
-    // Apply to YouTube
+
+    // Apply to YouTube - ONLY sync if YouTube is active
     if (youtubePlayerRef.current && youtubePlayerRef.current.setVolume && currentSource === 'playlist' && currentPlaylistProvider === 'youtube') {
       try {
         const youtubeVolume = youtubePlayerRef.current.getVolume();
@@ -138,37 +179,45 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         console.warn('Failed to sync YouTube volume:', error);
       }
     }
-    
-    // Apply to Spotify
-    if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current && currentSource === 'playlist') {
-      try {
-        const targetSpotifyVolume = safeVolume;
-        console.log(`🔊 Volume sync: Setting Spotify to ${Math.round(targetSpotifyVolume * 100)}%`);
-        spotifyPlayerRef.current.setVolume(targetSpotifyVolume);
-      } catch (error) {
-        console.warn('Failed to sync Spotify volume:', error);
-      }
-    }
-    
-    lastAppliedVolumeRef.current = safeVolume;
-  }, [volume, currentSource, currentPlaylistProvider]);
 
-  // Update volume when it changes - ALSO apply to currently playing audio
-  useEffect(() => {
-    // Force volume sync whenever volume changes
-    enforceVolumeSync(volume);
-  }, [volume, enforceVolumeSync]);
+    // Apply to Spotify - ONLY sync if Spotify is active
+    if (currentSource === 'playlist' && currentPlaylistProvider === 'spotify') {
+      enforceSpotifyVolumeSync(safeVolume);
+    }
+
+    lastAppliedVolumeRef.current = safeVolume;
+  }, [volume, currentSource, currentPlaylistProvider, enforceSpotifyVolumeSync]);
+
+  // ✅ CRITICAL FIX: Enhanced setVolume with source switching protection
+  const setVolumeWithEnforcement = useCallback((newVolume) => {
+    const safeVolume = Math.max(0, Math.min(1, newVolume));
+   // console.log(`🔊 Setting volume to ${Math.round(safeVolume * 100)}% for source: ${currentSource}`);
+
+    // Update React state
+    setVolume(safeVolume);
+    volumeRef.current = safeVolume;
+
+    // ✅ CRITICAL: Store volume for current source
+    if (currentSource) {
+      sourceVolumeRef.current[currentSource] = safeVolume;
+     // console.log(`🔊 Cached ${currentSource} volume: ${Math.round(safeVolume * 100)}%`);
+    }
+
+    // Only apply to currently active source
+    enforceVolumeSync(safeVolume, false); // Don't force sync to inactive sources
+
+  }, [enforceVolumeSync, currentSource]);
 
   // Initialize audio element - runs ONCE on mount
   useEffect(() => {
     console.log('🎧 Initializing Audio element...');
     audioRef.current = new Audio();
-    
+
     // ✅ CRITICAL: Set initial volume immediately and track it
     audioRef.current.volume = volume;
     lastAppliedVolumeRef.current = volume;
     volumeRef.current = volume;
-    
+
     audioRef.current.crossOrigin = 'anonymous';
 
     const audio = audioRef.current;
@@ -177,11 +226,11 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     const handleVolumeChange = () => {
       const actualVolume = audio.volume;
       const expectedVolume = volumeRef.current;
-      
+
       if (Math.abs(actualVolume - expectedVolume) > 0.01) {
         console.warn(`🚨 Volume desync detected! Audio: ${Math.round(actualVolume * 100)}%, Expected: ${Math.round(expectedVolume * 100)}%`);
         console.warn('🔧 Forcing volume correction...');
-        
+
         // Force correct the volume
         audio.volume = expectedVolume;
         lastAppliedVolumeRef.current = expectedVolume;
@@ -199,12 +248,12 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       console.error('🎧 Audio element error:', mediaError ? `Code: ${mediaError.code}, Message: ${mediaError.message}` : 'Unknown error', event);
 
       if (!isIntentionalStopRef.current &&
-          !isTransitioningRef.current &&
-          !window.isAdBreakActive &&
-          audioRef.current?.src) {
-        
-        const errorMessage = mediaError ? 
-          `Stream fout: ${mediaError.message || 'Onbekende fout'}` : 
+        !isTransitioningRef.current &&
+        !window.isAdBreakActive &&
+        audioRef.current?.src) {
+
+        const errorMessage = mediaError ?
+          `Stream fout: ${mediaError.message || 'Onbekende fout'}` :
           'Stream niet beschikbaar';
         setError(errorMessage);
         setIsLoading(false);
@@ -235,19 +284,19 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     const handlePlayingEvent = () => {
       console.log('🎧 Audio: native "playing" event fired.');
-      
+
       // ✅ CRITICAL: Enforce volume when audio starts playing
       setTimeout(() => {
         enforceVolumeSync(volumeRef.current);
       }, 100);
-      
+
       setIsLoading(false);
       setIsPlaying(true);
     };
 
     const handleLoadedData = () => {
       console.log('🎧 Audio: loadeddata event - enforcing volume');
-      
+
       // ✅ CRITICAL: Enforce volume as soon as audio data is loaded
       setTimeout(() => {
         enforceVolumeSync(volumeRef.current);
@@ -256,7 +305,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     const handleCanPlay = () => {
       console.log('🎧 Audio: canplay event - final volume enforcement');
-      
+
       // ✅ CRITICAL: Final volume enforcement when audio is ready to play
       setTimeout(() => {
         enforceVolumeSync(volumeRef.current);
@@ -297,7 +346,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       if (audioRef.current && currentSource === 'radio' && isPlaying) {
         const actualVolume = audioRef.current.volume;
         const expectedVolume = volumeRef.current;
-        
+
         if (Math.abs(actualVolume - expectedVolume) > 0.01) {
           console.warn(`🚨 Volume drift detected! Correcting ${Math.round(actualVolume * 100)}% → ${Math.round(expectedVolume * 100)}%`);
           audioRef.current.volume = expectedVolume;
@@ -309,29 +358,50 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     return () => clearInterval(volumeVerificationInterval);
   }, [currentSource, isPlaying]);
 
-  // ✅ CRITICAL FIX: Enhanced setVolume function that immediately applies and verifies
-  const setVolumeWithEnforcement = useCallback((newVolume) => {
-    const safeVolume = Math.max(0, Math.min(1, newVolume));
-    //console.log(`🔊 Setting volume to ${Math.round(safeVolume * 100)}%`);
-    
-    // Update React state
-    setVolume(safeVolume);
-    volumeRef.current = safeVolume;
-    
-    // Immediately apply to all active audio sources
-    enforceVolumeSync(safeVolume);
-    
-    // Verify after a short delay
-    setTimeout(() => {
+  // Add this to useAudioPlayer.js to prevent runaway volume increases:
+
+  // Add this effect after the existing volume verification:
+  useEffect(() => {
+    const emergencyVolumeProtection = setInterval(() => {
       if (audioRef.current && currentSource === 'radio') {
         const actualVolume = audioRef.current.volume;
-        if (Math.abs(actualVolume - safeVolume) > 0.01) {
-          console.warn(`🚨 Volume verification failed! Re-applying ${Math.round(safeVolume * 100)}%`);
+        const expectedVolume = volumeRef.current;
+
+        // ✅ EMERGENCY: Detect runaway volume increases
+        if (actualVolume > expectedVolume + 0.1) { // More than 10% higher than expected
+          console.error(`🚨 EMERGENCY: Runaway volume detected! Audio=${Math.round(actualVolume * 100)}%, Expected=${Math.round(expectedVolume * 100)}%`);
+
+          // Force immediate correction
+          audioRef.current.volume = expectedVolume;
+
+          // Emergency notification
+          if (window.addNotification) {
+            window.addNotification(`🚨 Volume-noodstop toegepast! ${Math.round(expectedVolume * 100)}%`, 'error', 5000);
+          }
+
+          // Log the issue
+          console.error('🚨 This indicates a serious volume control bug - check music detection system!');
+        }
+
+        // ✅ EMERGENCY: Detect any volume above safe threshold
+        if (actualVolume > 0.9) { // Above 90%
+          console.error(`🚨 EMERGENCY: Dangerous volume level detected! ${Math.round(actualVolume * 100)}%`);
+
+          // Cap at safe level
+          const safeVolume = Math.min(0.8, expectedVolume);
           audioRef.current.volume = safeVolume;
+          setVolume(safeVolume);
+          volumeRef.current = safeVolume;
+
+          if (window.addNotification) {
+            window.addNotification(`🚨 Volume noodstop: ${Math.round(safeVolume * 100)}%`, 'error', 5000);
+          }
         }
       }
-    }, 100);
-  }, [enforceVolumeSync, currentSource]);
+    }, 500); // Check every 500ms for emergency situations
+
+    return () => clearInterval(emergencyVolumeProtection);
+  }, [currentSource]);
 
   // Manual Spotify player initialization
   const manualInitializeSpotifyPlayer = useCallback(async () => {
@@ -630,9 +700,31 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         return;
       }
 
-      // ✅ CRITICAL: Store current volume before changing source
-      const currentVolumeToApply = volumeRef.current;
-      console.log(`🔊 Preparing to apply volume ${Math.round(currentVolumeToApply * 100)}% to new radio stream`);
+      // ✅ CRITICAL FIX: Clean audio element reset to prevent corruption
+      if (audioRef.current) {
+        console.log('🔄 Resetting audio element to prevent corruption');
+
+        // Store the desired volume BEFORE any manipulation
+        const targetVolume = volumeRef.current;
+        console.log(`🔊 Target volume for radio: ${Math.round(targetVolume * 100)}%`);
+
+        // ✅ STEP 1: Clean stop and reset audio element
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.src = '';
+
+        // ✅ STEP 2: Force reload to reset internal state
+        audioRef.current.load();
+
+        // ✅ STEP 3: Wait for reset to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // ✅ STEP 4: Set volume BEFORE setting new source
+        audioRef.current.volume = targetVolume;
+        lastAppliedVolumeRef.current = targetVolume;
+
+        console.log(`🔊 Audio element reset complete, volume set to ${Math.round(targetVolume * 100)}%`);
+      }
 
       // Stop any existing audio before starting new stream
       if (currentSource === 'playlist') {
@@ -645,7 +737,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
             console.warn('Error stopping YouTube:', error);
           }
         }
-        
+
         // Stop Spotify
         if (spotifyPlayerRef.current) {
           try {
@@ -656,6 +748,13 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         }
       }
 
+      // ✅ CRITICAL FIX: Use current UI volume, not cached source volume
+      const radioVolume = volumeRef.current; // Use actual current volume
+      console.log(`🔊 Using current UI volume for radio: ${Math.round(radioVolume * 100)}%`);
+
+      // ✅ CRITICAL: Update source-specific cache AFTER setting volume
+      sourceVolumeRef.current.radio = radioVolume;
+
       // Ensure audio element exists and prepare it
       if (!audioRef.current) {
         console.error('🚨 Audio element not available!');
@@ -663,76 +762,68 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         return;
       }
 
-      // ✅ CRITICAL: Pre-set volume before loading new source
-      audioRef.current.volume = currentVolumeToApply;
-      lastAppliedVolumeRef.current = currentVolumeToApply;
-      
-      console.log(`🔊 Pre-set audio volume to ${Math.round(currentVolumeToApply * 100)}% before loading`);
-
-      // Pause and reset current audio
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      // ✅ CRITICAL: Verify volume is correctly set
+      if (Math.abs(audioRef.current.volume - radioVolume) > 0.01) {
+        console.warn(`🔄 Volume correction needed: ${Math.round(audioRef.current.volume * 100)}% → ${Math.round(radioVolume * 100)}%`);
+        audioRef.current.volume = radioVolume;
+      }
 
       // Set new source
+      console.log(`🔗 Setting new radio source: ${workingUrl}`);
       audioRef.current.src = workingUrl;
-      
-      // ✅ CRITICAL: Add one-time event listener for when audio is ready
-      const handleCanPlayOnce = () => {
-        console.log(`🔊 Audio ready - enforcing volume ${Math.round(currentVolumeToApply * 100)}%`);
-        audioRef.current.volume = currentVolumeToApply;
-        audioRef.current.removeEventListener('canplay', handleCanPlayOnce);
-      };
-      
-      audioRef.current.addEventListener('canplay', handleCanPlayOnce, { once: true });
 
       setCurrentSource('radio');
       setError(null);
 
+      // ✅ CRITICAL FIX: Enhanced volume monitoring during load and play
+      const volumeMonitor = setInterval(() => {
+        if (audioRef.current) {
+          const currentVol = audioRef.current.volume;
+          const expectedVol = radioVolume;
+
+          if (Math.abs(currentVol - expectedVol) > 0.01) {
+            console.warn(`🔊 Volume drift during load: ${Math.round(currentVol * 100)}% → ${Math.round(expectedVol * 100)}%`);
+            audioRef.current.volume = expectedVol;
+          }
+        }
+      }, 100); // Check every 100ms during critical period
+
       // Load and play
       try {
         await audioRef.current.load();
-        
-        // ✅ CRITICAL: Enforce volume again after load
-        audioRef.current.volume = currentVolumeToApply;
-        
+
+        // ✅ CRITICAL: Verify volume after load
+        if (Math.abs(audioRef.current.volume - radioVolume) > 0.01) {
+          console.warn(`🔊 Volume reset during load, correcting: ${Math.round(audioRef.current.volume * 100)}% → ${Math.round(radioVolume * 100)}%`);
+          audioRef.current.volume = radioVolume;
+        }
+
         await audioRef.current.play();
-        
-        // ✅ CRITICAL: Final volume enforcement after play starts
-        setTimeout(() => {
-          if (audioRef.current) {
-            console.log(`🔊 Final volume enforcement: ${Math.round(currentVolumeToApply * 100)}%`);
-            audioRef.current.volume = currentVolumeToApply;
-            lastAppliedVolumeRef.current = currentVolumeToApply;
-          }
-        }, 200);
 
-        // ✅ NEW: Add pre-roll skip detection AFTER successful play
+        // Clear volume monitor after successful play
+        clearInterval(volumeMonitor);
+
+        // ✅ CRITICAL: Final volume verification
         setTimeout(() => {
-          if (audioRef.current && AdSkipUtils.shouldOfferPrerollSkip(workingUrl, effectiveStationData.name)) {
-            console.log('🎵 Offering pre-roll skip for:', effectiveStationData.name);
-            
-            const skipButton = AdSkipUtils.createPrerollSkipButton(
-              audioRef.current,
-              () => {
-                console.log('✅ Pre-roll skipped for:', effectiveStationData.name);
-                if (window.addNotification) {
-                  window.addNotification('⏭️ Pre-roll reclame overgeslagen', 'success', 2000);
-                }
+          if (audioRef.current && currentSource === 'radio') {
+            const finalVolume = audioRef.current.volume;
+            const uiVolume = volumeRef.current;
+
+            console.log(`🔊 Final volume check: Audio=${Math.round(finalVolume * 100)}%, UI=${Math.round(uiVolume * 100)}%`);
+
+            if (Math.abs(finalVolume - uiVolume) > 0.01) {
+              console.warn(`🚨 Final volume mismatch detected, correcting...`);
+              audioRef.current.volume = uiVolume;
+
+              if (window.addNotification) {
+                window.addNotification(`🔊 Volume gecorrigeerd naar ${Math.round(uiVolume * 100)}%`, 'info', 2000);
               }
-            );
-            
-            // Auto-skip if enabled
-            const isAutoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
-            if (isAutoSkipEnabled) {
-              console.log('🤖 Auto-skip is enabled, will auto-click after 0.8s');
             }
-          } else {
-            console.log('🚫 Not offering pre-roll skip for:', effectiveStationData.name, 'Score:', AdSkipUtils.getAdFreeScore(workingUrl));
           }
-        }, 1000); // Wait 1 second after play starts
+        }, 1000);
 
-        console.log(`✅ Successfully playing: ${effectiveStationData.name} at ${Math.round(currentVolumeToApply * 100)}% volume`);
-        
+        console.log(`✅ Successfully playing: ${effectiveStationData.name} at ${Math.round(radioVolume * 100)}% volume`);
+
         setIsPlaying(true);
         setIsLoading(false);
         setLoadingProgress('');
@@ -748,6 +839,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         }
 
       } catch (playError) {
+        clearInterval(volumeMonitor);
         console.error('🚨 Failed to play audio:', playError);
         setError(`Kon ${effectiveStationData.name} niet afspelen: ${playError.message}`);
         setIsLoading(false);
@@ -759,7 +851,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       setError(`Fout bij ${effectiveStationData.name}: ${error.message}`);
       setIsLoading(false);
       setIsPlaying(false);
-      
+
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
@@ -767,7 +859,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     } finally {
       setCurrentConnectionAttempt(null);
     }
-  }, [currentConnectionAttempt, isTransitioning, playlistProvider, currentSource, isRadioPausedForAdBreak, enforceVolumeSync]);
+  }, [currentConnectionAttempt, isTransitioning, playlistProvider, currentSource, isRadioPausedForAdBreak]);
 
   // STOP RADIO - Clean stop for radio only
   const stopRadio = useCallback(() => {
@@ -904,19 +996,19 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     if (currentSource === 'playlist') {
       if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
         try {
-          await spotifyPlayerRef.current.pause();
-          console.log('🎵 Stopped existing Spotify playlist');
+          const { pauseSpotify } = await import('../utils/spotifyUtils');
+          pauseSpotify();
         } catch (error) {
-          console.warn('Could not stop Spotify:', error);
+          console.warn('Could not pause existing Spotify player:', error);
         }
       }
 
       if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
         try {
-          youtubePlayerRef.current.closePopup('replaced');
-          console.log('🎵 Stopped existing YouTube playlist');
+          youtubePlayerRef.current.pauseVideo();
+          youtubePlayerRef.current.stopVideo();
         } catch (error) {
-          console.warn('Could not stop YouTube:', error);
+          console.warn('Could not stop existing YouTube player:', error);
         }
       }
     }
@@ -930,23 +1022,14 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       if (provider === 'spotify') {
         console.log('🎵 Starting Spotify playlist');
 
-        // ✅ FIX: Better Spotify player availability check
         if (!spotifyPlayerRef.current || !spotifyPlayerReady) {
-          console.log('🎵 Spotify player not ready - attempting manual initialization...');
-          try {
-            await manualInitializeSpotifyPlayer();
-            // Wait a bit more for player to be fully ready
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } catch (initError) {
-            console.error('Failed to initialize Spotify player:', initError);
-            throw new Error('Kon Spotify player niet initialiseren. Probeer opnieuw.');
-          }
+          console.log('🎵 Spotify player not ready - initializing...');
+          await manualInitializeSpotifyPlayer();
         }
 
         console.log('🎵 Waiting briefly for Spotify player...');
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // ✅ FIX: More robust player availability check
         let attempts = 0;
         const maxAttempts = 10;
 
@@ -956,43 +1039,49 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
           attempts++;
         }
 
-        // ✅ FIX: Final check with better error message
         if (!spotifyPlayerRef.current || !window.audioPlayer?.spotifyPlayerReady) {
-          console.error('🎵 Spotify player still not available after waiting');
-          throw new Error('Spotify player is nog niet klaar. Wacht even en probeer opnieuw.');
+          throw new Error('Spotify player is not available after initialization');
         }
 
-        // ✅ FIX: Extract playlist ID from public URL if needed
         let actualPlaylistId = playlistId;
         if (typeof playlistId === 'string' && playlistId.includes('open.spotify.com')) {
           const match = playlistId.match(/playlist\/([a-zA-Z0-9]+)/);
           if (match) {
             actualPlaylistId = match[1];
-            console.log('🎵 Extracted playlist ID from URL:', actualPlaylistId);
-          } else {
-            throw new Error('Kon playlist ID niet extraheren uit URL');
           }
         }
 
-        // ✅ FIX: Use the Spotify utils function for playing
         const { playSpotifyPlaylist } = await import('../utils/spotifyUtils');
         await playSpotifyPlaylist(actualPlaylistId, options.shuffle || false);
 
         console.log('🎵 Spotify playlist gestart');
 
+        // ✅ CRITICAL FIX: Set isPlaying to true when Spotify starts playing
+        setIsPlaying(true);
+
         if (window.addNotification) {
-          window.addNotification('🎵 Spotify playlist gestart', 'success', 2000);
+          window.addNotification('🎵 Spotify afspeellijst gestart', 'success', 3000);
         }
+
+        setTimeout(async () => {
+          enforceSpotifyVolumeSync(volume);
+        }, 1000);
       } else {
+        // ✅ CRITICAL: Use YouTube-specific volume
+        const youtubeVolume = sourceVolumeRef.current.youtube || volumeRef.current;
+        console.log(`🔊 Using YouTube volume: ${Math.round(youtubeVolume * 100)}%`);
+
+        // ✅ CRITICAL: Update UI to match YouTube volume
+        setVolume(youtubeVolume);
+        volumeRef.current = youtubeVolume;
+
         // Enhanced YouTube popup with ad break integration
         console.log('🎵 Opening YouTube playlist in popup');
 
         setLoadingProgress('YouTube player openen...');
 
-        // Pass ad break duration for auto-close
         const enhancedOptions = {
           ...options,
-          // If we're in an ad break, pass the remaining time for auto-close
           autoCloseDuration: window.isAdBreakActive && window.currentAdBreakTimeLeft
             ? Math.ceil(window.currentAdBreakTimeLeft / 60)
             : options.duration
@@ -1001,33 +1090,16 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
         const success = await popupYouTubePlayer.playPlaylist(playlistId, enhancedOptions);
 
         if (success) {
-          youtubePlayerRef.current = popupYouTubePlayer;
-          setCurrentPlaylistProvider('youtube');
+          console.log('🎵 YouTube playlist popup geopend');
+
+          // ✅ CRITICAL FIX: Set isPlaying to true when YouTube starts playing
           setIsPlaying(true);
 
-          // ✅ FIX: Sync initial volume and shuffle state
-          youtubePlayerRef.current.setVolume(volume * 100);
-          youtubePlayerRef.current.setShuffle(options.shuffle || false);
-
-          // Enhanced callback for ad break integration
-          popupYouTubePlayer.onClose((reason) => {
-            console.log('🎵 YouTube popup closed, reason:', reason);
-            setIsPlaying(false);
-            setCurrentSource(null);
-
-            if (reason === 'ad_break_ended') {
-              console.log('🎵 YouTube popup auto-closed - ad break ended');
-            } else if (reason === 'user_close') {
-              console.log('🎵 User manually closed YouTube popup');
-              if (window.addNotification) {
-                window.addNotification('🎵 YouTube muziek gestopt', 'info', 2000);
-              }
-            }
-          });
-
-          console.log('🎵 ✅ YouTube popup opened successfully');
+          if (window.addNotification) {
+            window.addNotification('🎵 YouTube afspeellijst popup geopend', 'success', 3000);
+          }
         } else {
-          throw new Error('Could not open YouTube popup');
+          throw new Error('Kon YouTube popup niet openen');
         }
       }
 
@@ -1035,12 +1107,14 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     } catch (error) {
       console.error('Failed to load playlist:', error);
       setError(`Kon playlist niet laden: ${error.message}`);
+      // ✅ FIX: Reset isPlaying on error
+      setIsPlaying(false);
       throw error;
     } finally {
       setIsLoading(false);
       setIsTransitioning(false);
     }
-  }, [volume, pauseRadioForAdBreak, isTransitioning, currentPlaylistProvider, spotifyPlayerReady, currentSource, isRadioPausedForAdBreak, manualInitializeSpotifyPlayer]);
+  }, [volume, pauseRadioForAdBreak, isTransitioning, currentPlaylistProvider, spotifyPlayerReady, currentSource, isRadioPausedForAdBreak, manualInitializeSpotifyPlayer, enforceSpotifyVolumeSync]);
 
   // ✅ FIX: Enhanced pauseAudio with better cleanup
   const pauseAudio = useCallback(() => {
@@ -1272,6 +1346,31 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     const interval = setInterval(enforceAudioGlobally, 5000);
     return () => clearInterval(interval);
   }, [enforceAudioGlobally]);
+
+  // Add this emergency volume protection:
+
+  // ✅ EMERGENCY: Volume spike protection
+  const safeVolumeChange = useCallback((newVolume, source = currentSource) => {
+    const currentAudioVolume = audioRef.current?.volume || 0;
+    const volumeIncrease = newVolume - currentAudioVolume;
+
+    // ✅ EMERGENCY: Prevent dangerous volume spikes
+    if (volumeIncrease > 0.3) { // More than 30% increase
+      console.warn(`🚨 DANGEROUS VOLUME SPIKE PREVENTED: ${Math.round(currentAudioVolume * 100)}% → ${Math.round(newVolume * 100)}%`);
+
+      // Gradually increase volume instead
+      const safeNewVolume = Math.min(newVolume, currentAudioVolume + 0.2);
+      console.log(`🔊 Safe volume applied: ${Math.round(safeNewVolume * 100)}%`);
+
+      if (window.addNotification) {
+        window.addNotification(`🔊 Volume aangepast voor veiligheid: ${Math.round(safeNewVolume * 100)}%`, 'warning', 3000);
+      }
+
+      return safeNewVolume;
+    }
+
+    return newVolume;
+  }, [currentSource]);
 
   return {
     currentStation,

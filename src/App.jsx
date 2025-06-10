@@ -46,9 +46,15 @@ function App() {
   // Clear error after 5 seconds and show notification
   useEffect(() => {
     if (audioPlayer.error) {
-      if (window.showNotification) {
+      // ✅ FIX: Don't show error notifications for empty src attribute errors
+      const isEmptySrcError = audioPlayer.error.includes('Empty src attribute') || 
+                             audioPlayer.error.includes('MEDIA_ELEMENT_ERROR') ||
+                             audioPlayer.error.includes('Code: 4');
+      
+      if (!isEmptySrcError && window.showNotification) {
         window.showNotification(audioPlayer.error, 'error', 5000);
       }
+      
       const timer = setTimeout(() => {
         audioPlayer.setError(null);
       }, 5000);

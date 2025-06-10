@@ -7877,8 +7877,8 @@ export const allRadioStations = {
   }
   },
   "realnonstop":{
-   "Alex FM Non Stop Hits": {
-      "name": "Alex FM Non Stop Hits",
+   "Alex FM Non Stop Hits ": {
+      "name": "Alex FM Non Stop Hits ",
       "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
       "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
       "description": "Populaire hits",
@@ -7886,8 +7886,8 @@ export const allRadioStations = {
       "city": null,
       "votes": 7
     },
-    "Non Stop AlexFM": {
-      "name": "Non Stop AlexFM",
+    "Non Stop AlexFM ": {
+      "name": "Non Stop AlexFM ",
       "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
       "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
       "description": "Non stop muziek",
