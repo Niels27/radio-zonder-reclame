@@ -33,6 +33,21 @@ let failedStreams = new Set();
 let currentLofiOverlay = null;
 
 export const getNextLofiStream = () => {
+  // Check for custom lofi URL first
+  try {
+    const customUrl = localStorage.getItem('custom_lofi_url');
+    if (customUrl && customUrl.trim()) {
+      return {
+        name: "Custom Lofi Stream",
+        url: customUrl.trim(),
+        type: "youtube_video"
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to get custom lofi URL:', error);
+  }
+
+  // Fall back to default streams
   let attempts = 0;
   let stream = null;
   

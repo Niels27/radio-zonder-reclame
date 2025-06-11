@@ -12,6 +12,7 @@ import {
   isLofiOverlayOpen        // ← Updated import
 } from '../utils/lofiUtils.js';
 import { setupAdDetection } from '../utils/musicDetection.js';
+import CommunityTimings from '../utils/communityTimings.js';
 
 // Add caching functionality to the useAdBreakTimer hook:
 
@@ -60,19 +61,34 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   const [shouldPlayPlaylistDuringAdBreak, setShouldPlayPlaylistDuringAdBreak] = useState(false); const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
   const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);
   const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
-  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false); // ← New state
-
-  // Automatic ad detection states
+  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false); // ← New state  // Automatic ad detection states - DISABLED: Music detection temporarily disabled
   const [autoAdDetectionEnabled, setAutoAdDetectionEnabled] = useState(() => {
+    // ✅ QUICK FIX: Force music detection to always be disabled
+    return false;
+    
+    // Original code kept for future use:
+    // try {
+    //   const saved = localStorage.getItem('auto_ad_detection');
+    //   const value = saved ? JSON.parse(saved) : false;
+    //   console.log('🤖 Loaded auto detection setting:', value);
+    //   return value;
+    // } catch {
+    //   return false;
+    // }
+  });
+  
+  // Community timing states
+  const [useCommunityTimings, setUseCommunityTimings] = useState(() => {
     try {
-      const saved = localStorage.getItem('auto_ad_detection');
-      const value = saved ? JSON.parse(saved) : false;
-      console.log('🤖 Loaded auto detection setting:', value); // ✅ ADD: Debug log
-      return value;
+      const saved = localStorage.getItem('use_community_timings');
+      return saved ? JSON.parse(saved) : false;
     } catch {
       return false;
     }
   });
+  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
+  const [feedbackStationName, setFeedbackStationName] = useState('');
+  
   const autoDetectorRef = useRef(null);
   const detectionTriggeredRef = useRef(false);
 
@@ -132,7 +148,6 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       return match ? match[1] : null;
     }
   };
-
   // Get description for current ad break mode
   const getAdBreakModeDescription = useCallback(() => {
     switch (adBreakMode) {
@@ -142,6 +157,36 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       default: return 'alternatieve audio';
     }
   }, [adBreakMode]);
+
+  // ✅ NEW: Function to rotate to next nonstop station during ad break
+  const rotateToNextNonstopStation = useCallback(async () => {
+    if (!isAdBreakActive || adBreakMode !== 'nonstop') {
+      console.warn('Cannot rotate: not in nonstop ad break mode');
+      return;
+    }
+
+    try {
+      console.log('🔄 Manually rotating to next nonstop station...');
+      
+      // Get the next station
+      const nextStation = getRandomNonstopStation();
+      if (!nextStation) {
+        throw new Error('No nonstop stations available');
+      }
+
+      // Switch to the new station
+      await audioPlayer.playRadio(nextStation);
+      
+      if (window.addNotification) {
+        window.addNotification(`🔄 Gewisseld naar: ${nextStation.name}`, 'info', 3000);
+      }
+    } catch (error) {
+      console.error('Failed to rotate nonstop station:', error);
+      if (window.addNotification) {
+        window.addNotification(`❌ Kan niet wisselen: ${error.message}`, 'error', 3000);
+      }
+    }
+  }, [isAdBreakActive, adBreakMode, audioPlayer]);
 
   // Handle ad break errors
   const handleAdBreakError = useCallback(() => {
@@ -772,26 +817,63 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       }, 1000);
     }
   }, [audioPlayer, adBreakMode, playlistUrl, playlistShuffle, isManualTestActive, setIsManualTestActive, setShouldPlayPlaylistDuringAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, extractPlaylistId]);
-
   // Check ad break time
-  const checkAdBreakTime = useCallback(() => {
+  const checkAdBreakTime = useCallback(async () => {
     if (!isTimerRunning || isAdBreakActive) return;
 
     const now = new Date();
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
 
-    // Check if we should start an ad break (only at the exact start times)
-    const shouldStartAdBreak = (
-      (currentMinute === adBreakMinute && currentSecond >= 0 && currentSecond <= 5) ||
-      (currentMinute === adBreakMinute2 && currentSecond >= 0 && currentSecond <= 5)
-    );
+    let shouldStartAdBreak = false;
+
+    // Check community timings first if enabled
+    if (useCommunityTimings && audioPlayer?.currentStation?.name) {
+      try {
+        const communityTimings = await CommunityTimings.getCommunityTimings(audioPlayer.currentStation.name);
+        if (communityTimings && communityTimings.length > 0) {
+          const communityMinutes = communityTimings.map(timing => timing.minute);
+          shouldStartAdBreak = communityMinutes.some(minute => 
+            currentMinute === minute && currentSecond >= 0 && currentSecond <= 5
+          );
+            if (shouldStartAdBreak) {
+            console.log(`🌐 Community timing trigger at ${currentMinute}:${String(currentSecond).padStart(2, '0')} for ${audioPlayer.currentStation.name}`);
+            
+            // Show toast notification for community timing trigger
+            if (window.addNotification) {
+              window.addNotification(
+                `🌐 Reclame gedetecteerd door community timing voor ${audioPlayer.currentStation.name}`, 
+                'info', 
+                4000
+              );
+            }
+            
+            // Show feedback popup after ad break starts
+            setFeedbackStationName(audioPlayer.currentStation.name);
+            setTimeout(() => setShowFeedbackPopup(true), 2000); // Show feedback after 2 seconds
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to check community timings:', error);
+      }
+    }
+
+    // Fall back to user-defined timings if community timings didn't trigger
+    if (!shouldStartAdBreak) {
+      shouldStartAdBreak = (
+        (currentMinute === adBreakMinute && currentSecond >= 0 && currentSecond <= 5) ||
+        (currentMinute === adBreakMinute2 && currentSecond >= 0 && currentSecond <= 5)
+      );
+      
+      if (shouldStartAdBreak) {
+        console.log(`🎯 User timing trigger at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
+      }
+    }
 
     if (shouldStartAdBreak) {
-      console.log(`🎯 Ad break trigger at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
       startAdBreak();
     }
-  }, [isTimerRunning, isAdBreakActive, adBreakMinute, adBreakMinute2, startAdBreak]);
+  }, [isTimerRunning, isAdBreakActive, adBreakMinute, adBreakMinute2, useCommunityTimings, audioPlayer, startAdBreak]);
 
   // Main timer loop
   useEffect(() => {
@@ -835,11 +917,13 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     return () => clearInterval(interval);
   }, [isAdBreakActive]);
 
-  // ✅ NEW: Automatic ad detection setup
+  // ✅ NEW: Automatic ad detection setup  // ✅ NEW: Automatic ad detection setup - DISABLED
   useEffect(() => {
     // Update automatic detection enabled state from localStorage
     const savedSetting = loadFromStorage('auto_ad_detection', false);
-    setAutoAdDetectionEnabled(savedSetting);
+    console.log('🤖 Auto detection setting from storage:', savedSetting, '(but forced to false)');
+    // ✅ FORCE: Always set to false regardless of localStorage
+    setAutoAdDetectionEnabled(false);
   }, []); // Run once on mount
 
   useEffect(() => {
@@ -871,7 +955,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       });
     };
 
-    console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
+   // console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
 
     if (autoAdDetectionEnabled && isTimerRunning && !isAdBreakActive) {
       const currentWindow = getCurrentDetectionWindow();
@@ -1151,10 +1235,20 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.AD_BREAK_DURATION, adBreakDuration);
   }, [adBreakDuration]);
-
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.AD_BREAK_DURATION2, adBreakDuration2);
   }, [adBreakDuration2]);
+
+  // Save community timing setting
+  useEffect(() => {
+    try {
+      localStorage.setItem('use_community_timings', JSON.stringify(useCommunityTimings));
+      console.log('🔧 Community timing setting saved:', useCommunityTimings ? 'Community' : 'Eigen');
+    } catch (error) {
+      console.warn('Failed to save community timing setting:', error);
+    }
+  }, [useCommunityTimings]);
+
   return {
     adBreakMinute,
     setAdBreakMinute,
@@ -1186,14 +1280,25 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     currentLofiAttempt,
     isManualTestInProgress,
     autoAdDetectionEnabled,
-    setAutoAdDetectionEnabled,
+    // ✅ DISABLED: Music detection setter function - always keeps it disabled
+    setAutoAdDetectionEnabled: () => {
+      console.log('🚫 Music detection is temporarily disabled - ignoring enable request');
+      // Do nothing - always keep it false
+    },
+    // Community timing states and methods
+    useCommunityTimings,
+    setUseCommunityTimings,
+    showFeedbackPopup,
+    setShowFeedbackPopup,
+    feedbackStationName,
+    setFeedbackStationName,
     startAdBreak,
     endAdBreak,
     manualAdBreak,
     startTimer,
-    stopTimer,
-    startAdBreakWithRemainingTime,
+    stopTimer,    startAdBreakWithRemainingTime,
     cancelAdBreakTimer, // ✅ ADD: Export the new function
+    rotateToNextNonstopStation, // ✅ ADD: Export rotation function
     nextAdBreakInFormatted: formatTimeRemaining(getNextAdBreakTime()),
     getAdBreakModeDescription
   };

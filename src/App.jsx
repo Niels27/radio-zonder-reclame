@@ -7,6 +7,7 @@ import NotificationSystem from './components/NotificationSystem';
 import UserGuide from './components/UserGuide';
 import DeveloperDashboard from './components/DeveloperDashboard';
 import PlaylistProviderSelector from './components/PlaylistProviderSelector';
+import CommunityTimingFeedback from './components/CommunityTimingFeedback';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useAdBreakTimer } from './hooks/useAdBreakTimer';
 import { validatePlaylistUrl } from './utils/youtubeUtils';
@@ -345,11 +346,14 @@ function App() {
                 playlistUrl={adBreakTimer.playlistUrl}
                 playlistInfo={playlistInfo}
                 nextAdBreakIn={adBreakTimer.nextAdBreakIn}
-                currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
-                audioPlayer={audioPlayer}
+                currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}                audioPlayer={audioPlayer}
                 adBreakMode={adBreakTimer.adBreakMode}
                 onAdBreakModeChange={adBreakTimer.setAdBreakMode}
-                isManualTestInProgress={adBreakTimer.isManualTestInProgress}  // ← Add this missing prop
+                isManualTestInProgress={adBreakTimer.isManualTestInProgress}
+                autoAdDetectionEnabled={adBreakTimer.autoAdDetectionEnabled}
+                onAutoAdDetectionChange={adBreakTimer.setAutoAdDetectionEnabled}
+                useCommunityTimings={adBreakTimer.useCommunityTimings}
+                onUseCommunityTimingsChange={adBreakTimer.setUseCommunityTimings}
               />
             </ErrorBoundary>
           </div>
@@ -405,10 +409,18 @@ function App() {
                   console.error('Could not skip to next YouTube track:', error);
                 }
               }
-            }}
-            playlistInfo={playlistInfo}
+            }}            playlistInfo={playlistInfo}
             queuedStation={adBreakTimer.queuedStation}
             onCancelQueuedSwitch={adBreakTimer.cancelQueuedSwitch}
+            currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
+            onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}
+            adBreakMode={adBreakTimer.adBreakMode}
+            onRotateNonstopStation={() => {
+              // This will trigger a rotation to the next nonstop station
+              if (adBreakTimer.isAdBreakActive && adBreakTimer.adBreakMode === 'nonstop') {
+                adBreakTimer.rotateToNextNonstopStation();
+              }
+            }}
           />
         </div>
 
@@ -456,12 +468,18 @@ function App() {
                 </button>
               </div>
             </div>
-          )}
-
-          {/* Developer Dashboard */}
+          )}        {/* Developer Dashboard */}
         {showDeveloperDashboard && (
           <DeveloperDashboard onClose={() => setShowDeveloperDashboard(false)} />
         )}
+
+        {/* Community Timing Feedback Popup */}
+        <CommunityTimingFeedback
+          isVisible={adBreakTimer.showFeedbackPopup}
+          onClose={() => adBreakTimer.setShowFeedbackPopup(false)}
+          stationName={adBreakTimer.feedbackStationName}
+          timingType="auto-switch"
+        />
       </div>
     </ErrorBoundary>
   );

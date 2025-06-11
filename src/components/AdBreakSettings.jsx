@@ -4,6 +4,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TimeRangeSlider from './TimeRangeSlider';
 import { setupTestDetection, cleanupTestDetection } from '../utils/musicDetection.js';
+import { allRadioStations } from '../data/allRadioStations.js';
+import { refreshNonstopStations, getRandomNonstopStation } from '../utils/nonstopUtils.js';
 
 const defaultDaySettings = () => ({
   enabled: false,
@@ -64,7 +66,11 @@ const AdBreakSettings = ({
   audioPlayer,
   adBreakMode,
   onAdBreakModeChange,
-  isManualTestInProgress
+  isManualTestInProgress,
+  autoAdDetectionEnabled,
+  onAutoAdDetectionChange,
+  useCommunityTimings,
+  onUseCommunityTimingsChange
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [daySettings, setDaySettings] = useState(getInitialDaySettings());
@@ -91,10 +97,38 @@ const AdBreakSettings = ({
   const [detectionStatus, setDetectionStatus] = useState('idle'); // idle, listening, processing, error, music, no-music
   const [detectionResult, setDetectionResult] = useState(null);
   const detectorRef = useRef(null);
-
   // Tooltip visibility states
   const [showAdDetectionTooltip, setShowAdDetectionTooltip] = useState(false);
   const [showPrerollTooltip, setShowPrerollTooltip] = useState(false);
+
+  // Overlay states
+  const [showNonstopSettings, setShowNonstopSettings] = useState(false);
+  const [showLofiSettings, setShowLofiSettings] = useState(false);
+  
+  // Nonstop radio custom settings
+  const [customNonstopStations, setCustomNonstopStations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('custom_nonstop_stations');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  
+  // Lofi custom URL setting
+  const [customLofiUrl, setCustomLofiUrl] = useState(() => {
+    try {
+      const saved = localStorage.getItem('custom_lofi_url');
+      return saved || '';
+    } catch {
+      return '';
+    }
+  });  // Search state for nonstop overlay
+  const [nonstopSearchTerm, setNonstopSearchTerm] = useState('');
+    // Error message for nonstop removal
+  const [nonstopRemovalError, setNonstopRemovalError] = useState('');
+
+  // Note: useCommunityTimings is now coming from props instead of local state
 
   useEffect(() => {
     // Remove the immediate save - we'll save on drag end instead
@@ -149,13 +183,129 @@ const AdBreakSettings = ({
     }
     return true; // nonstop and lofi don't require configuration
   };
-
   const getModeDescription = () => {
     switch (adBreakMode) {
       case 'playlist': return 'Wissel naar afspeellijst';
       case 'nonstop': return 'Wissel naar non-stop radio';
       case 'lofi': return 'Wissel naar Lofi Girl';
       default: return 'Onbekende modus';
+    }
+  };
+
+  // Get all available radio stations for search
+  const getAllRadioStations = () => {
+    const allStations = [];
+    Object.entries(allRadioStations).forEach(([category, stations]) => {
+      if (category !== 'realnonstop') { // Exclude realnonstop from search since they're defaults
+        Object.values(stations).forEach(station => {
+          allStations.push({
+            ...station,
+            category
+          });
+        });
+      }
+    });
+    return allStations;
+  };
+  // Get default nonstop stations from realnonstop category
+  const getDefaultNonstopStations = () => {
+    return Object.values(allRadioStations.realnonstop || {});
+  };
+
+  // Get combined list of all configured nonstop stations
+  const getAllConfiguredNonstopStations = () => {
+    const defaultStations = getDefaultNonstopStations();
+    const customStations = [];
+    
+    // Find custom stations from the allRadioStations data
+    customNonstopStations.forEach(stationName => {
+      let foundStation = null;
+      
+      // Search through all categories to find the station
+      Object.entries(allRadioStations).forEach(([category, stations]) => {
+        if (category !== 'realnonstop') {
+          Object.values(stations).forEach(station => {
+            if (station.name === stationName) {
+              foundStation = { ...station, isCustom: true };
+            }
+          });
+        }
+      });
+      
+      if (foundStation) {
+        customStations.push(foundStation);
+      }
+    });
+    
+    // Mark default stations and combine
+    const defaultWithFlag = defaultStations.map(station => ({ ...station, isDefault: true }));
+    return [...defaultWithFlag, ...customStations];
+  };
+
+  // Filter stations based on search term
+  const getFilteredStations = () => {
+    if (!nonstopSearchTerm.trim()) return [];
+    
+    const allStations = getAllRadioStations();
+    return allStations.filter(station => 
+      station.name.toLowerCase().includes(nonstopSearchTerm.toLowerCase()) ||
+      station.description?.toLowerCase().includes(nonstopSearchTerm.toLowerCase())
+    ).slice(0, 20); // Limit to 20 results
+  };
+
+  // Add station to custom nonstop list
+  const addNonstopStation = (stationName) => {
+    if (!customNonstopStations.includes(stationName)) {
+      setCustomNonstopStations([...customNonstopStations, stationName]);
+    }
+  };  // Remove station from nonstop list
+  const removeNonstopStation = (stationName) => {
+    const defaultStations = getDefaultNonstopStations();
+    const totalStations = defaultStations.length + customNonstopStations.length;
+    
+    // Check if this is a default station
+    const isDefaultStation = defaultStations.some(station => station.name === stationName);
+    
+    if (isDefaultStation) {
+      // For default stations, only remove if we have more than 1 total station
+      if (totalStations <= 1) {
+        setNonstopRemovalError('Er moet minstens 1 radio zijn ingesteld');
+        setTimeout(() => setNonstopRemovalError(''), 3000);
+        return;
+      }
+      // Remove from realnonstop by updating nonstop utils (we'll need to implement this)
+      console.log('Would remove default station:', stationName);
+    } else {
+      // For custom stations, only remove if we have more than 1 total station  
+      if (totalStations <= 1) {
+        setNonstopRemovalError('Er moet minstens 1 radio zijn ingesteld');
+        setTimeout(() => setNonstopRemovalError(''), 3000);
+        return;
+      }
+      setCustomNonstopStations(customNonstopStations.filter(name => name !== stationName));
+    }
+    
+    // Clear any existing error
+    setNonstopRemovalError('');
+  };
+  // Reset lofi URL to default
+  const resetLofiUrl = () => {
+    setCustomLofiUrl('');
+  };
+  // Validate YouTube URL
+  const isValidYouTubeUrl = (url) => {
+    if (!url) return true; // Empty is valid (uses default)
+    const regex = /^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)[\w-]+/;
+    return regex.test(url);
+  };
+
+  // Test individual station
+  const testStation = (station) => {
+    if (audioPlayer && audioPlayer.playRadio) {
+      audioPlayer.playRadio(station);
+      if (window.addNotification) {
+        window.addNotification(`🔄 Test: ${station.name}`, 'info', 3000);
+      }
     }
   };
 
@@ -174,7 +324,6 @@ const AdBreakSettings = ({
       console.warn('Failed to save auto skip setting:', error);
     }
   }, [autoSkipPreroll]);
-
   // ✅ NEW: Save auto ad detection setting
   useEffect(() => {
     try {
@@ -184,6 +333,25 @@ const AdBreakSettings = ({
       console.warn('Failed to save auto ad detection setting:', error);
     }
   }, [autoAdDetection]);
+  // Save custom nonstop stations
+  useEffect(() => {
+    try {
+      localStorage.setItem('custom_nonstop_stations', JSON.stringify(customNonstopStations));
+      // Refresh the nonstop stations when settings change
+      refreshNonstopStations();
+    } catch (error) {
+      console.warn('Failed to save custom nonstop stations:', error);
+    }
+  }, [customNonstopStations]);
+  // Save custom lofi URL
+  useEffect(() => {
+    try {
+      localStorage.setItem('custom_lofi_url', customLofiUrl);
+    } catch (error) {    console.warn('Failed to save custom lofi URL:', error);
+    }
+  }, [customLofiUrl]);
+
+  // Note: Community timing setting is now saved by the hook, not here
 
 // ...existing code...
 
@@ -501,12 +669,10 @@ const detector = await setupTestDetection(
                   <p className="text-xs text-gray-400">
                     Wissel naar YouTube/Spotify afspeellijst tijdens reclame
                   </p>
-                </button>
-
-                {/* Nonstop Mode */}
+                </button>                {/* Nonstop Mode */}
                 <button
                   onClick={() => onAdBreakModeChange('nonstop')}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'nonstop'
+                  className={`p-4 rounded-lg border-2 transition-all text-left relative ${adBreakMode === 'nonstop'
                     ? 'border-green-500 bg-green-600/20 text-green-300'
                     : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
                     }`}
@@ -518,14 +684,25 @@ const detector = await setupTestDetection(
                     <span className="font-semibold">Non-stop Radio</span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    Wissel naar radio zonder reclame (automatisch selectie)
+                    Wissel naar een radio zonder reclame 
                   </p>
-                </button>
-
-                {/* Lofi Mode */}
+                  {/* Gear icon */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowNonstopSettings(true);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors"
+                    title="Non-stop radio instellingen"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                    </svg>
+                  </button>
+                </button>                {/* Lofi Mode */}
                 <button
                   onClick={() => onAdBreakModeChange('lofi')}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${adBreakMode === 'lofi'
+                  className={`p-4 rounded-lg border-2 transition-all text-left relative ${adBreakMode === 'lofi'
                     ? 'border-purple-500 bg-purple-600/20 text-purple-300'
                     : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
                     }`}
@@ -538,6 +715,19 @@ const detector = await setupTestDetection(
                   </div>                  <p className="text-xs text-gray-400">
                     Wissel naar Lofi Girl study streams
                   </p>
+                  {/* Gear icon */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowLofiSettings(true);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors"
+                    title="Lofi Girl instellingen"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                    </svg>
+                  </button>
                 </button>
               </div>
             </div>            {/* Control Buttons and Manual Settings */}
@@ -593,87 +783,49 @@ const detector = await setupTestDetection(
                             }`}
                         />
                       </button>
-                    </div>
-                  </div>
+                    </div>                  </div>
 
-                  {/* 2. Automatic Ad Detection */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 flex-1">
-                      <span className="text-sm text-gray-300">Automatisch pauze detecteren</span>
-                      <div className="relative">
-                        <button
-                          onMouseEnter={() => setShowAdDetectionTooltip(true)}
-                          onMouseLeave={() => setShowAdDetectionTooltip(false)}
-                          className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
-                        >
-                          i
-                        </button>
-                        {showAdDetectionTooltip && (
-                          <div className="absolute left-6 top-0 z-50 w-64 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
-                            Gebruikt AI om te detecteren wanneer muziek niet meer speelt, schakelt vervolgens naar playlist. Werkt niet perfect. Test het hieronder.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setAutoAdDetection(!autoAdDetection)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoAdDetection
-                          ? 'bg-green-600'
-                          : 'bg-gray-600'
-                        }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoAdDetection ? 'translate-x-6' : 'translate-x-1'
+                  {/* 2. Community vs Own Timings */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 flex-1">
+                        <span className="text-sm text-gray-300">
+                          {useCommunityTimings ? 'Community timings' : 'Eigen timings'}
+                        </span>
+                        <div className="relative">
+                          <button
+                            onMouseEnter={() => setShowAdDetectionTooltip(true)}
+                            onMouseLeave={() => setShowAdDetectionTooltip(false)}
+                            className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
+                          >
+                            i
+                          </button>
+                          {showAdDetectionTooltip && (
+                            <div className="absolute left-6 top-0 z-50 w-72 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
+                              {useCommunityTimings 
+                                ? 'Gebruik community-gerapporteerde reclametijden van andere gebruikers.'
+                                : 'Gebruik je eigen ingestelde reclametijden. '
+                              }
+                            </div>
+                          )}
+                        </div>
+                      </div>                      <button
+                        onClick={() => onUseCommunityTimingsChange(!useCommunityTimings)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${useCommunityTimings
+                            ? 'bg-orange-600'
+                            : 'bg-gray-600'
                           }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* 3. Music Detection Test */}
-                  <div className="ml-0 min-w-[280px]">
-                    {/* Test button inline with label */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-sm text-gray-300">Muziek Detectie:</span>
-                      <button
-                        onClick={handleTestDetection}
-                        disabled={!audioPlayer?.audioRef?.current || (audioPlayer && audioPlayer.isTransitioning)}
-                        className={`px-4 py-1 rounded text-sm font-medium transition-colors ${isTestingDetection
-                            ? 'bg-red-600 hover:bg-red-500 text-white'
-                            : 'bg-blue-600 hover:bg-blue-500 disabled:bg-gray-500 disabled:cursor-not-allowed text-white'
-                          }`}
-                        title={
-                          !audioPlayer?.audioRef?.current
-                            ? 'Start eerst radio afspelen'
-                            : (audioPlayer && audioPlayer.isTransitioning)
-                              ? 'Even wachten...'
-                              : ''
-                        }
                       >
-                        {isTestingDetection ? 'Stop' : 'Test'}
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useCommunityTimings ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
                       </button>
                     </div>
-
-                    <div className="">
-                      {isTestingDetection && (
-                        <div className="p-1 bg-gray-800 rounded-lg">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="text-sm text-gray-300">Status:</span>
-                            <span className={`text-sm font-medium ${getStatusDisplay().color}`}>
-                              {getStatusDisplay().text}
-                              {/* ✅ CRITICAL: Only show confidence AFTER warm-up */}
-                              {detectionResult && !detectionResult.isWarmingUp && 
-                                ' | Zekerheid: ' + Math.round(detectionResult.confidence * 100) + '%'
-                              }
-                              {/* ✅ NEW: Show warm-up progress if warming up */}
-                              {detectionResult?.isWarmingUp && detectionResult.warmupProgress !== undefined &&
-                                ` (${Math.round(detectionResult.warmupProgress)}%)`
-                              }
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   </div>
+
+             
+      
                 </div>
 
                 {/* Middle: 2x2 grid for manual timing */}
@@ -814,10 +966,196 @@ const detector = await setupTestDetection(
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </div>          </div>
         )}
       </div>
+
+      {/* Nonstop Radio Settings Overlay */}
+      {showNonstopSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg border border-gray-600 p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">Non-stop Radio Instellingen</h3>
+              <button
+                onClick={() => setShowNonstopSettings(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>            <div className="mb-4 p-3 bg-blue-600/20 border border-blue-600/30 rounded-lg">
+              <p className="text-blue-300 text-sm">
+                🔄 Tijdens een reclamepauze wordt automatisch gewisseld tussen alle geconfigureerde stations in willekeurige volgorde.
+              </p>
+            </div>
+
+            {/* Error message */}
+            {nonstopRemovalError && (
+              <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded-lg">
+                <p className="text-red-300 text-sm">{nonstopRemovalError}</p>
+              </div>
+            )}
+
+            {/* All configured stations in one list */}
+            <div className="mb-6">
+              <h4 className="text-lg font-medium text-white mb-3">Geconfigureerde Non-stop Stations</h4>
+              <div className="space-y-2">                {getAllConfiguredNonstopStations().map((station) => (
+                  <div key={station.name} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {station.isDefault && (
+                        <span className="text-green-400 text-xs bg-green-600/20 px-2 py-1 rounded">
+                          Standaard
+                        </span>
+                      )}
+                      <div>
+                        <div className="text-white font-medium">{station.name}</div>
+                        <div className="text-gray-400 text-sm">{station.description || 'Non-stop muziek'}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => testStation(station)}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
+                        title="Test dit station"
+                      >
+                        <div className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                          Test
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => removeNonstopStation(station.name)}
+                        className="text-red-400 hover:text-red-300 p-1"
+                        title="Verwijderen"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Search and add stations */}
+            <div>
+              <h4 className="text-lg font-medium text-white mb-3">Station Toevoegen</h4>
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Zoek radio stations..."
+                  value={nonstopSearchTerm}
+                  onChange={(e) => setNonstopSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+                {nonstopSearchTerm.trim() && (
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {getFilteredStations().map((station) => {
+                    const isAlreadyConfigured = getAllConfiguredNonstopStations().some(s => s.name === station.name);
+                    return (                      <div key={`${station.category}-${station.name}`} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                        <div>
+                          <div className="text-white font-medium">{station.name}</div>
+                          <div className="text-gray-400 text-sm">{station.description || station.category}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => testStation(station)}
+                            className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                            title="Test dit station"
+                          >
+                            <div className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                              </svg>
+                              Test
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              addNonstopStation(station.name);
+                              setNonstopSearchTerm('');
+                            }}
+                            disabled={isAlreadyConfigured}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded"
+                          >
+                            {isAlreadyConfigured ? 'Toegevoegd' : 'Toevoegen'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {getFilteredStations().length === 0 && (
+                    <div className="text-gray-400 text-center py-4">Geen resultaten gevonden</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lofi Girl Settings Overlay */}
+      {showLofiSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg border border-gray-600 p-6 max-w-lg w-full mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">Lofi Girl Instellingen</h3>
+              <button
+                onClick={() => setShowLofiSettings(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Custom YouTube URL
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={customLofiUrl}
+                  onChange={(e) => setCustomLofiUrl(e.target.value)}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none ${
+                    isValidYouTubeUrl(customLofiUrl) 
+                      ? 'border-gray-600 focus:border-purple-500' 
+                      : 'border-red-500 focus:border-red-400'
+                  }`}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Voer een YouTube video of livestream URL in. Laat leeg voor standaard Lofi Girl streams.
+                </p>
+                {customLofiUrl && !isValidYouTubeUrl(customLofiUrl) && (
+                  <p className="text-xs text-red-400 mt-1">
+                    ⚠️ Ongeldige YouTube URL. Gebruik formaat: https://www.youtube.com/watch?v=...
+                  </p>
+                )}
+              </div>              <div className="flex gap-3">
+              
+                <button
+                  onClick={() => setShowLofiSettings(false)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg"
+                >
+                  Opslaan
+                </button>
+              </div>
+
+              {customLofiUrl && (
+                <div className="p-3 bg-purple-600/20 border border-purple-600/30 rounded-lg">
+                  <div className="text-purple-300 text-sm font-medium">Custom URL ingesteld:</div>
+                  <div className="text-gray-300 text-xs break-all">{customLofiUrl}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

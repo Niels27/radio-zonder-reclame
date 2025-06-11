@@ -4,6 +4,7 @@ import { stationReportingService } from '../utils/stationReporting';
 import { getAllRadioStations, getPopularStations } from '../data/allRadioStations';
 import { getIsProduction, restoreConsole, setManualProductionMode } from '../utils/logger';
 import { RadioStreamTester, startRadioStreamTest } from '../utils/radioStreamTester';
+import CommunityTimings from '../utils/communityTimings';
 
 const DeveloperDashboard = ({ onClose }) => {
   // ✅ ADD: Minimize state
@@ -19,15 +20,15 @@ const DeveloperDashboard = ({ onClose }) => {
   const [allStations, setAllStations] = useState([]);
   const [stationSearch, setStationSearch] = useState('');
   const [testingStation, setTestingStation] = useState(null);
-  const [loggingEnabled, setLoggingEnabled] = useState(!getIsProduction());
-  const [isTestingStreams, setIsTestingStreams] = useState(false);
-  const [testProgress, setTestProgress] = useState(null);
-  const [testResults, setTestResults] = useState(null);
+  const [loggingEnabled, setLoggingEnabled] = useState(!getIsProduction());  const [isTestingStreams, setIsTestingStreams] = useState(false);
+  const [testProgress, setTestProgress] = useState(null);  const [testResults, setTestResults] = useState(null);
+  const [communityTimingReports, setCommunityTimingReports] = useState([]);
+  const [groupedTimingReports, setGroupedTimingReports] = useState([]);
+  const [expandedStation, setExpandedStation] = useState(null);
 
   useEffect(() => {
     loadData();
   }, []);
-
   const loadData = () => {
     const stats = stationReportingService.getDashboardStats();
     const allReports = stationReportingService.getReports();
@@ -36,6 +37,13 @@ const DeveloperDashboard = ({ onClose }) => {
     setDashboardStats(stats);
     setReports(allReports);
     setOverrides(allOverrides);
+      // Load community timing reports
+    const timingReports = CommunityTimings.getLocalReports();
+    setCommunityTimingReports(timingReports);
+    
+    // Load grouped timing reports
+    const groupedReports = CommunityTimings.getGroupedReportsByStation();
+    setGroupedTimingReports(groupedReports);
     
     // Load all available stations
     try {
@@ -268,9 +276,19 @@ const DeveloperDashboard = ({ onClose }) => {
                 ? 'border-b-2 border-blue-600 text-blue-600'
                 : 'text-black hover:text-gray-900'
             }`}
-            style={{ color: activeTab === 'testing' ? undefined : '#000' }}
-          >
+            style={{ color: activeTab === 'testing' ? undefined : '#000' }}          >
             🧪 Stream Testing
+          </button>
+          <button
+            onClick={() => setActiveTab('community-timings')}
+            className={`px-6 py-3 font-medium ${
+              activeTab === 'community-timings'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-black hover:text-gray-900'
+            }`}
+            style={{ color: activeTab === 'community-timings' ? undefined : '#000' }}
+          >
+            ⏰ Community Timings
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -743,12 +761,162 @@ const DeveloperDashboard = ({ onClose }) => {
                   </div>
                 ))}
               </div>
+            </div>          )}
+
+          {activeTab === 'community-timings' && (
+            <div className="p-6 overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">⏰ Community Timing Reports</h2>
+                <div className="flex gap-2">
+                  <button                    onClick={() => {
+                      if (confirm('Clear all local timing reports? This cannot be undone.')) {
+                        CommunityTimings.clearAllLocalReports();
+                        setCommunityTimingReports([]);
+                        setGroupedTimingReports([]);
+                        setExpandedStation(null);
+                        if (window.addNotification) {
+                          window.addNotification('📊 All timing reports cleared', 'info', 2000);
+                        }
+                      }
+                    }}
+                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                  >
+                    🗑️ Clear All
+                  </button>
+                  <button
+                    onClick={loadData}
+                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
+              </div>              {groupedTimingReports.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <p className="text-lg">📊 No timing reports found</p>
+                  <p className="text-sm mt-2">
+                    Timing reports are created when users click the "Report reclame" button in the audio player.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600 mb-4">
+                    Found {groupedTimingReports.length} stations with {communityTimingReports.length} total timing reports
+                  </div>
+                  
+                  {groupedTimingReports.map((stationData) => (
+                    <div key={stationData.station} className="border rounded-lg bg-white">
+                      {/* Station Header */}
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedStation(expandedStation === stationData.station ? null : stationData.station)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium text-gray-900">{stationData.station}</span>
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                                {stationData.totalReports} reports
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                              {stationData.avgStart && (
+                                <span className="bg-red-50 text-red-700 px-2 py-1 rounded">
+                                  avg begin {stationData.avgStart}
+                                </span>
+                              )}
+                              {stationData.avgEnd && (
+                                <span className="bg-green-50 text-green-700 px-2 py-1 rounded">
+                                  avg end {stationData.avgEnd}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Delete all ${stationData.totalReports} reports for "${stationData.station}"?`)) {
+                                  // Delete all reports for this station
+                                  const indicesToDelete = stationData.reports.map(r => r.index).sort((a, b) => b - a);
+                                  indicesToDelete.forEach(index => {
+                                    CommunityTimings.deleteLocalReport(index);
+                                  });
+                                  loadData();
+                                  if (window.addNotification) {
+                                    window.addNotification(`📊 Deleted all reports for ${stationData.station}`, 'info', 2000);
+                                  }
+                                }
+                              }}
+                              className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
+                              title="Delete all reports for this station"
+                            >
+                              🗑️
+                            </button>
+                            
+                            <span className="text-gray-400">
+                              {expandedStation === stationData.station ? '▼' : '▶'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Expanded Report List */}
+                      {expandedStation === stationData.station && (
+                        <div className="border-t bg-gray-50">
+                          <div className="p-4 space-y-2">
+                            <div className="text-sm font-medium text-gray-700 mb-3">
+                              Individual Reports ({stationData.totalReports})
+                            </div>
+                            
+                            {stationData.reports.map((report) => (
+                              <div key={`${report.timestamp}-${report.index}`} className="flex items-center justify-between bg-white p-3 rounded border">
+                                <div className="flex items-center gap-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    report.type === 'start' 
+                                      ? 'bg-red-100 text-red-700' 
+                                      : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {report.type === 'start' ? '📢 Start' : '🎵 End'}
+                                  </span>
+                                  
+                                  <span className="text-sm text-gray-900">
+                                    {String(report.hour).padStart(2, '0')}:{String(report.minute).padStart(2, '0')}
+                                  </span>
+                                  
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(report.timestamp).toLocaleString()}
+                                  </span>
+                                </div>
+                                
+                                <button
+                                  onClick={() => {
+                                    if (CommunityTimings.deleteLocalReport(report.index)) {
+                                      loadData();
+                                      if (window.addNotification) {
+                                        window.addNotification('📊 Timing report deleted', 'info', 2000);
+                                      }
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
+                                  title="Delete this timing report"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          // In the settings tab, update the manual production mode section:
-
-{activeTab === 'settings' && (
+          {activeTab === 'settings' && (
   <div className="p-6 overflow-y-auto">
     <h2 className="text-xl font-bold mb-4 text-gray-900">Developer Settings</h2>
     <div className="space-y-4">

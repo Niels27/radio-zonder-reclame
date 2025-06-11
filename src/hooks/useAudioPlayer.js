@@ -509,7 +509,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
             setSpotifyPlayerReady(false);
           }
         } else if (isSpotifyAuthenticated() && spotifyPlayerReady) {
-          console.log('🎵 Spotify player already ready - no action needed');
+         // console.log('🎵 Spotify player already ready - no action needed');
         } else if (!isSpotifyAuthenticated()) {
           console.log('🎵 Spotify provider selected but not authenticated - waiting for login');
         } else if (isSpotifyPlayerInitializing()) {

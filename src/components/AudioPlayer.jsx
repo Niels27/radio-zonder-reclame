@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReportStationButton from './ReportStationButton';
+import CommunityTimings from '../utils/communityTimings';
 
 // components/AudioPlayer.jsx - Enhanced smooth volume control
 const AudioPlayer = ({
@@ -19,16 +20,23 @@ const AudioPlayer = ({
   onNextTrack,
   playlistInfo,
   queuedStation,
-  onCancelQueuedSwitch
+  onCancelQueuedSwitch,
+  adBreakMode,           // ✅ NEW: Add ad break mode prop
+  onRotateNonstopStation // ✅ NEW: Add rotation callback prop
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
   const [isVolumeChanging, setIsVolumeChanging] = useState(false);
-  const [showVolumeTooltip, setShowVolumeTooltip] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [showVolumeTooltip, setShowVolumeTooltip] = useState(false); const [isDragging, setIsDragging] = useState(false);
   const volumeTimeoutRef = useRef(null);
   const volumeSliderRef = useRef(null);
   const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
+
+  // Community timing report states
+  const [showReportBubble, setShowReportBubble] = useState(false);
+  const [reportCooldown, setReportCooldown] = useState(null);
+  const [lastReportType, setLastReportType] = useState(null);
+  const bubbleTimeoutRef = useRef(null);
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -66,14 +74,14 @@ const AudioPlayer = ({
   const handleVolumeSliderChange = useCallback((newVolume) => {
     // Round to 1% increments for super smooth control
     const roundedVolume = Math.round(newVolume * 100) / 100;
-    
+
     onVolumeChange(roundedVolume);
-    
+
     // Apply volume immediately to audio element for real-time feedback
     if (window.audioPlayer?.audioRef?.current) {
       window.audioPlayer.audioRef.current.volume = roundedVolume;
     }
-    
+
     if (roundedVolume > 0 && isMuted) {
       setIsMuted(false);
     }
@@ -104,7 +112,7 @@ const AudioPlayer = ({
     // Prevent page scrolling
     e.preventDefault();
     e.stopPropagation();
-    
+
     const delta = e.deltaY > 0 ? -0.05 : 0.05; // 5% increments for smooth control
     const newVolume = Math.max(0, Math.min(1, volume + delta));
     handleVolumeSliderChange(newVolume);
@@ -113,18 +121,18 @@ const AudioPlayer = ({
   // ✅ NEW: Calculate volume from mouse position - FIXED
   const updateVolumeFromMouse = useCallback((clientX) => {
     if (!volumeSliderRef.current || !dragStateRef.current) return;
-    
+
     const slider = volumeSliderRef.current;
     const rect = slider.getBoundingClientRect();
     const x = clientX - rect.left;
     const width = rect.width;
-    
+
     // Calculate new volume (0-1) with bounds checking
     let newVolume = Math.max(0, Math.min(1, x / width));
-    
+
     // Round to 1% for smooth steps
     newVolume = Math.round(newVolume * 100) / 100;
-    
+
     handleVolumeSliderChange(newVolume);
   }, [handleVolumeSliderChange]);
 
@@ -141,15 +149,15 @@ const AudioPlayer = ({
     if (dragStateRef.current) {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // ✅ FIX: Clean up drag state immediately
       dragStateRef.current = false;
       setIsDragging(false);
-      
+
       // ✅ FIX: Remove listeners immediately
       document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
       document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-      
+
       // Hide tooltip after delay
       setTimeout(() => {
         setShowVolumeTooltip(false);
@@ -161,15 +169,15 @@ const AudioPlayer = ({
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // ✅ FIX: Set drag state immediately
     dragStateRef.current = true;
     setIsDragging(true);
     setShowVolumeTooltip(true);
-    
+
     // Handle initial click
     updateVolumeFromMouse(e.clientX);
-    
+
     // ✅ FIX: Add listeners with capture to ensure they work
     document.addEventListener('mousemove', handleGlobalMouseMove, { capture: true, passive: false });
     document.addEventListener('mouseup', handleGlobalMouseUp, { capture: true, passive: false });
@@ -188,13 +196,13 @@ const AudioPlayer = ({
     if (dragStateRef.current) {
       e.preventDefault();
       e.stopPropagation();
-      
+
       dragStateRef.current = false;
       setIsDragging(false);
-      
+
       document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true });
       document.removeEventListener('touchend', handleGlobalTouchEnd, { capture: true });
-      
+
       setTimeout(() => {
         setShowVolumeTooltip(false);
       }, 500);
@@ -204,14 +212,14 @@ const AudioPlayer = ({
   const handleTouchStart = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     dragStateRef.current = true;
     setIsDragging(true);
     setShowVolumeTooltip(true);
-    
+
     const touch = e.touches[0];
     updateVolumeFromMouse(touch.clientX);
-    
+
     document.addEventListener('touchmove', handleGlobalTouchMove, { capture: true, passive: false });
     document.addEventListener('touchend', handleGlobalTouchEnd, { capture: true, passive: false });
   }, [updateVolumeFromMouse, handleGlobalTouchMove, handleGlobalTouchEnd]);
@@ -247,20 +255,23 @@ const AudioPlayer = ({
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies
-
   // ✅ CLEANUP: Remove event listeners on unmount
   useEffect(() => {
     return () => {
       // ✅ FIX: Force cleanup all event listeners
       dragStateRef.current = false;
-      
+
       document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
       document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
       document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true });
       document.removeEventListener('touchend', handleGlobalTouchEnd, { capture: true });
-      
+
       if (volumeTimeoutRef.current) {
         clearTimeout(volumeTimeoutRef.current);
+      }
+
+      if (bubbleTimeoutRef.current) {
+        clearTimeout(bubbleTimeoutRef.current);
       }
     };
   }, []); // ✅ FIX: Empty dependency array for cleanup only
@@ -272,7 +283,7 @@ const AudioPlayer = ({
         console.warn('🔧 Force cleaning stuck drag state');
         dragStateRef.current = false;
         setIsDragging(false);
-        
+
         document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
         document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
         document.removeEventListener('touchmove', handleGlobalTouchMove, { capture: true });
@@ -283,7 +294,7 @@ const AudioPlayer = ({
     // Listen for visibility change to cleanup if user switches tabs while dragging
     document.addEventListener('visibilitychange', cleanup);
     window.addEventListener('blur', cleanup);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', cleanup);
       window.removeEventListener('blur', cleanup);
@@ -323,6 +334,67 @@ const AudioPlayer = ({
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
+  // ✅ NEW: Handle reporting ad break timing with type and cooldown
+  const handleReportAdBreak = async (type = 'start') => {
+    if (!currentStation?.name) return;
+
+    // Check if user can report
+    const canReport = CommunityTimings.canUserReport(currentStation.name, type);
+    if (!canReport.canReport) {
+      if (window.addNotification) {
+        window.addNotification(canReport.reason, 'warning', 4000);
+      }
+      return;
+    }
+
+    try {
+      await CommunityTimings.reportAdBreak(currentStation.name, type);
+
+      // Hide bubble and show thank you message
+      setShowReportBubble(false);
+      setReportCooldown('Bedankt voor je bijdrage!');
+      setLastReportType(type);
+
+      // Clear thank you message after 3 seconds
+      setTimeout(() => {
+        setReportCooldown(null);
+        setLastReportType(null);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Failed to report ad break:', error);
+      if (window.addNotification) {
+        window.addNotification('Kon melding niet versturen', 'error', 3000);
+      }
+    }
+  };
+
+  // Handle mouse enter/leave for report bubble
+  const handleReportMouseEnter = () => {
+    if (reportCooldown) return; // Don't show bubble during cooldown/thank you
+
+    if (bubbleTimeoutRef.current) {
+      clearTimeout(bubbleTimeoutRef.current);
+    }
+
+    setShowReportBubble(true);
+  };
+
+  const handleReportMouseLeave = () => {
+    bubbleTimeoutRef.current = setTimeout(() => {
+      setShowReportBubble(false);
+    }, 150); // Small delay to allow moving to bubble
+  };
+
+  const handleBubbleMouseEnter = () => {
+    if (bubbleTimeoutRef.current) {
+      clearTimeout(bubbleTimeoutRef.current);
+    }
+  };
+
+  const handleBubbleMouseLeave = () => {
+    setShowReportBubble(false);
   };
 
   return (
@@ -386,11 +458,49 @@ const AudioPlayer = ({
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
                         </svg>
-                        <span>Afspeellijst</span>
-                        {playlistInfo?.videoCount && (
+                        <span>Afspeellijst</span>                        {playlistInfo?.videoCount && (
                           <span className="text-gray-300">({playlistInfo.videoCount})</span>
                         )}
                       </span>
+                    )}                    {/* Community Timing Report Button - Single button with hover bubble */}
+                    {currentSource === 'radio' && currentStation && (
+                      <div className="relative">
+                        <button
+                          onMouseEnter={handleReportMouseEnter}
+                          onMouseLeave={handleReportMouseLeave}
+                          className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors flex items-center gap-1"
+                          title="Rapporteer reclametiming"
+                        >
+                          <span>❗</span>
+                          <span>{reportCooldown || 'Report reclame'}</span>
+                        </button>
+
+                        {/* Hover Bubble with Begin/Einde options */}
+                        {showReportBubble && !reportCooldown && (
+                          <div
+                            className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg p-2 z-50 whitespace-nowrap"
+                            onMouseEnter={handleBubbleMouseEnter}
+                            onMouseLeave={handleBubbleMouseLeave}
+                          >
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleReportAdBreak('start')}
+                                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
+                              >
+                                Begin
+                              </button>
+                              <button
+                                onClick={() => handleReportAdBreak('end')}
+                                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                              >
+                                Einde
+                              </button>
+                            </div>
+                            {/* Arrow pointing down */}
+                            <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800"></div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -455,21 +565,23 @@ const AudioPlayer = ({
                 {currentAdBreakTimeLeft !== null ? (
                   <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                     </svg>
                     <span>Pauze eindigt over:</span>
                     <span className="font-mono bg-purple-700 px-2 py-0.5 rounded">
                       {formatAdBreakTimer(currentAdBreakTimeLeft)}
-                    </span>
-                    <button
+                    </span>                    <button
                       onClick={onCancelAdBreakTimer}
                       className="ml-2 w-5 h-5 rounded-full bg-purple-700 hover:bg-purple-800 text-white flex items-center justify-center text-xs transition-colors"
                       title="Niet eindigen"
                     >
                       ✕
                     </button>
+
+
                   </div>
+
                 ) : (
                   // Fallback display if timer is not available
                   <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
@@ -492,7 +604,16 @@ const AudioPlayer = ({
                 </div>
               )
             )}
-
+            {/* Rotation Button for Nonstop Mode */}
+            {adBreakMode === 'nonstop' && onRotateNonstopStation && isAdBreakActive && (
+              <button
+                onClick={onRotateNonstopStation}
+                className="ml-2 w-12 h-8 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-l transition-colors"
+                title="Wissel naar volgende non-stop radio"
+              >
+                ⟳
+              </button>
+            )}
             {/* ✅ ENHANCED: Super Smooth Volume Control with Real-time Dragging - FIXED */}
             <div className={`volume-container ${isVolumeChanging ? 'volume-changing' : ''}`}>
               <button
@@ -516,16 +637,16 @@ const AudioPlayer = ({
                 >
                   {/* Volume track background */}
                   <div className="volume-track" />
-                  
+
                   {/* Volume fill */}
-                  <div 
-                    className="volume-fill" 
+                  <div
+                    className="volume-fill"
                     style={{ width: `${getVolumePercent()}%` }}
                   />
-                  
+
                   {/* Volume thumb/handle */}
-                  <div 
-                    className="volume-thumb" 
+                  <div
+                    className="volume-thumb"
                     style={{ left: `${getVolumePercent()}%` }}
                   />
                 </div>

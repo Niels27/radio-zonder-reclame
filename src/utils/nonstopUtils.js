@@ -9,7 +9,41 @@ let failedStations = new Set(); // Track failed stations to avoid retrying them
 // Initialize nonstop stations array
 const initializeNonstopStations = () => {
   if (nonstopStations.length === 0) {
-    nonstopStations = Object.values(allRadioStations.realnonstop || {});
+    // Start with default realnonstop stations
+    const defaultStations = Object.values(allRadioStations.realnonstop || {});
+    
+    // Add custom stations from localStorage
+    try {
+      const customStationNames = JSON.parse(localStorage.getItem('custom_nonstop_stations') || '[]');
+      const customStations = [];
+      
+      // Find each custom station in the allRadioStations data
+      customStationNames.forEach(stationName => {
+        let foundStation = null;
+        
+        // Search through all categories to find the station
+        Object.entries(allRadioStations).forEach(([category, stations]) => {
+          if (category !== 'realnonstop') {
+            Object.values(stations).forEach(station => {
+              if (station.name === stationName) {
+                foundStation = { ...station, isCustom: true };
+              }
+            });
+          }
+        });
+        
+        if (foundStation) {
+          customStations.push(foundStation);
+        }
+      });
+      
+      // Combine default and custom stations
+      nonstopStations = [...defaultStations, ...customStations];
+    } catch (error) {
+      console.warn('Failed to load custom nonstop stations:', error);
+      nonstopStations = defaultStations;
+    }
+    
     // Shuffle the array for randomness
     for (let i = nonstopStations.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -78,4 +112,10 @@ export const getNonstopStationsCount = () => {
 
 export const getFailedStationsCount = () => {
   return failedStations.size;
+};
+
+export const refreshNonstopStations = () => {
+  nonstopStations = [];
+  failedStations.clear();
+  initializeNonstopStations();
 };
