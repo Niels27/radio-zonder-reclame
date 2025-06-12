@@ -5,6 +5,7 @@ import { getAllRadioStations, getPopularStations } from '../data/allRadioStation
 import { getIsProduction, restoreConsole, setManualProductionMode } from '../utils/logger';
 import { RadioStreamTester, startRadioStreamTest } from '../utils/radioStreamTester';
 import CommunityTimings from '../utils/communityTimings';
+import { setFirebaseDemoMode, getFirebaseDemoMode } from '../utils/firebase';
 
 const DeveloperDashboard = ({ onClose }) => {
   // ✅ ADD: Minimize state
@@ -978,8 +979,38 @@ const DeveloperDashboard = ({ onClose }) => {
               : 'bg-gray-600 hover:bg-gray-500'
           }`}
         >
-          {loggingEnabled ? '🔊 Disable Logging' : '🔇 Enable Logging'}
+          {loggingEnabled ? '🔊 Disable Logging' : '🔇 Enable Logging'}        </button>
+      </div>
+        <div>
+        <label className="block text-sm font-medium mb-1 text-gray-900">Firebase Community Storage</label>
+        <p className="text-xs text-gray-600 mb-2">
+          Current: <span className="font-bold">{getFirebaseDemoMode() ? 'DEMO MODE' : 'PRODUCTION'}</span>
+        </p>
+        <button
+          onClick={() => {
+            const isCurrentlyDemo = getFirebaseDemoMode();
+            const newMode = !isCurrentlyDemo;
+            setFirebaseDemoMode(newMode);
+            
+            alert(`Firebase mode changed to: ${newMode ? 'DEMO MODE' : 'PRODUCTION'}\n\nDemo Mode: Reports stored locally only\nProduction: Reports shared with all users\n\nPage will reload to apply changes.`);
+            
+            // Reload to apply Firebase mode change
+            window.location.reload();
+          }}
+          className={`px-4 py-2 text-white rounded transition-colors ${
+            getFirebaseDemoMode()
+              ? 'bg-orange-600 hover:bg-orange-700' 
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
+        >
+          {getFirebaseDemoMode() ? '🔥 Switch to Production' : '📱 Switch to Demo'}
         </button>
+        <p className="text-xs text-gray-500 mt-1">
+          {getFirebaseDemoMode()
+            ? 'Demo mode: Community reports stored locally only'
+            : 'Production mode: Community reports shared with all users'
+          }
+        </p>
       </div>
     </div>
   </div>

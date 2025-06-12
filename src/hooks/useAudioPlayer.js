@@ -636,16 +636,19 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     // Apply station overrides before processing
     const effectiveStationData = stationReportingService.getEffectiveStationData(stationData);
-    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);
-
-    try {
-      if (window.isAdBreakActive && window.queueStationSwitch) {
+    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);    try {
+      // ✅ FIX: Handle nonstop rotation during ad break differently
+      if (window.isAdBreakActive && window.queueStationSwitch && !window.isNonstopRotation) {
         console.log('🎵 Ad break active - queueing station switch');
         window.queueStationSwitch(effectiveStationData);
         if (window.addNotification) {
           window.addNotification(`Station ${effectiveStationData.name} wordt na reclamepauze afgespeeld`, 'info', 3000);
         }
         return;
+      }
+
+      if (window.isNonstopRotation) {
+        console.log('🔄 Nonstop rotation during ad break - playing immediately without queueing');
       }
 
       if (isTransitioning) {
@@ -820,13 +823,40 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
               }
             }
           }
-        }, 1000);
-
-        console.log(`✅ Successfully playing: ${effectiveStationData.name} at ${Math.round(radioVolume * 100)}% volume`);
+        }, 1000);        console.log(`✅ Successfully playing: ${effectiveStationData.name} at ${Math.round(radioVolume * 100)}% volume`);
 
         setIsPlaying(true);
         setIsLoading(false);
         setLoadingProgress('');
+
+        // ✅ ADD: Check for pre-roll ads and offer skip
+        if (AdSkipUtils.shouldOfferPrerollSkip(workingUrl, effectiveStationData.name)) {
+          console.log('🚫 Pre-roll ads detected, offering skip option...');
+          
+          // Check if auto-skip is enabled
+          const autoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
+          
+          if (autoSkipEnabled) {
+            console.log('⚡ Auto-skip enabled, skipping pre-roll silently...');
+            setTimeout(() => {
+              AdSkipUtils.skipPrerollSilently(audioRef.current, 17);
+            }, 2000); // Wait 2 seconds before auto-skip
+          } else {
+            console.log('👆 Manual skip mode, showing skip button...');
+            setTimeout(() => {
+              AdSkipUtils.createPrerollSkipButton(
+                audioRef.current,
+                () => {
+                  console.log('👆 User manually skipped pre-roll');
+                  if (window.addNotification) {
+                    window.addNotification('⏩ Pre-roll overgeslagen', 'success', 2000);
+                  }
+                },
+                false // Not auto-skip
+              );
+            }, 3000); // Wait 3 seconds to show button
+          }
+        }
 
         // Save last played station
         localStorage.setItem('lastPlayedStation', JSON.stringify(effectiveStationData));
@@ -1392,8 +1422,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     youtubePlayerRef,
     spotifyPlayerRef,
     toggleShuffle,
-    nextTrack,
-    pauseRadioForAdBreak,
+    nextTrack,    pauseRadioForAdBreak,
     resumeRadioFromAdBreak,
     isRadioPausedForAdBreak,
     pausedRadioStation,

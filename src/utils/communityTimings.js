@@ -1,8 +1,7 @@
 // utils/communityTimings.js - Community-driven ad break timing system
 
-// GitHub repository for storing community timings (using GitHub as free backend)
-const GITHUB_REPO = 'no-ads-radio-community/timings';
-const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO}`;
+import { getFirestoreDB, demoFirestore, isDemoMode } from './firebase.js';
+import { collection, addDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 
 // Local cache for community timings
 let communityTimingsCache = new Map();
@@ -24,15 +23,11 @@ class CommunityTimings {
         dayOfWeek: now.getDay(),
         userAgent: navigator.userAgent.substring(0, 50), // Limited for privacy
         version: '1.0'
-      };
-
-      // Store locally first
+      };      // Store locally first (as backup)
       this.storeLocalReport(report);
 
-      // Try to sync to GitHub (fire and forget)
-      this.syncToGitHub(report).catch(error => {
-        console.warn('Failed to sync timing to GitHub:', error);
-      });
+      // Sync to Firebase for shared storage
+      await this.syncToFirebase(report);
 
       console.log(`📊 Ad break reported: ${stationName} ${type} at ${now.getMinutes()}:${now.getSeconds()}`);
       
@@ -71,10 +66,8 @@ class CommunityTimings {
       
       if (communityTimingsCache.has(cacheKey) && (now - lastFetchTime) < CACHE_DURATION) {
         return communityTimingsCache.get(cacheKey);
-      }
-
-      // Fetch from GitHub
-      const timings = await this.fetchFromGitHub(stationName);
+      }      // Fetch from Firebase
+      const timings = await this.fetchFromFirebase(stationName);
       
       // Process and validate timings
       const processedTimings = this.processTimings(timings);
@@ -89,43 +82,64 @@ class CommunityTimings {
       console.warn('Failed to fetch community timings:', error);
       return null;
     }
-  }
-
-  // Fetch timings from GitHub
-  static async fetchFromGitHub(stationName) {
-    const fileName = `${stationName.toLowerCase().replace(/[^a-z0-9]/g, '_')}.json`;
-    const url = `${GITHUB_API_BASE}/contents/stations/${fileName}`;
-    
+  }  // Fetch timings from Firebase
+  static async fetchFromFirebase(stationName) {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        if (response.status === 404) {
-          return []; // No timings yet for this station
-        }
-        throw new Error(`GitHub API error: ${response.status}`);
+      if (isDemoMode()) {
+        // Use demo data
+        const result = await demoFirestore.collection('timing_reports')
+          .where('station', '==', stationName)
+          .orderBy('timestamp', 'desc')
+          .limit(50)
+          .get();
+        
+        return result.docs.map(doc => doc.data());
       }
-      
-      const data = await response.json();
-      const content = atob(data.content);
-      return JSON.parse(content);
+
+      const db = getFirestoreDB();
+      if (!db) {
+        console.warn('Firebase not available, using local data only');
+        return [];
+      }
+
+      const q = query(
+        collection(db, 'timing_reports'),
+        where('station', '==', stationName),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => doc.data());
       
     } catch (error) {
-      console.warn('Failed to fetch from GitHub:', error);
+      console.warn('Failed to fetch from Firebase:', error);
       return [];
     }
   }
+  // Sync report to Firebase
+  static async syncToFirebase(report) {
+    try {
+      if (isDemoMode()) {
+        // Use demo storage
+        await demoFirestore.collection('timing_reports').add(report);
+        console.log('📊 Demo: Report stored to Firebase:', report);
+        return;
+      }
 
-  // Sync report to GitHub (simplified approach)
-  static async syncToGitHub(report) {
-    // For now, we'll collect reports locally and sync them in batches
-    // This avoids GitHub API rate limits and the need for authentication
-    
-    // In a real implementation, you'd want to:
-    // 1. Batch reports and send them periodically
-    // 2. Use a serverless function (Vercel/Netlify) as a proxy
-    // 3. Or use a dedicated backend service
-    
-    console.log('📊 Report queued for sync:', report);
+      const db = getFirestoreDB();
+      if (!db) {
+        console.warn('Firebase not available, storing locally only');
+        return;
+      }
+
+      const docRef = await addDoc(collection(db, 'timing_reports'), report);
+      console.log('📊 Report synced to Firebase with ID:', docRef.id);
+      
+    } catch (error) {
+      console.warn('Failed to sync to Firebase:', error);
+      // Fail gracefully - local storage is still available
+    }
   }
 
   // Process and validate timings

@@ -156,9 +156,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       case 'lofi': return 'lofi muziek';
       default: return 'alternatieve audio';
     }
-  }, [adBreakMode]);
-
-  // ✅ NEW: Function to rotate to next nonstop station during ad break
+  }, [adBreakMode]);  // ✅ NEW: Function to rotate to next nonstop station during ad break
   const rotateToNextNonstopStation = useCallback(async () => {
     if (!isAdBreakActive || adBreakMode !== 'nonstop') {
       console.warn('Cannot rotate: not in nonstop ad break mode');
@@ -174,14 +172,22 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         throw new Error('No nonstop stations available');
       }
 
+      // ✅ FIX: Use a flag to indicate this is a nonstop rotation during ad break
+      // This prevents the playRadio function from updating pausedRadioStation
+      window.isNonstopRotation = true;
+      
       // Switch to the new station
       await audioPlayer.playRadio(nextStation);
+      
+      // Clear the flag
+      window.isNonstopRotation = false;
       
       if (window.addNotification) {
         window.addNotification(`🔄 Gewisseld naar: ${nextStation.name}`, 'info', 3000);
       }
     } catch (error) {
       console.error('Failed to rotate nonstop station:', error);
+      window.isNonstopRotation = false; // Clear flag on error
       if (window.addNotification) {
         window.addNotification(`❌ Kan niet wisselen: ${error.message}`, 'error', 3000);
       }

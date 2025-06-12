@@ -59,12 +59,12 @@ const StationLogo = ({ station, className = "w-full h-full" }) => {
   const currentUrl = logoUrls[currentUrlIndex];
   
   const handleImageError = async (error) => {
-    console.log(`Logo failed for ${station.name}: ${currentUrl}`, error);
+   // console.log(`Logo failed for ${station.name}: ${currentUrl}`, error);
     
-    // Log failed logo for monitoring if it's a priority station
+    /* Log failed logo for monitoring if it's a priority station
     if (shouldMonitorLogo(station)) {
       logFailedLogo(station, currentUrl, error?.toString() || 'Unknown error');
-    }
+    }*/
     
     // Try next URL in fallback chain
     if (currentUrlIndex < logoUrls.length - 1) {

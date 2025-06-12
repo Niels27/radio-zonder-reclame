@@ -610,7 +610,7 @@ export class AdSkipUtils {
   // ✅ ENHANCED: Check if pre-roll skip should be offered with auto-skip consideration
   static shouldOfferPrerollSkip(url, stationName) {
     // Don't offer skip for known ad-free streams with very high scores
-    if (this.getAdFreeScore(url) > 90) {
+    if (this.getAdFreeScore(url) > 95) {
       console.log(`🚫 Not offering skip - high ad-free score (${this.getAdFreeScore(url)}) for:`, url);
       return false;
     }
@@ -695,7 +695,11 @@ export class AdSkipUtils {
       if (alternatives.length > 0) {
         const sorted = this.sortByAdFreeLikelihood([station.url, ...alternatives]);
         console.log('Sorted by ad-free likelihood:', sorted.map(url => `${url} (score: ${this.getAdFreeScore(url)})`));
-      }
-    });
+      }    });
   }
+}
+
+// Expose to window for settings integration
+if (typeof window !== 'undefined') {
+  window.AdSkipUtils = AdSkipUtils;
 }

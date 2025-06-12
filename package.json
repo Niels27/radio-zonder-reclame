@@ -25,6 +25,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@tensorflow/tfjs": "^4.22.0",
+    "firebase": "^11.9.1",
     "lucide-react": "^0.511.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

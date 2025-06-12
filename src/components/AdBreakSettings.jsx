@@ -6,6 +6,7 @@ import TimeRangeSlider from './TimeRangeSlider';
 import { setupTestDetection, cleanupTestDetection } from '../utils/musicDetection.js';
 import { allRadioStations } from '../data/allRadioStations.js';
 import { refreshNonstopStations, getRandomNonstopStation } from '../utils/nonstopUtils.js';
+import { getFirebaseDemoMode } from '../utils/firebase.js';
 
 const defaultDaySettings = () => ({
   enabled: false,
@@ -209,7 +210,9 @@ const AdBreakSettings = ({
   };
   // Get default nonstop stations from realnonstop category
   const getDefaultNonstopStations = () => {
-    return Object.values(allRadioStations.realnonstop || {});
+    const removedDefaults = JSON.parse(localStorage.getItem('removed_default_stations') || '[]');
+    return Object.values(allRadioStations.realnonstop || {})
+      .filter(station => !removedDefaults.includes(station.name));
   };
 
   // Get combined list of all configured nonstop stations
@@ -267,31 +270,47 @@ const AdBreakSettings = ({
     const isDefaultStation = defaultStations.some(station => station.name === stationName);
     
     if (isDefaultStation) {
-      // For default stations, only remove if we have more than 1 total station
+      // For default stations, only remove if we have more than 1 total active station
       if (totalStations <= 1) {
         setNonstopRemovalError('Er moet minstens 1 radio zijn ingesteld');
         setTimeout(() => setNonstopRemovalError(''), 3000);
         return;
       }
-      // Remove from realnonstop by updating nonstop utils (we'll need to implement this)
-      console.log('Would remove default station:', stationName);
+      
+      // Actually remove the default station by adding it to a "removed defaults" list
+      const removedDefaults = JSON.parse(localStorage.getItem('removed_default_stations') || '[]');
+      if (!removedDefaults.includes(stationName)) {
+        removedDefaults.push(stationName);
+        localStorage.setItem('removed_default_stations', JSON.stringify(removedDefaults));
+      }
+      
+      // ✅ ADD: Force component re-render by updating a state that's used in the list
+      // We can trigger a re-render by updating customNonstopStations with the same value
+      setCustomNonstopStations([...customNonstopStations]);
+      
+      console.log('✅ Removed default station:', stationName);
+      
+      if (window.addNotification) {
+        window.addNotification(`🚫 Standaard station weggehaald: ${stationName}`, 'info', 3000);
+      }
     } else {
-      // For custom stations, only remove if we have more than 1 total station  
+      // For custom stations, only remove if we have more than 1 total active station  
       if (totalStations <= 1) {
         setNonstopRemovalError('Er moet minstens 1 radio zijn ingesteld');
         setTimeout(() => setNonstopRemovalError(''), 3000);
         return;
       }
       setCustomNonstopStations(customNonstopStations.filter(name => name !== stationName));
+      
+      if (window.addNotification) {
+        window.addNotification(`🗑️ Custom station verwijderd: ${stationName}`, 'info', 3000);
+      }
     }
     
     // Clear any existing error
     setNonstopRemovalError('');
   };
-  // Reset lofi URL to default
-  const resetLofiUrl = () => {
-    setCustomLofiUrl('');
-  };
+
   // Validate YouTube URL
   const isValidYouTubeUrl = (url) => {
     if (!url) return true; // Empty is valid (uses default)
@@ -547,7 +566,7 @@ const detector = await setupTestDetection(
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 ">
       <div className="max-w-6xl mx-auto">
         {/* Header with always-visible status and controls */}
         <div className="flex items-center justify-between mb-1">
@@ -685,20 +704,28 @@ const detector = await setupTestDetection(
                   </div>
                   <p className="text-xs text-gray-400">
                     Wissel naar een radio zonder reclame 
-                  </p>
-                  {/* Gear icon */}
-                  <button
+                  </p>                  {/* Gear icon */}
+                  <div
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowNonstopSettings(true);
                     }}
-                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors"
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors cursor-pointer"
                     title="Non-stop radio instellingen"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setShowNonstopSettings(true);
+                      }
+                    }}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
                     </svg>
-                  </button>
+                  </div>
                 </button>                {/* Lofi Mode */}
                 <button
                   onClick={() => onAdBreakModeChange('lofi')}
@@ -714,24 +741,32 @@ const detector = await setupTestDetection(
                     <span className="font-semibold">Lofi Girl</span>
                   </div>                  <p className="text-xs text-gray-400">
                     Wissel naar Lofi Girl study streams
-                  </p>
-                  {/* Gear icon */}
-                  <button
+                  </p>                  {/* Gear icon */}
+                  <div
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowLofiSettings(true);
                     }}
-                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors"
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors cursor-pointer"
                     title="Lofi Girl instellingen"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setShowLofiSettings(true);
+                      }
+                    }}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
                     </svg>
-                  </button>
+                  </div>
                 </button>
               </div>
             </div>            {/* Control Buttons and Manual Settings */}
-            <div className="border-b border-gray-600 pb-4">
+            <div className=" pb-2">
               <div className="flex gap-6 items-start">
 
                 {/* Left side: Experimental settings */}
@@ -815,17 +850,13 @@ const detector = await setupTestDetection(
                             ? 'bg-orange-600'
                             : 'bg-gray-600'
                           }`}
-                      >
-                        <span
+                      >                        <span
                           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useCommunityTimings ? 'translate-x-6' : 'translate-x-1'
                             }`}
                         />
                       </button>
                     </div>
                   </div>
-
-             
-      
                 </div>
 
                 {/* Middle: 2x2 grid for manual timing */}
