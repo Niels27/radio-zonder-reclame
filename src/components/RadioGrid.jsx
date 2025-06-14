@@ -499,16 +499,17 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
         
         {/* Stations grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-          {filteredStations.map((station) => (
-            <div
+          {filteredStations.map((station) => (            <div
               key={station.name}
               onClick={() => handleStationSelect(station)}
               className={`radio-card relative overflow-hidden aspect-square ${
                 currentStation?.name === station.name ? 'active' : ''
+              } ${
+                currentStation?.name === station.name && isPlaying ? 'playing' : ''
               } group`}
             >
               {/* Station Logo */}
-              <div className="h-1/2 mb-2 flex items-center justify-center p-2">
+              <div className="station-logo h-1/2 mb-2 flex items-center justify-center p-2">
                 <StationLogo station={station} className="w-full h-full max-w-16 max-h-16" />
               </div>
 
@@ -528,24 +529,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                 text={station.description}
                 className="station-description text-gray-400 text-xs"
                 isName={false}
-              />
-
-              {/* Playing Indicator */}
-              {currentStation?.name === station.name && isPlaying && (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
-                  <div className="sound-wave-container">
-                    <span className="sound-wave"></span>
-                    <span className="sound-wave"></span>
-                    <span className="sound-wave"></span>
-                    <span className="sound-wave"></span>
-                    <span className="sound-wave"></span>
-                    <span className="sound-wave"></span>
-                    <span className="sound-wave"></span>
-                  </div>
-                </div>
-              )}
-
-              {/* Loading Indicator */}
+              />              {/* Loading Indicator */}
              {isLoading && currentStation?.name === station.name && !window.isAdBreakActive && (
                 <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-gray-400 text-xs">
                   <div className="flex items-center">

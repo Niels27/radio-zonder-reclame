@@ -96,81 +96,87 @@
   }
 
   #search-icon:hover {
-    transform: scale(1.2);
+    transform: scale(1.2);  }
+  /* Playing radio card animation - continuous color flow */
+  .radio-card.playing {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(270deg, 
+      rgba(59, 130, 246, 0.12) 0%, 
+      rgba(147, 51, 234, 0.12) 25%, 
+      rgba(236, 72, 153, 0.12) 50%, 
+      rgba(147, 51, 234, 0.12) 75%, 
+      rgba(59, 130, 246, 0.12) 100%);
+    background-size: 400% 400%;
+    animation: colorFlow 4s ease-in-out infinite;
+    border: 1px solid rgba(59, 130, 246, 0.4);
   }
 
-  /* Sound wave container */
-  .sound-wave-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 8px;
-    line-height: 1;
-  }
-
-  .sound-wave {
-    display: inline-block;
-    width: 4px;
-    height: 1.6px;
-    background-color: #10b981;
-    margin: 0 0.5px;
-    border-radius: 2px;
-    animation: sound-wave 0.8s ease-in-out infinite;
-    transform-origin: bottom;
-    vertical-align: middle;
-  }
-
-  /* Sound wave animation */
-  @keyframes sound-wave {
-
-    0%,
-    100% {
-      height: 1.6px;
-      transform: scaleY(1);
+  @keyframes colorFlow {
+    0% {
+      background-position: 0% 50%;
+      border-color: rgba(59, 130, 246, 0.4);
     }
-
     25% {
-      height: 4.8px;
-      transform: scaleY(3);
+      background-position: 50% 50%;
+      border-color: rgba(147, 51, 234, 0.4);
     }
-
     50% {
-      height: 3.2px;
-      transform: scaleY(2);
+      background-position: 100% 50%;
+      border-color: rgba(236, 72, 153, 0.4);
     }
-
     75% {
-      height: 6.4px;
-      transform: scaleY(4);
+      background-position: 50% 50%;
+      border-color: rgba(147, 51, 234, 0.4);
+    }
+    100% {
+      background-position: 0% 50%;
+      border-color: rgba(59, 130, 246, 0.4);
     }
   }
 
-  .sound-wave:nth-child(1) {
-    animation-delay: 0s;
+  /* Playing radio logo pulse animation */
+  .radio-card.playing .station-logo {
+    animation: musicPulse 2s ease-in-out infinite;
+    z-index: 2;
+    position: relative;
   }
 
-  .sound-wave:nth-child(2) {
-    animation-delay: 0.1s;
+  @keyframes musicPulse {
+    0%, 100% {
+      transform: scale(1);
+      filter: brightness(1) saturate(1);
+    }
+    25% {
+      transform: scale(1.06);
+      filter: brightness(1.1) saturate(1.2);
+    }
+    50% {
+      transform: scale(1.03);
+      filter: brightness(1.05) saturate(1.5);
+    }
+    75% {
+      transform: scale(1.10);
+      filter: brightness(1.2) saturate(1.3);
+    }
   }
-
-  .sound-wave:nth-child(3) {
-    animation-delay: 0.2s;
+  /* Ensure content stays above animated background and favorite button is visible */
+  .radio-card.playing > * {
+    position: relative;
+    z-index: 2;
   }
-
-  .sound-wave:nth-child(4) {
-    animation-delay: 0.3s;
+  
+  /* Ensure favorite button stays on top and fixed position */
+  .radio-card button {
+    position: absolute !important;
+    top: 0.25rem !important;
+    right: 0.25rem !important;
+    z-index: 10 !important;
+    transform: none !important;
   }
-
-  .sound-wave:nth-child(5) {
-    animation-delay: 0.4s;
-  }
-
-  .sound-wave:nth-child(6) {
-    animation-delay: 0.5s;
-  }
-
-  .sound-wave:nth-child(7) {
-    animation-delay: 0.6s;
+  
+  .radio-card.playing button {
+    z-index: 10 !important;
   }
 
   /* Line clamp utilities */
@@ -197,9 +203,9 @@
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     background: #374151;
+    -webkit-user-select: none;
     user-select: none;
     /* ✅ FIX: Prevent page scrolling when using mouse wheel */
-    overscroll-behavior: contain;
   }
 
   .volume-slider:hover {
@@ -584,7 +590,76 @@
       left: 100%;
       opacity: 0;
     }
+  }  /* Music Visualizer Styles */
+  .music-visualizer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    mix-blend-mode: screen;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  .music-visualizer canvas {
+    filter: blur(0.5px) brightness(1.1);
+  }
+  /* Footer visualizer specific styles with configurable blur */
+  .music-visualizer.footer {
+    mix-blend-mode: overlay;
+    opacity: 0.7;
+    z-index: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .music-visualizer.footer canvas {
+    filter: blur(var(--visualizer-blur, 2px)) brightness(1.3) contrast(1.1);
+  }
+
+  /* Bottom visualizer specific styles (legacy) */
+  .music-visualizer.bottom {
+    mix-blend-mode: overlay;
+    opacity: 0.8;
+    z-index: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* Ensure footer visualizer is visible */
+  .sticky .music-visualizer.footer {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Enhanced banner container for visualizer */
+  .banner-container {
+    overflow: hidden;
+  }
+
+  .banner-container .music-visualizer {
+    opacity: 0.8;
+  }
+
+  /* Visualizer gear icon animation */
+  .visualizer-gear {
+    transition: transform 0.3s ease;
+  }
+
+  .visualizer-gear:hover {
+    transform: rotate(90deg);
+  }
+
+  /* ...existing code... */
 }
 
 @layer utilities {

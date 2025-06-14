@@ -228,8 +228,8 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       const expectedVolume = volumeRef.current;
 
       if (Math.abs(actualVolume - expectedVolume) > 0.01) {
-        console.warn(`🚨 Volume desync detected! Audio: ${Math.round(actualVolume * 100)}%, Expected: ${Math.round(expectedVolume * 100)}%`);
-        console.warn('🔧 Forcing volume correction...');
+       // console.warn(`🚨 Volume desync detected! Audio: ${Math.round(actualVolume * 100)}%, Expected: ${Math.round(expectedVolume * 100)}%`);
+       // console.warn('🔧 Forcing volume correction...');
 
         // Force correct the volume
         audio.volume = expectedVolume;

@@ -59,9 +59,9 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   const [queuedStation, setQueuedStation] = useState(null);
   const [isManualTestActive, setIsManualTestActive] = useState(false);
   const [shouldPlayPlaylistDuringAdBreak, setShouldPlayPlaylistDuringAdBreak] = useState(false); const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
-  const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);
-  const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
-  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false); // ← New state  // Automatic ad detection states - DISABLED: Music detection temporarily disabled
+  const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);  const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
+  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false); // ← New state
+  const [isPermanentModeActive, setIsPermanentModeActive] = useState(false); // ← Track permanent mode state// Automatic ad detection states - DISABLED: Music detection temporarily disabled
   const [autoAdDetectionEnabled, setAutoAdDetectionEnabled] = useState(() => {
     // ✅ QUICK FIX: Force music detection to always be disabled
     return false;
@@ -156,7 +156,9 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       case 'lofi': return 'lofi muziek';
       default: return 'alternatieve audio';
     }
-  }, [adBreakMode]);  // ✅ NEW: Function to rotate to next nonstop station during ad break
+  }, [adBreakMode]);
+
+  // ✅ NEW: Function to rotate to next nonstop station during ad break
   const rotateToNextNonstopStation = useCallback(async () => {
     if (!isAdBreakActive || adBreakMode !== 'nonstop') {
       console.warn('Cannot rotate: not in nonstop ad break mode');
@@ -172,22 +174,14 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         throw new Error('No nonstop stations available');
       }
 
-      // ✅ FIX: Use a flag to indicate this is a nonstop rotation during ad break
-      // This prevents the playRadio function from updating pausedRadioStation
-      window.isNonstopRotation = true;
-      
       // Switch to the new station
       await audioPlayer.playRadio(nextStation);
-      
-      // Clear the flag
-      window.isNonstopRotation = false;
       
       if (window.addNotification) {
         window.addNotification(`🔄 Gewisseld naar: ${nextStation.name}`, 'info', 3000);
       }
     } catch (error) {
       console.error('Failed to rotate nonstop station:', error);
-      window.isNonstopRotation = false; // Clear flag on error
       if (window.addNotification) {
         window.addNotification(`❌ Kan niet wisselen: ${error.message}`, 'error', 3000);
       }
@@ -652,8 +646,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   }, [autoAdDetectionEnabled, isTimerRunning, isAdBreakActive, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startAdBreak]);
   // ...existing code...  // Enhanced manual ad break with mode support
   // Update the entire manual ad break function with better error handling:
-
-  const manualAdBreak = useCallback(() => {
+  const manualAdBreak = useCallback((durationMinutes = 5) => {
     // ✅ CRITICAL: Prevent rapid test button clicking
     if (isManualTestInProgress) {
       console.log('🚫 Manual test operation already in progress');
@@ -668,13 +661,26 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     }
 
     setIsManualTestInProgress(true);
+    
+    const isLongDuration = durationMinutes > 60; // More than 1 hour is considered "permanent"
+    console.log(`🎵 Manual ad break called with duration: ${durationMinutes} minutes (${isLongDuration ? 'permanent mode' : 'test mode'})`);
 
-    try {
-      if (isManualTestActive) {
+    try {      if (isManualTestActive) {
         // Stop manual test
         console.log('🎵 Stopping manual ad break test');
         setIsManualTestActive(false);
         setShouldPlayPlaylistDuringAdBreak(false);
+
+        // ✅ Store permanent mode state before clearing timeout
+        const wasPermanentMode = isPermanentModeActive;
+        setIsPermanentModeActive(false);
+
+        // ✅ Clear any timeout for permanent mode
+        if (adBreakTimeoutRef.current) {
+          clearTimeout(adBreakTimeoutRef.current);
+          adBreakTimeoutRef.current = null;
+          console.log('⏰ Cleared permanent mode timeout');
+        }
 
         // ✅ NUCLEAR CLEANUP: Stop ALL audio sources
         if (audioPlayer.currentSource === 'playlist') {
@@ -689,32 +695,75 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
         if (audioPlayer.currentSource === 'radio' && audioPlayer.audioRef?.current) {
           audioPlayer.audioRef.current.pause();
-        }
-
-        // Close Lofi overlay
+        }        // Close Lofi overlay
         closeLofiYouTubeOverlay();
 
-        // Resume radio if it was paused
-        if (audioPlayer.isRadioPausedForAdBreak && audioPlayer.pausedRadioStation) {
+        if (!wasPermanentMode && audioPlayer.isRadioPausedForAdBreak && audioPlayer.pausedRadioStation) {
+          // TEST MODE: Resume radio if it was paused for ad break
           setTimeout(() => {
             audioPlayer.resumeRadioFromAdBreak();
           }, 300);
+        } else if (wasPermanentMode) {
+          console.log('🎵 Permanent mode stopped - radio will not resume (was completely stopped)');
         }
 
         if (window.addNotification) {
           window.addNotification('🛑 Test pauze gestopt', 'info', 2000);
         }
-      } else {
-        // Start manual test with proper sequencing
+      } else {        // Start manual test with proper sequencing
         console.log(`🎵 Starting manual ad break test with mode: ${adBreakMode}`);
         setIsManualTestActive(true);
-        setShouldPlayPlaylistDuringAdBreak(true);
-
-        const isRadioPlaying = audioPlayer.isPlaying && audioPlayer.currentStation && audioPlayer.currentSource === 'radio';
+        setShouldPlayPlaylistDuringAdBreak(true);        // ✅ NEW: Only set timeout for test mode, not permanent mode
+        if (!isLongDuration) {
+          // For short test mode, set a 5-minute timeout to auto-stop
+          console.log(`🕐 Setting ${durationMinutes} minute timeout for test mode`);
+          
+          // Clear any existing timeout first
+          if (adBreakTimeoutRef.current) {
+            clearTimeout(adBreakTimeoutRef.current);
+          }
+          
+          // Set new timeout for test duration
+          adBreakTimeoutRef.current = setTimeout(() => {
+            console.log('🕐 Test mode timeout reached - ending test');
+            setIsManualTestActive(false);
+            setShouldPlayPlaylistDuringAdBreak(false);
+            
+            // Stop current playlist/audio
+            if (audioPlayer.currentSource === 'playlist') {
+              if (audioPlayer.currentPlaylistProvider === 'spotify' && audioPlayer.spotifyPlayerRef?.current) {
+                import('../utils/spotifyUtils').then(({ pauseSpotify }) => pauseSpotify());
+              }
+              if (audioPlayer.currentPlaylistProvider === 'youtube' && audioPlayer.youtubePlayerRef?.current) {
+                audioPlayer.youtubePlayerRef.current.pauseVideo();
+                audioPlayer.youtubePlayerRef.current.stopVideo();
+              }
+            }
+            
+            if (window.addNotification) {
+              window.addNotification(`⏰ Test beëindigd na ${durationMinutes} minuten`, 'info', 3000);
+            }
+          }, durationMinutes * 60 * 1000);        } else {
+          // For permanent mode, clear any existing timeout but don't set a new one
+          // This allows infinite playback
+          if (adBreakTimeoutRef.current) {
+            clearTimeout(adBreakTimeoutRef.current);
+            adBreakTimeoutRef.current = null;
+          }
+          setIsPermanentModeActive(true); // ✅ Set permanent mode flag
+          console.log('🎵 Permanent mode activated - no auto-stop timeout set');
+        }const isRadioPlaying = audioPlayer.isPlaying && audioPlayer.currentStation && audioPlayer.currentSource === 'radio';
 
         if (isRadioPlaying) {
-          console.log('🎵 Pausing radio for manual test');
-          audioPlayer.pauseRadioForAdBreak();
+          if (isLongDuration) {
+            // ✅ PERMANENT MODE: Completely stop radio (don't pause for ad break)
+            console.log('🎵 Stopping radio completely for permanent mode (no resume)');
+            audioPlayer.stopRadio(); // Complete stop, no resume logic
+          } else {
+            // ✅ TEST MODE: Pause radio for ad break (will resume after test)
+            console.log('🎵 Pausing radio for manual test');
+            audioPlayer.pauseRadioForAdBreak();
+          }
 
           setTimeout(async () => {
             try {
@@ -728,9 +777,9 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
                   });
                 }
               } else if (adBreakMode === 'nonstop') {
-                // ✅ FIX: Better error handling for nonstop test
+                // ✅ FIX: Use duration parameter instead of hardcoded 5
                 try {
-                  await startNonstopAdBreak(5); // 5 minute test
+                  await startNonstopAdBreak(durationMinutes);
                 } catch (error) {
                   console.error('Nonstop test failed completely:', error);
                   if (window.addNotification) {
@@ -742,7 +791,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
                 }
               } else if (adBreakMode === 'lofi') {
                 try {
-                  await startLofiAdBreak(5); // 5 minute test
+                  await startLofiAdBreak(durationMinutes);
                 } catch (error) {
                   console.error('Lofi test failed completely:', error);
                   if (window.addNotification) {
@@ -753,7 +802,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
                   setShouldPlayPlaylistDuringAdBreak(false);
                 }
               }
-            } catch (error) {
+            } catch (error){
               console.error('Manual test failed:', error);
               if (window.addNotification) {
                 window.addNotification(`❌ Test mislukt: ${error.message}`, 'error', 3000);
@@ -763,8 +812,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
               setShouldPlayPlaylistDuringAdBreak(false);
             }
           }, 500);
-        } else {
-          // No radio playing, start immediately
+        } else {          // No radio playing, start immediately
           (async () => {
             try {
               if (adBreakMode === 'playlist') {
@@ -778,7 +826,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
                 }
               } else if (adBreakMode === 'nonstop') {
                 try {
-                  await startNonstopAdBreak(5);
+                  await startNonstopAdBreak(durationMinutes);
                 } catch (error) {
                   console.error('Nonstop test failed completely:', error);
                   if (window.addNotification) {
@@ -789,7 +837,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
                 }
               } else if (adBreakMode === 'lofi') {
                 try {
-                  await startLofiAdBreak(5);
+                  await startLofiAdBreak(durationMinutes);
                 } catch (error) {
                   console.error('Lofi test failed completely:', error);
                   if (window.addNotification) {
@@ -808,10 +856,9 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
               setShouldPlayPlaylistDuringAdBreak(false);
             }
           })();
-        }
-
-        if (window.addNotification) {
-          window.addNotification(`🧪 Test pauze gestart (${getAdBreakModeDescription()}) - klik opnieuw om te stoppen`, 'info', 3000);
+        }        if (window.addNotification) {
+          const durationText = isLongDuration ? 'permanent' : `${durationMinutes} min`;
+          window.addNotification(`🧪 ${isLongDuration ? 'Permanente' : 'Test'} pauze gestart (${getAdBreakModeDescription()}) ${isLongDuration ? '' : `- klik opnieuw om te stoppen`}`, 'info', 3000);
         }
       }
     } catch (error) {
@@ -822,7 +869,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         setIsManualTestInProgress(false);
       }, 1000);
     }
-  }, [audioPlayer, adBreakMode, playlistUrl, playlistShuffle, isManualTestActive, setIsManualTestActive, setShouldPlayPlaylistDuringAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, extractPlaylistId]);
+  }, [audioPlayer, adBreakMode, playlistUrl, playlistShuffle, playlistProvider, isManualTestActive, setIsManualTestActive, setShouldPlayPlaylistDuringAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, extractPlaylistId]);
   // Check ad break time
   const checkAdBreakTime = useCallback(async () => {
     if (!isTimerRunning || isAdBreakActive) return;
@@ -961,7 +1008,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       });
     };
 
-   // console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
+    console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
 
     if (autoAdDetectionEnabled && isTimerRunning && !isAdBreakActive) {
       const currentWindow = getCurrentDetectionWindow();

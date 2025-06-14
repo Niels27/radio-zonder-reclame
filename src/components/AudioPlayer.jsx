@@ -395,10 +395,8 @@ const AudioPlayer = ({
 
   const handleBubbleMouseLeave = () => {
     setShowReportBubble(false);
-  };
-
-  return (
-    <div className="bg-gray-900 border-b border-gray-700 p-4">
+  };  return (
+    <div className="bg-transparent p-4 relative z-10">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between">
 

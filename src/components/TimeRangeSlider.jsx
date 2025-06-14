@@ -2,13 +2,13 @@ import React, { useRef } from "react";
 
 /**
  * TimeRangeSlider - 24h slider with draggable start/end handles and ruler
- * @param {number} startHour - 0-23
- * @param {number} endHour - 0-23
+ * @param {number} startHour - 0-24
+ * @param {number} endHour - 0-24
  * @param {function} onChange - (start, end) => void
  */
-export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange, step = 0.25, editable = true, disabled = false }) {
+export default function TimeRangeSlider({ startHour = 0, endHour = 24, onChange, step = 0.15, editable = true, disabled = false }) {
   const min = 0;
-  const max = 23;
+  const max = 24;
   const sliderRef = useRef();
 
   // Drag state
@@ -27,7 +27,7 @@ export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange,
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     let percent = (x - rect.left) / rect.width;
     percent = Math.max(0, Math.min(1, percent));
-    let hour = Math.round(percent * 23 * 4) / 4;
+    let hour = Math.round(percent * 24 * 4) / 4;
     if (dragType.current === 'start') {
       if (hour >= endHour) hour = endHour - step;
       if (hour < min) hour = min;
@@ -52,7 +52,7 @@ export default function TimeRangeSlider({ startHour = 0, endHour = 23, onChange,
     const x = e.clientX;
     let percent = (x - rect.left) / rect.width;
     percent = Math.max(0, Math.min(1, percent));
-    let hour = Math.round(percent * 23 * 4) / 4;
+    let hour = Math.round(percent * 24 * 4) / 4;
     // Move the closest handle
     if (Math.abs(hour - startHour) < Math.abs(hour - endHour)) {
       if (hour >= endHour) hour = endHour - step;
