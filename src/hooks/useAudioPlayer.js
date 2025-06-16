@@ -1331,7 +1331,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
   // Global audio enforcement
   const enforceAudioGlobally = useCallback(() => {
-    console.log('🔍 Enforcing global audio state...');
+   // console.log('🔍 Enforcing global audio state...');
 
     // Check for orphaned audio elements
     const allAudioElements = document.querySelectorAll('audio');

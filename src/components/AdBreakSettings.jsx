@@ -822,7 +822,7 @@ const AdBreakSettings = ({
               : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
             }`}
         >
-          {isManualTestActive || isPlaylistModeActive ? 'Stoppen' : 'Afspelen'}
+          {isManualTestActive || isPlaylistModeActive ? 'Stoppen' : 'Playlist Afspelen'}
         </button>
       </div>
     </div>
@@ -834,10 +834,9 @@ const AdBreakSettings = ({
                 <div className="border-b border-gray-600 pb-4">
                   <div className="flex gap-6 items-start">
                     {/* Left side: Experimental settings */}
-                    <div className="flex pr-4 flex-col mt-0 gap-4 min-w-[250px]">
+                    <div className="flex pr-4 flex-col mt-5 gap-4 min-w-[250px]">
                       {/* ✅ NEW: Experimental section title */}
                       <div className="mb-0">
-                        <span className="text-sm text-gray-300">Experimenteel:</span>
                       </div>
 
                       {/* 1. Automatic Pre-roll Skip */}

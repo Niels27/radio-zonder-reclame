@@ -4,7 +4,7 @@ import { stationReportingService } from '../utils/stationReporting';
 import { getAllRadioStations, getPopularStations } from '../data/allRadioStations';
 import { getIsProduction, restoreConsole, setManualProductionMode } from '../utils/logger';
 import { RadioStreamTester, startRadioStreamTest } from '../utils/radioStreamTester';
-import CommunityTimings from '../utils/communityTimings';
+import CommunityTimings from '../utils/communityTimings.jsx';
 import { setFirebaseDemoMode, getFirebaseDemoMode } from '../utils/firebase';
 
 const DeveloperDashboard = ({ onClose }) => {

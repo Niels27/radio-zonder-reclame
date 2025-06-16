@@ -12,7 +12,7 @@ import {
   isLofiOverlayOpen        // ← Updated import
 } from '../utils/lofiUtils.js';
 import { setupAdDetection } from '../utils/musicDetection.js';
-import CommunityTimings from '../utils/communityTimings.js';
+import CommunityTimings from '../utils/communityTimings.jsx';
 
 // Add caching functionality to the useAdBreakTimer hook:
 
@@ -85,19 +85,81 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     } catch {
       return false;
     }
-  });
-  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
+  });  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [feedbackStationName, setFeedbackStationName] = useState('');
+  const [currentAdBreakUsedCommunityTiming, setCurrentAdBreakUsedCommunityTiming] = useState(false);
   
   const autoDetectorRef = useRef(null);
   const detectionTriggeredRef = useRef(false);
 
   const timerRef = useRef(null);
   const adBreakTimeoutRef = useRef(null);
+  // Get next community timing for current station
+  const getNextCommunityTiming = useCallback(async (stationName) => {
+    if (!useCommunityTimings || !stationName) {
+      return null;
+    }
 
-  // Calculate next ad break time
-  // ✅ FIXED: Calculate next ad break time with proper hour boundary handling
-  const getNextAdBreakTime = useCallback(() => {
+    try {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+
+      // Get community timing suggestions for current hour
+      const suggestions = await CommunityTimings.getSuggestedAdBreakTiming(stationName, currentHour);
+      
+      if (!suggestions) {
+        return null;
+      }
+
+      // Check both half-hour and full-hour suggestions
+      const potentialTimings = [];
+      
+      // Add half-hour timing if available (around :30)
+      if (suggestions.halfHour && suggestions.halfHour.starts) {
+        const halfHourTiming = new Date();
+        halfHourTiming.setHours(currentHour, suggestions.halfHour.starts, 0, 0);
+        
+        // Only add if it's in the future (or very recent - within 30 seconds)
+        if (currentMinute < suggestions.halfHour.starts || 
+            (currentMinute === suggestions.halfHour.starts && currentSecond < 30)) {
+          potentialTimings.push(halfHourTiming);
+        }
+      }
+      
+      // Add full-hour timing if available (around :00 of next hour)
+      if (suggestions.fullHour && suggestions.fullHour.starts) {
+        const fullHourTiming = new Date();
+        fullHourTiming.setHours(currentHour + 1, suggestions.fullHour.starts, 0, 0);
+        potentialTimings.push(fullHourTiming);
+      }
+
+      // Return the nearest future timing
+      if (potentialTimings.length > 0) {
+        potentialTimings.sort((a, b) => a - b);
+        return potentialTimings[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to get community timing:', error);
+      return null;
+    }
+  }, [useCommunityTimings]);
+
+  // Calculate next ad break time - now supports community timings
+  // ✅ UPDATED: Calculate next ad break time with community timing support
+  const getNextAdBreakTime = useCallback(async (stationName = null) => {
+    // Try community timing first if enabled
+    if (useCommunityTimings && stationName) {
+      const communityTiming = await getNextCommunityTiming(stationName);
+      if (communityTiming) {
+        return communityTiming;
+      }
+    }
+
+    // Fall back to manual timing
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
@@ -119,7 +181,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     const nextBreak = new Date();
     nextBreak.setHours(currentHour + 1, adBreakMinutes[0], 0, 0);
     return nextBreak;
-  }, [adBreakMinute, adBreakMinute2]);
+  }, [adBreakMinute, adBreakMinute2, useCommunityTimings, getNextCommunityTiming]);
 
   const formatTimeRemaining = useCallback((targetTime) => {
     const now = new Date();
@@ -378,6 +440,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     setCurrentAdBreakTimeLeft(null);
     setEnforcingAdBreak(false);
     setShouldPlayPlaylistDuringAdBreak(false);
+    setCurrentAdBreakUsedCommunityTiming(false); // Reset community timing state
     window.isAdBreakActive = false;
     window.currentAdBreakTimeLeft = null;
 
@@ -876,34 +939,36 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
     const now = new Date();
     const currentMinute = now.getMinutes();
-    const currentSecond = now.getSeconds();
-
-    let shouldStartAdBreak = false;
+    const currentSecond = now.getSeconds();    let shouldStartAdBreak = false;
+    let usedCommunityTiming = false;
 
     // Check community timings first if enabled
     if (useCommunityTimings && audioPlayer?.currentStation?.name) {
       try {
-        const communityTimings = await CommunityTimings.getCommunityTimings(audioPlayer.currentStation.name);
-        if (communityTimings && communityTimings.length > 0) {
-          const communityMinutes = communityTimings.map(timing => timing.minute);
-          shouldStartAdBreak = communityMinutes.some(minute => 
-            currentMinute === minute && currentSecond >= 0 && currentSecond <= 5
-          );
-            if (shouldStartAdBreak) {
-            console.log(`🌐 Community timing trigger at ${currentMinute}:${String(currentSecond).padStart(2, '0')} for ${audioPlayer.currentStation.name}`);
-            
-            // Show toast notification for community timing trigger
-            if (window.addNotification) {
-              window.addNotification(
-                `🌐 Reclame gedetecteerd door community timing voor ${audioPlayer.currentStation.name}`, 
-                'info', 
-                4000
-              );
+        const suggestions = await CommunityTimings.getSuggestedAdBreakTiming(
+          audioPlayer.currentStation.name, 
+          now.getHours()
+        );
+        
+        if (suggestions) {
+          // Check half-hour timings
+          if (suggestions.halfHour && suggestions.halfHour.starts) {
+            const timingMinute = suggestions.halfHour.starts;
+            if (currentMinute === timingMinute && currentSecond >= 0 && currentSecond <= 5) {
+              shouldStartAdBreak = true;
+              usedCommunityTiming = true;
+              console.log(`🌐 Community timing trigger (half-hour) at ${currentMinute}:${String(currentSecond).padStart(2, '0')} for ${audioPlayer.currentStation.name}`);
             }
-            
-            // Show feedback popup after ad break starts
-            setFeedbackStationName(audioPlayer.currentStation.name);
-            setTimeout(() => setShowFeedbackPopup(true), 2000); // Show feedback after 2 seconds
+          }
+          
+          // Check full-hour timings
+          if (!shouldStartAdBreak && suggestions.fullHour && suggestions.fullHour.starts) {
+            const timingMinute = suggestions.fullHour.starts;
+            if (currentMinute === timingMinute && currentSecond >= 0 && currentSecond <= 5) {
+              shouldStartAdBreak = true;
+              usedCommunityTiming = true;
+              console.log(`🌐 Community timing trigger (full-hour) at ${currentMinute}:${String(currentSecond).padStart(2, '0')} for ${audioPlayer.currentStation.name}`);
+            }
           }
         }
       } catch (error) {
@@ -921,27 +986,56 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       if (shouldStartAdBreak) {
         console.log(`🎯 User timing trigger at ${currentMinute}:${String(currentSecond).padStart(2, '0')}`);
       }
-    }
-
-    if (shouldStartAdBreak) {
+    }    if (shouldStartAdBreak) {
+      // Track if this ad break was triggered by community timing
+      setCurrentAdBreakUsedCommunityTiming(usedCommunityTiming);
+      
+      // Show appropriate toast notification
+      if (window.addNotification) {
+        if (usedCommunityTiming) {
+          window.addNotification(
+            `🌐 Community timing gebruikt voor switching`, 
+            'success', 
+            3000
+          );
+        } else {
+          window.addNotification(
+            `⚙️ Geen community timing gevonden, Handmatige timing gebruikt voor switchen`, 
+            'info', 
+            3000
+          );
+        }
+      }
+      
       startAdBreak();
+      
+      // Show feedback popup after ad break starts (only for community timings)
+      if (usedCommunityTiming) {
+        setFeedbackStationName(audioPlayer.currentStation.name);
+        setTimeout(() => setShowFeedbackPopup(true), 2000); // Show feedback after 2 seconds
+      }
     }
   }, [isTimerRunning, isAdBreakActive, adBreakMinute, adBreakMinute2, useCommunityTimings, audioPlayer, startAdBreak]);
 
-  // Main timer loop
+  // Main timer loop  // Timer effect - updated to support async community timings
   useEffect(() => {
     if (!isTimerRunning) return;
 
-    const interval = setInterval(() => {
+    const updateTimer = async () => {
       checkAdBreakTime();
 
       if (!isAdBreakActive) {
-        const nextBreakTime = getNextAdBreakTime();
+        const stationName = audioPlayer?.currentStation?.name;
+        const nextBreakTime = await getNextAdBreakTime(stationName);
         const timeRemaining = formatTimeRemaining(nextBreakTime);
         setNextAdBreakIn(timeRemaining);
       }
-    }, 1000);
+    };
 
+    // Initial update
+    updateTimer();
+
+    const interval = setInterval(updateTimer, 1000);
     timerRef.current = interval;
 
     return () => {
@@ -950,7 +1044,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         timerRef.current = null;
       }
     };
-  }, [isTimerRunning, isAdBreakActive, checkAdBreakTime, getNextAdBreakTime, formatTimeRemaining]);
+  }, [isTimerRunning, isAdBreakActive, checkAdBreakTime, getNextAdBreakTime, formatTimeRemaining, audioPlayer]);
   // ✅ NEW: Ad break countdown timer for current active ad break
   useEffect(() => {
     if (!isAdBreakActive) {
@@ -1008,7 +1102,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       });
     };
 
-    console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
+  //  console.log(`🤖 Detection effect running: enabled=${autoAdDetectionEnabled}, timer=${isTimerRunning}, adBreak=${isAdBreakActive}`);
 
     if (autoAdDetectionEnabled && isTimerRunning && !isAdBreakActive) {
       const currentWindow = getCurrentDetectionWindow();
@@ -1344,15 +1438,15 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     showFeedbackPopup,
     setShowFeedbackPopup,
     feedbackStationName,
-    setFeedbackStationName,
+    setFeedbackStationName,    currentAdBreakUsedCommunityTiming, // Track if current ad break used community timing
     startAdBreak,
     endAdBreak,
     manualAdBreak,
     startTimer,
-    stopTimer,    startAdBreakWithRemainingTime,
+    stopTimer,
+    startAdBreakWithRemainingTime,
     cancelAdBreakTimer, // ✅ ADD: Export the new function
     rotateToNextNonstopStation, // ✅ ADD: Export rotation function
-    nextAdBreakInFormatted: formatTimeRemaining(getNextAdBreakTime()),
     getAdBreakModeDescription
   };
 };
@@ -1361,7 +1455,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 const DETECTION_WINDOW_MINUTES = 4; // Minutes before/after ad break times to listen for detection
 
 // ✅ ADD: Missing function that's being called in handleSmartAdDetection
-const getStartDetectionWindows = (adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2) => {
+export const getStartDetectionWindows = (adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2) => {
   const windows = [];
 
   // Ad break 1 start detection window

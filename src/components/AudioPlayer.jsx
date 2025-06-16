@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReportStationButton from './ReportStationButton';
-import CommunityTimings from '../utils/communityTimings';
+import CommunityTimings from '../utils/communityTimings.jsx';
 
 // components/AudioPlayer.jsx - Enhanced smooth volume control
 const AudioPlayer = ({
@@ -20,9 +20,10 @@ const AudioPlayer = ({
   onNextTrack,
   playlistInfo,
   queuedStation,
-  onCancelQueuedSwitch,
-  adBreakMode,           // ✅ NEW: Add ad break mode prop
-  onRotateNonstopStation // ✅ NEW: Add rotation callback prop
+  onCancelQueuedSwitch,  adBreakMode,           // ✅ NEW: Add ad break mode prop
+  onRotateNonstopStation, // ✅ NEW: Add rotation callback prop
+  useCommunityTimings,    // ✅ NEW: Add community timings flag prop
+  currentAdBreakUsedCommunityTiming // ✅ NEW: Track if current ad break used community timing
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
@@ -31,12 +32,16 @@ const AudioPlayer = ({
   const volumeTimeoutRef = useRef(null);
   const volumeSliderRef = useRef(null);
   const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
-
   // Community timing report states
   const [showReportBubble, setShowReportBubble] = useState(false);
   const [reportCooldown, setReportCooldown] = useState(null);
   const [lastReportType, setLastReportType] = useState(null);
   const bubbleTimeoutRef = useRef(null);
+
+  // ✅ NEW: Check report button availability
+  const [canReportStart, setCanReportStart] = useState(true);
+  const [canReportEnd, setCanReportEnd] = useState(true);
+  const [reportStatus, setReportStatus] = useState('');
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -254,7 +259,30 @@ const AudioPlayer = ({
   useEffect(() => {
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies
+  }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies  // ✅ NEW: Check if user can report (update every minute)
+  useEffect(() => {
+    const updateReportStatus = () => {
+      if (!currentStation?.name) return;
+
+      const startCheck = CommunityTimings.canUserReport(currentStation.name, 'start');
+      const endCheck = CommunityTimings.canUserReport(currentStation.name, 'end');
+
+      setCanReportStart(startCheck.canReport);
+      setCanReportEnd(endCheck.canReport);
+      
+      if (!startCheck.canReport && !endCheck.canReport) {
+        setReportStatus(startCheck.reason);
+      } else {
+        setReportStatus('');
+      }
+    };
+
+    updateReportStatus();
+    const interval = setInterval(updateReportStatus, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [currentStation?.name]);
+
   // ✅ CLEANUP: Remove event listeners on unmount
   useEffect(() => {
     return () => {
@@ -334,8 +362,7 @@ const AudioPlayer = ({
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
-  };
-  // ✅ NEW: Handle reporting ad break timing with type and cooldown
+  };  // ✅ NEW: Handle reporting ad break timing with type and cooldown
   const handleReportAdBreak = async (type = 'start') => {
     if (!currentStation?.name) return;
 
@@ -471,9 +498,7 @@ const AudioPlayer = ({
                         >
                           <span>❗</span>
                           <span>{reportCooldown || 'Meld reclame'}</span>
-                        </button>
-
-                        {/* Hover Bubble with Begin/Einde options */}
+                        </button>                        {/* Hover Bubble with Begin/Einde options */}
                         {showReportBubble && !reportCooldown && (
                           <div
                             className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg p-2 z-50 whitespace-nowrap"
@@ -483,17 +508,35 @@ const AudioPlayer = ({
                             <div className="flex gap-1">
                               <button
                                 onClick={() => handleReportAdBreak('start')}
-                                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
+                                disabled={!canReportStart}
+                                className={`px-2 py-1 text-white text-xs rounded transition-colors ${
+                                  canReportStart 
+                                    ? 'bg-red-600 hover:bg-red-500' 
+                                    : 'bg-gray-600 cursor-not-allowed opacity-50'
+                                }`}
+                                title={!canReportStart ? reportStatus : 'Rapporteer begin van reclame'}
                               >
                                 Begin
                               </button>
                               <button
                                 onClick={() => handleReportAdBreak('end')}
-                                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                                disabled={!canReportEnd}
+                                className={`px-2 py-1 text-white text-xs rounded transition-colors ${
+                                  canReportEnd 
+                                    ? 'bg-green-600 hover:bg-green-500' 
+                                    : 'bg-gray-600 cursor-not-allowed opacity-50'
+                                }`}
+                                title={!canReportEnd ? reportStatus : 'Rapporteer einde van reclame'}
                               >
                                 Einde
                               </button>
                             </div>
+                            {/* Show timing restriction message if buttons are disabled */}
+                            {(!canReportStart || !canReportEnd) && reportStatus && (
+                              <div className="mt-1 text-gray-400 text-xs max-w-48">
+                                {reportStatus}
+                              </div>
+                            )}
                             {/* Arrow pointing down */}
                             <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800"></div>
                           </div>
@@ -554,30 +597,26 @@ const AudioPlayer = ({
                   </svg>
                 </button>
               </div>
-            )}
-
-            {/* Ad Break Status - ENHANCED with timer and cancel button */}
+            )}            {/* Ad Break Status - ENHANCED with timer and cancel button */}
             {isAdBreakActive ? (
               <div className="flex items-center space-x-3">
                 {/* Timer Display with Cancel Button */}
                 {currentAdBreakTimeLeft !== null ? (
-                  <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
+                  <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+                    currentAdBreakUsedCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
+                  }`}>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                       <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                     </svg>
-                    <span>Switch terug naar radio over:</span>
-                    <span className="font-mono bg-purple-700 px-2 py-0.5 rounded">
+                    <span>
+                      {currentAdBreakUsedCommunityTiming ? 'Community switch naar radio over:' : 'Switch naar radio over:'}
+                    </span>
+                    <span className={`font-mono text-white px-2 py-1 rounded ${
+                      currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
+                    }`}>
                       {formatAdBreakTimer(currentAdBreakTimeLeft)}
-                    </span>                    <button
-                      onClick={onCancelAdBreakTimer}
-                      className="ml-2 w-5 h-5 rounded-full bg-purple-700 hover:bg-purple-800 text-white flex items-center justify-center text-xs transition-colors"
-                      title="Niet eindigen"
-                    >
-                      ✕
-                    </button>
-
-
+                    </span>
                   </div>
 
                 ) : (
@@ -590,15 +629,22 @@ const AudioPlayer = ({
                   </div>
                 )}
               </div>
-            ) : (
-              nextAdBreakIn && (
-                <div className="hidden sm:flex items-center space-x-2 text-radio-secondary text-sm">
+            ) : (              nextAdBreakIn && (
+                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+                  useCommunityTimings ? 'text-yellow-400' : 'text-radio-secondary'
+                }`}>
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                     <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                   </svg>
-                  <span>Volgende reclamepauze:</span>
-                  <span className="font-mono text-white bg-gray-700 px-2 py-1 rounded">{nextAdBreakIn}</span>
+                  <span>
+                    {useCommunityTimings ? 'Community Playlist switching in:' : 'Playlist Switching in:'}
+                  </span>
+                  <span className={`font-mono text-white px-2 py-1 rounded ${
+                    useCommunityTimings ? 'bg-yellow-600' : 'bg-gray-700'
+                  }`}>
+                    {nextAdBreakIn}
+                  </span>
                 </div>
               )
             )}

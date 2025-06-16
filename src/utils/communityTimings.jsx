@@ -8,9 +8,37 @@ let communityTimingsCache = new Map();
 let lastFetchTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-class CommunityTimings {
+// ✅ NEW: Logging throttle to reduce excessive console output
+let lastLogTime = 0;
+const LOG_THROTTLE_DURATION = 10 * 1000; // 10 seconds between logs
+
+// Helper function to check if we should log
+const shouldLog = (key = 'default') => {
+  const now = Date.now();
+  const cacheKey = `log_${key}`;
+  const lastTime = communityTimingsCache.get(cacheKey) || 0;
   
-  // Report an ad break timing for a specific station
+  if (now - lastTime > LOG_THROTTLE_DURATION) {
+    communityTimingsCache.set(cacheKey, now);
+    return true;
+  }
+  return false;
+};
+
+// ✅ NEW: Configurable timing windows for reporting
+const TIMING_WINDOWS = {
+  HALF_HOUR: {
+    BEFORE: 6, // 6 minutes before :30 (24-30)
+    AFTER: 8   // 8 minutes after :30 (30-38)
+  },
+  FULL_HOUR: {
+    BEFORE: 10, // 10 minutes before :00 (50-60)
+    AFTER: 15   // 15 minutes after :00 (00-15)
+  }
+};
+
+class CommunityTimings {
+    // Report an ad break timing for a specific station
   static async reportAdBreak(stationName, type = 'start') {
     try {
       const now = new Date();
@@ -23,20 +51,27 @@ class CommunityTimings {
         dayOfWeek: now.getDay(),
         userAgent: navigator.userAgent.substring(0, 50), // Limited for privacy
         version: '1.0'
-      };      // Store locally first (as backup)
+      };
+
+      console.log(`🔥 Attempting to report ad break: ${stationName} ${type} at ${now.getHours()}:${now.getMinutes()}`);
+      
+      // Store locally first (as backup)
       this.storeLocalReport(report);
 
       // Sync to Firebase for shared storage
       await this.syncToFirebase(report);
 
-      console.log(`📊 Ad break reported: ${stationName} ${type} at ${now.getMinutes()}:${now.getSeconds()}`);
+      console.log(`📊 Ad break reported successfully: ${stationName} ${type} at ${now.getMinutes()}:${now.getSeconds()}`);
       
       if (window.addNotification) {
         window.addNotification(`📊 Reclametiming gerapporteerd voor ${stationName}`, 'success', 2000);
       }
 
     } catch (error) {
-      console.error('Failed to report ad break timing:', error);
+      console.error('❌ Failed to report ad break timing:', error);
+      if (window.addNotification) {
+        window.addNotification(`❌ Fout bij rapporteren: ${error.message}`, 'error', 3000);
+      }
     }
   }
 
@@ -85,6 +120,10 @@ class CommunityTimings {
   }  // Fetch timings from Firebase
   static async fetchFromFirebase(stationName) {
     try {
+      if (shouldLog(`fetch_${stationName}`)) {
+        console.log(`🔥 Fetching community timings for: ${stationName}`);
+      }
+      
       if (isDemoMode()) {
         // Use demo data
         const result = await demoFirestore.collection('timing_reports')
@@ -93,12 +132,16 @@ class CommunityTimings {
           .limit(50)
           .get();
         
-        return result.docs.map(doc => doc.data());
+        const data = result.docs.map(doc => doc.data());
+        if (shouldLog(`demo_${stationName}`)) {
+          console.log(`🔥 Demo: Loaded ${data.length} timing reports for ${stationName}:`, data);
+        }
+        return data;
       }
 
       const db = getFirestoreDB();
       if (!db) {
-        console.warn('Firebase not available, using local data only');
+        console.warn('❌ Firebase not available, using local data only');
         return [];
       }
 
@@ -107,37 +150,38 @@ class CommunityTimings {
         where('station', '==', stationName),
         orderBy('timestamp', 'desc'),
         limit(50)
-      );
-
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => doc.data());
+      );      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => doc.data());
+      if (shouldLog(`production_${stationName}`)) {
+        console.log(`🔥 Production: Loaded ${data.length} timing reports for ${stationName}:`, data);
+      }
+      return data;
       
     } catch (error) {
-      console.warn('Failed to fetch from Firebase:', error);
+      console.error('❌ Failed to fetch from Firebase:', error);
       return [];
     }
-  }
-  // Sync report to Firebase
+  }// Sync report to Firebase
   static async syncToFirebase(report) {
     try {
       if (isDemoMode()) {
         // Use demo storage
         await demoFirestore.collection('timing_reports').add(report);
-        console.log('📊 Demo: Report stored to Firebase:', report);
+        console.log('� Demo: Report stored to Firebase:', report);
         return;
       }
 
       const db = getFirestoreDB();
       if (!db) {
-        console.warn('Firebase not available, storing locally only');
+        console.warn('❌ Firebase not available, storing locally only');
         return;
       }
 
       const docRef = await addDoc(collection(db, 'timing_reports'), report);
-      console.log('📊 Report synced to Firebase with ID:', docRef.id);
+      console.log('� Report synced to Firebase with ID:', docRef.id, report);
       
     } catch (error) {
-      console.warn('Failed to sync to Firebase:', error);
+      console.error('❌ Failed to sync to Firebase:', error);
       // Fail gracefully - local storage is still available
     }
   }
@@ -386,7 +430,6 @@ class CommunityTimings {
       return [];
     }
   }
-
   // Check if user can report (cooldown and time restrictions)
   static canUserReport(stationName, reportType) {
     try {
@@ -394,9 +437,11 @@ class CommunityTimings {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       
-      // Time restrictions: cannot report between 15-25min or 40-50min of any hour
-      if ((currentMinute >= 15 && currentMinute <= 25) || (currentMinute >= 40 && currentMinute <= 50)) {
-        return { canReport: false, reason: 'Rapporteren is uitgeschakeld tussen :15-:25 en :40-:50 van elk uur' };
+      // ✅ NEW: Time window restrictions based on half-hour and full-hour intervals
+      const canReportBasedOnTime = this.isInReportingWindow(currentMinute);
+      
+      if (!canReportBasedOnTime.canReport) {
+        return canReportBasedOnTime;
       }
 
       const reports = this.getLocalReports();
@@ -443,6 +488,281 @@ class CommunityTimings {
       return { canReport: true }; // Allow reporting if check fails
     }
   }
+
+  // ✅ NEW: Check if current time is within reporting windows
+  static isInReportingWindow(currentMinute) {
+    // Full hour window: 10min before (50-59) and 15min after (0-15)
+    if ((currentMinute >= (60 - TIMING_WINDOWS.FULL_HOUR.BEFORE) && currentMinute <= 59) ||
+        (currentMinute >= 0 && currentMinute <= TIMING_WINDOWS.FULL_HOUR.AFTER)) {
+      return { canReport: true, window: 'full_hour' };
+    }
+    
+    // Half hour window: 6min before (24-29) and 8min after (30-38)
+    if ((currentMinute >= (30 - TIMING_WINDOWS.HALF_HOUR.BEFORE) && currentMinute <= 29) ||
+        (currentMinute >= 30 && currentMinute <= (30 + TIMING_WINDOWS.HALF_HOUR.AFTER))) {
+      return { canReport: true, window: 'half_hour' };
+    }
+    
+    return { 
+      canReport: false, 
+      reason: `Rapporteren alleen mogelijk rond :00 (${60 - TIMING_WINDOWS.FULL_HOUR.BEFORE}-${TIMING_WINDOWS.FULL_HOUR.AFTER}) en :30 (${30 - TIMING_WINDOWS.HALF_HOUR.BEFORE}-${30 + TIMING_WINDOWS.HALF_HOUR.AFTER})` 
+    };
+  }  // ✅ NEW: Get community timing suggestions for ad break triggers
+  static async getSuggestedAdBreakTiming(stationName, currentHour) {
+    try {
+      if (shouldLog(`suggestions_${stationName}_${currentHour}`)) {
+        console.log(`🔥 Getting community timing suggestions for ${stationName} at hour ${currentHour}`);
+      }
+      
+      // Get raw timings instead of processed ones
+      const rawTimings = await this.fetchFromFirebase(stationName);
+      if (!rawTimings || rawTimings.length === 0) {
+        if (shouldLog(`no_timings_${stationName}`)) {
+          console.log(`📊 No community timings found for ${stationName}`);
+        }
+        return null;
+      }
+
+      if (shouldLog(`raw_${stationName}_${currentHour}`)) {
+        console.log(`🔥 Raw timings for ${stationName}:`, rawTimings);
+      }
+
+      // Filter by current hour for hour-specific timing
+      const hourSpecificTimings = rawTimings.filter(timing => timing.hour === currentHour);
+      
+      if (shouldLog(`hour_specific_${stationName}_${currentHour}`)) {
+        console.log(`🔥 Hour-specific timings for ${stationName} at ${currentHour}h:`, hourSpecificTimings);
+      }
+      
+      if (hourSpecificTimings.length === 0) {
+        if (shouldLog(`no_hour_timings_${stationName}_${currentHour}`)) {
+          console.log(`📊 No hour-specific (${currentHour}h) timings found for ${stationName}`);
+        }
+        return null;
+      }
+
+      // Look for start/end pairs around 30min or 60min marks
+      const suggestions = {
+        halfHour: this.findTimingPairs(hourSpecificTimings, 30),
+        fullHour: this.findTimingPairs(hourSpecificTimings, 0)
+      };
+
+      if (shouldLog(`final_suggestions_${stationName}_${currentHour}`)) {
+        console.log(`📊 Community timing suggestions for ${stationName}:`, suggestions);
+      }
+      return suggestions;
+      
+    } catch (error) {
+      console.error('❌ Failed to get community timing suggestions:', error);
+      return null;
+    }
+  }
+
+  // ✅ NEW: Find start/end timing pairs around target minute
+  static findTimingPairs(timings, targetMinute) {
+    const tolerance = targetMinute === 30 ? 8 : 15; // Different tolerance for half-hour vs full-hour
+    
+    const nearbyTimings = timings.filter(timing => {
+      const diff = Math.abs(timing.minute - targetMinute);
+      const wrappedDiff = Math.abs((timing.minute + 60) % 60 - targetMinute);
+      return Math.min(diff, wrappedDiff) <= tolerance;
+    });
+
+    if (nearbyTimings.length === 0) return null;
+
+    const starts = nearbyTimings.filter(t => t.type === 'start');
+    const ends = nearbyTimings.filter(t => t.type === 'end');
+
+    if (starts.length === 0 && ends.length === 0) return null;
+
+    return {
+      starts: starts.length > 0 ? Math.round(starts.reduce((sum, t) => sum + t.minute, 0) / starts.length) : null,
+      ends: ends.length > 0 ? Math.round(ends.reduce((sum, t) => sum + t.minute, 0) / ends.length) : null,
+      count: nearbyTimings.length
+    };
+  }
+
+  // ✅ NEW: Submit feedback about timing accuracy
+  static async submitFeedback(stationName, timingType, rating) {
+    try {
+      const now = new Date();
+      const feedback = {
+        station: stationName,
+        timingType: timingType, // 'auto-switch', 'manual', etc.
+        rating: rating, // 'too_early', 'perfect', 'too_late'
+        timestamp: now.toISOString(),
+        minute: now.getMinutes(),
+        hour: now.getHours(),
+        dayOfWeek: now.getDay(),
+        version: '1.0'
+      };
+
+      console.log(`📝 Submitting feedback: ${stationName} ${timingType} rated as ${rating}`);
+      
+      // Store locally first
+      this.storeLocalFeedback(feedback);
+
+      // Sync to Firebase
+      await this.syncFeedbackToFirebase(feedback);
+
+      console.log(`✅ Feedback submitted successfully for ${stationName}`);
+      
+      if (window.addNotification) {
+        window.addNotification(`📝 Feedback verzonden voor ${stationName}`, 'success', 2000);
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to submit feedback:', error);
+      if (window.addNotification) {
+        window.addNotification('❌ Feedback verzenden mislukt', 'error', 3000);
+      }
+      throw error;
+    }
+  }
+
+  // Store feedback locally as backup
+  static storeLocalFeedback(feedback) {
+    try {
+      const key = `feedback_${feedback.station}_${Date.now()}`;
+      localStorage.setItem(key, JSON.stringify(feedback));
+      console.log(`💾 Feedback stored locally: ${key}`);
+    } catch (error) {
+      console.warn('Failed to store feedback locally:', error);
+    }
+  }
+
+  // Sync feedback to Firebase
+  static async syncFeedbackToFirebase(feedback) {
+    try {
+      const db = getFirestoreDB();
+      const feedbackCollection = collection(db, 'community_feedback');
+      
+      const docRef = await addDoc(feedbackCollection, feedback);
+      console.log(`🔥 Feedback synced to Firebase: ${docRef.id}`);
+      
+    } catch (error) {
+      console.error('Failed to sync feedback to Firebase:', error);
+      throw error;
+    }
+  }
 }
+
+// ✅ NEW: React component for floating feedback widget - merged to reduce file count
+import React, { useState, useEffect } from 'react';
+
+export const CommunityTimingFeedback = ({ 
+  isVisible, 
+  onClose, 
+  stationName, 
+  timingType = 'auto-switch' 
+}) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) {
+      setHasSubmitted(false);
+      setIsSubmitting(false);
+      setIsAnimating(true);
+      
+      // Auto-close after 10 seconds if no interaction
+      const autoCloseTimer = setTimeout(() => {
+        onClose();
+      }, 10000);
+
+      return () => clearTimeout(autoCloseTimer);
+    } else {
+      setIsAnimating(false);
+    }
+  }, [isVisible, onClose]);
+
+  const handleFeedback = async (rating) => {
+    if (isSubmitting || hasSubmitted) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      await CommunityTimings.submitFeedback(stationName, timingType, rating);
+      setHasSubmitted(true);
+      
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <div 
+      className={`fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ${
+        isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+      }`}
+      style={{ maxWidth: '600px', width: '90vw' }}
+    >
+      <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-2xl p-4">
+        {hasSubmitted ? (
+          <div className="flex items-center justify-center space-x-2 text-green-400">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            <span className="text-sm font-medium">Bedankt voor je feedback!</span>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-white text-sm font-semibold">Community Timing Feedback</h4>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white text-xl leading-none"
+                aria-label="Sluiten"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="flex justify-center space-x-2">
+              <button
+                onClick={() => handleFeedback('too_early')}
+                disabled={isSubmitting}
+                className="px-3 py-2 bg-red-600 hover:bg-red-500 disabled:bg-red-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                title="Te vroeg"
+              >
+                Te vroeg
+              </button>
+              
+              <button
+                onClick={() => handleFeedback('perfect')}
+                disabled={isSubmitting}
+                className="px-3 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                title="Perfect getimed"
+              >
+                Perfect
+              </button>
+              
+              <button
+                onClick={() => handleFeedback('too_late')}
+                disabled={isSubmitting}
+                className="px-3 py-2 bg-orange-600 hover:bg-orange-500 disabled:bg-orange-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                title="Te laat"
+              >
+                Te laat
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Floating indicator */}
+      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-800 border-b border-r border-gray-600 rotate-45"></div>
+    </div>
+  );
+};
 
 export default CommunityTimings;

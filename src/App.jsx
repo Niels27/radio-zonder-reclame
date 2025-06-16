@@ -7,7 +7,7 @@ import NotificationSystem from './components/NotificationSystem';
 
 import DeveloperDashboard from './components/DeveloperDashboard';
 import PlaylistProviderSelector from './components/PlaylistProviderSelector';
-import CommunityTimingFeedback from './components/CommunityTimingFeedback';
+import { CommunityTimingFeedback } from './utils/communityTimings.jsx';
 import MusicVisualizerSingle from './components/MusicVisualizerSingle';
 import VisualizerSettings from './components/VisualizerSettings';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
@@ -457,8 +457,7 @@ function App() {
           )}
           
           {/* Audio Player */}
-          <div className="relative z-10">
-            <AudioPlayer
+          <div className="relative z-10">            <AudioPlayer
             currentStation={audioPlayer.currentStation}
             isPlaying={audioPlayer.isPlaying}
             volume={audioPlayer.volume}
@@ -502,12 +501,12 @@ function App() {
             onCancelQueuedSwitch={adBreakTimer.cancelQueuedSwitch}
             currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
             onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}
-            adBreakMode={adBreakTimer.adBreakMode}
-            onRotateNonstopStation={() => {
+            adBreakMode={adBreakTimer.adBreakMode}            onRotateNonstopStation={() => {
               // This will trigger a rotation to the next nonstop station
               if (adBreakTimer.isAdBreakActive && adBreakTimer.adBreakMode === 'nonstop') {
                 adBreakTimer.rotateToNextNonstopStation();
-              }            }}
+              }            }}            useCommunityTimings={adBreakTimer.useCommunityTimings}
+            currentAdBreakUsedCommunityTiming={adBreakTimer.currentAdBreakUsedCommunityTiming}
           />
           </div>
         </div>
