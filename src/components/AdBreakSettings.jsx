@@ -88,6 +88,9 @@ const AdBreakSettings = ({
   onVisualizerBlurChange
 
 }) => {
+  // ✅ INSTANT STATE TRACKING: Prevent double-clicking between timer and manual modes
+  const [isTimerStarting, setIsTimerStarting] = useState(false);
+  
   const [isExpanded, setIsExpanded] = useState(false);
   const [daySettings, setDaySettings] = useState(getInitialDaySettings());
   const [selectedDay, setSelectedDay] = useState(0); // 0=Monday
@@ -142,9 +145,9 @@ const AdBreakSettings = ({
   });  // Search state for nonstop overlay
   const [nonstopSearchTerm, setNonstopSearchTerm] = useState('');
   // Error message for nonstop removal
-  const [nonstopRemovalError, setNonstopRemovalError] = useState('');
-  // State for tracking permanent playlist play
-  const [isPlaylistModeActive, setIsPlaylistModeActive] = useState(false);
+  const [nonstopRemovalError, setNonstopRemovalError] = useState('');  // ✅ CLEANED: Removed old state variables to prevent conflicts
+  // Old: isPlaylistModeActive, isManualModeActive, manualModeType
+  // These have been replaced with the new system below
 
   // Note: useCommunityTimings is now coming from props instead of local state
 
@@ -378,197 +381,371 @@ const AdBreakSettings = ({
     } catch (error) {
       console.warn('Failed to save custom nonstop stations:', error);
     }
-  }, [customNonstopStations]);
-  // Save custom lofi URL
-  useEffect(() => {
-    try {
-      localStorage.setItem('custom_lofi_url', customLofiUrl);
-    } catch (error) {
-      console.warn('Failed to save custom lofi URL:', error);
-    }
-  }, [customLofiUrl]);  // Handle playlist play/stop - simplified
-  const handlePlaylistToggle = () => {
-    if (isPlaylistModeActive || isManualTestActive) {
-      // Stop current playlist
-      setIsPlaylistModeActive(false);
-      // Use existing manual ad break logic to stop (it toggles)
-      onManualAdBreak();
-      if (window.addNotification) {
-        window.addNotification('Playlist gestopt', 'info', 2000);
-      }
-    } else {
-      // Start playlist with current mode permanently (8 hours)
-      setIsPlaylistModeActive(true);
-      // Use existing manual ad break logic with long duration for permanent mode
-      onManualAdBreak(99999); // 480 minutes = 8 hours (permanent)
-      if (window.addNotification) {
-        const modeText = adBreakMode === 'playlist' ? 'Afspeellijst' :
-          adBreakMode === 'nonstop' ? 'Non-stop radio' : 'Lofi Girl';
-        window.addNotification(`${modeText} gestart (permanent)`, 'success', 2000);
-      }
-    }
-  };  // Reset playlist mode when radio station is selected
-  React.useEffect(() => {
-    if (audioPlayer?.currentStation && !isAdBreakActive && (isPlaylistModeActive || isManualTestActive)) {
-      setIsPlaylistModeActive(false);
-      // If manual test was active, stop it
-      if (isManualTestActive) {
-        onManualAdBreak(); // This will stop the manual test
-      }
-    }
-  }, [audioPlayer?.currentStation, isAdBreakActive, isPlaylistModeActive, isManualTestActive, onManualAdBreak]);
+  }, [customNonstopStations]);  // ✅ ISOLATED: Separate state for each manual mode to prevent race conditions
+  const [playlistModeState, setPlaylistModeState] = useState({
+    active: false,
+    loading: false,
+    startTime: null
+  });
+  const [nonstopModeState, setNonstopModeState] = useState({
+    active: false,
+    loading: false,
+    startTime: null
+  });
+  const [lofiModeState, setLofiModeState] = useState({
+    active: false,
+    loading: false,
+    startTime: null
+  });
 
-  // Note: Community timing setting is now saved by the hook, not here
+  // Track which mode is currently selected for display purposes
+  const [selectedManualMode, setSelectedManualMode] = useState(null);
 
-  // ...existing code...
-
-  // ✅ CRITICAL FIX: Enhanced test detection with PROPER volume preservation
-  const handleTestDetection = async () => {
-    if (isTestingDetection) {
-      // ✅ CRITICAL FIX: Clear test flag when stopping
-      window.isMusicDetectionTestActive = false;
-
-      // Stop test
-      console.log('🛑 Stopping ad detection test...');
-
-      // ✅ CRITICAL FIX: Store current volume BEFORE stopping detection
-      const currentVolume = audioPlayer?.audioRef?.current?.volume || audioPlayer?.volume || 0.5;
-      const currentVolumeSlider = audioPlayer?.volume || 0.5; // UI volume
-
-      console.log(`🔊 Preserving volume before test cleanup: Audio=${Math.round(currentVolume * 100)}%, UI=${Math.round(currentVolumeSlider * 100)}%`);
-
-      setIsTestingDetection(false);
-      setDetectionStatus('idle');
-      setDetectionResult(null);
-
-      if (detectorRef.current) {
-        detectorRef.current.stopDetection();
-        detectorRef.current = null;
-      }
-
-      // ✅ CRITICAL FIX: FORCE volume restoration with multiple approaches
-      setTimeout(() => {
-        if (audioPlayer?.audioRef?.current) {
-          const audio = audioPlayer.audioRef.current;
-
-          // ✅ APPROACH 1: Restore audio element volume
-          console.log(`🔊 Force restoring audio element volume to ${Math.round(currentVolumeSlider * 100)}%`);
-          audio.volume = currentVolumeSlider;
-
-          // ✅ APPROACH 2: Update the useAudioPlayer's volume state
-          if (audioPlayer.setVolume) {
-            console.log(`🔊 Force updating UI volume state to ${Math.round(currentVolumeSlider * 100)}%`);
-            audioPlayer.setVolume(currentVolumeSlider);
-          }
-
-          // ✅ APPROACH 3: Ensure volume refs are synced
-          if (audioPlayer.volumeRef) {
-            audioPlayer.volumeRef.current = currentVolumeSlider;
-          }
-
-          // ✅ APPROACH 4: Double-check and force correction
-          setTimeout(() => {
-            const actualVolume = audio.volume;
-            const uiVolume = audioPlayer.volume;
-
-            console.log(`🔊 Volume verification: Audio=${Math.round(actualVolume * 100)}%, UI=${Math.round(uiVolume * 100)}%`);
-
-            if (Math.abs(actualVolume - uiVolume) > 0.01) {
-              console.warn(`🚨 Volume still desynced! Force correcting...`);
-              audio.volume = uiVolume;
-
-              if (window.addNotification) {
-                window.addNotification(`🔊 Volume hersteld naar ${Math.round(uiVolume * 100)}%`, 'info', 2000);
-              }
-            }
-          }, 300);
-
-          // Check if audio should be playing but isn't
-          if (audioPlayer.isPlaying && audio.paused && audioPlayer.currentStation) {
-            console.log('🔊 Restoring audio playback after detection test');
-            audio.play().catch(error => {
-              console.warn('Failed to restore audio playback:', error);
-            });
-          }
-        }
-      }, 100); // Reduced delay for faster restoration
-
-      return;
-    } else {
-      // ✅ CRITICAL FIX: Set test flag when starting
-      window.isMusicDetectionTestActive = true;
-    }
-
-    // Start test
-    if (!audioPlayer?.audioRef?.current) {
-      console.error('No audio element available for testing');
-      if (window.addNotification) {
-        window.addNotification('Start eerst radio afspelen', 'error', 3000);
-      }
-      return;
-    }
-
-    // ✅ NEW: Store volume state BEFORE starting test
-    const preTestVolume = audioPlayer.volume;
-    console.log(`🔊 Storing pre-test volume: ${Math.round(preTestVolume * 100)}%`);
-
-    console.log('🧪 Starting ad detection test...');
-    setIsTestingDetection(true);
-    setDetectionStatus('initializing');
-    setDetectionResult(null);
-
-    try {
-      const { setupTestDetection } = await import('../utils/musicDetection');
-      const detector = await setupTestDetection(
-        audioPlayer.audioRef.current,
-        (result) => {
-          // ✅ NEW: Handle warm-up results differently
-          if (result.isWarmingUp || result.showAsListening) {
-            setDetectionResult(result);
-            setDetectionStatus('warming_up'); // Set a specific warm-up status
-            return;
-          }
-
-          // ✅ Regular results after warm-up
-          setDetectionResult(result);
-          setDetectionStatus(result.isMusic ? 'music' : 'no-music');
-        }
-      );
-
-      detectorRef.current = detector;
-      setDetectionStatus('listening');
-
-      if (window.addNotification) {
-        window.addNotification('🧪 Muziek detectie test gestart', 'info', 2000);
-      }
-
-    } catch (error) {
-      console.error('Failed to start detection test:', error);
-      setIsTestingDetection(false);
-      setDetectionStatus('error');
-
-      // ✅ NEW: Restore volume on error too
-      if (audioPlayer?.setVolume) {
-        audioPlayer.setVolume(preTestVolume);
-      }
-
-      if (window.addNotification) {
-        window.addNotification('Kon detectie test niet starten: ' + error.message, 'error', 4000);
-      }
+  // Helper to get current mode state
+  const getModeState = (mode) => {
+    switch (mode) {
+      case 'playlist': return playlistModeState;
+      case 'nonstop': return nonstopModeState;
+      case 'lofi': return lofiModeState;
+      default: return { active: false, loading: false, startTime: null };
     }
   };
 
-  // ✅ ENHANCED: Cleanup detector on unmount with proper audio restoration
-  useEffect(() => {
-    return () => {
-      window.isMusicDetectionTestActive = false;
-      if (detectorRef.current) {
-        console.log('🧹 Cleaning up detector on unmount...');
-        detectorRef.current.stopDetection();
-        detectorRef.current = null;
+  // Helper to set mode state
+  const setModeState = (mode, newState) => {
+    switch (mode) {
+      case 'playlist': 
+        setPlaylistModeState(prev => ({ ...prev, ...newState }));
+        break;
+      case 'nonstop': 
+        setNonstopModeState(prev => ({ ...prev, ...newState }));
+        break;
+      case 'lofi': 
+        setLofiModeState(prev => ({ ...prev, ...newState }));
+        break;
+    }
+  };
+
+  // Check if any mode is active
+  const isAnyModeActive = () => {
+    return playlistModeState.active || nonstopModeState.active || lofiModeState.active;
+  };
+
+  // Check if any mode is loading
+  const isAnyModeLoading = () => {
+    return playlistModeState.loading || nonstopModeState.loading || lofiModeState.loading;
+  };
+  // Get the currently active mode
+  const getActiveMode = () => {
+    if (playlistModeState.active) return 'playlist';
+    if (nonstopModeState.active) return 'nonstop';
+    if (lofiModeState.active) return 'lofi';
+    return null;
+  };  // ✅ GOLDEN RULE ENFORCEMENT: Stop all manual modes (exposed globally)
+  const stopAllManualModes = async () => {
+    console.log('🛑 GOLDEN RULE: Stopping ALL active manual modes');
+    
+    // ✅ CLEAR nonstop mode flag when stopping all modes
+    window.isInNonstopMode = false;
+    
+    const activeModes = [];
+    if (playlistModeState.active) activeModes.push('playlist');
+    if (nonstopModeState.active) activeModes.push('nonstop');
+    if (lofiModeState.active) activeModes.push('lofi');
+    
+    // ✅ CRITICAL: Also check if the ad break timer is running any of these modes
+    if (isAdBreakActive && (adBreakMode === 'playlist' || adBreakMode === 'nonstop' || adBreakMode === 'lofi')) {
+      console.log('🛑 GOLDEN RULE: Also stopping active ad break mode:', adBreakMode);
+      if (onStopTimer) {
+        onStopTimer(); // This will call forceExitAdBreakMode
       }
+    }
+    
+    if (activeModes.length === 0) {
+      console.log('🔧 No manual modes active to stop');
+      return;
+    }
+    
+    console.log('🛑 Stopping active manual modes:', activeModes);
+    
+    // Stop all active modes simultaneously
+    const stopPromises = activeModes.map(mode => stopSpecificMode(mode));
+    await Promise.all(stopPromises);
+    
+    console.log('✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule');
+  };  // ✅ EXPOSE GLOBALLY: Make the function available to other components
+  useEffect(() => {
+    // ✅ INITIALIZE: Ensure nonstop mode flag is properly initialized
+    if (typeof window.isInNonstopMode === 'undefined') {
+      window.isInNonstopMode = false;
+    }
+    
+    window.stopAllManualModes = stopAllManualModes;
+    return () => {
+      delete window.stopAllManualModes;
     };
-  }, []);
+  }, [stopAllManualModes, isAdBreakActive, adBreakMode, onStopTimer]);  // ✅ ISOLATED: Manual mode toggle with complete mode isolation
+  const handleManualModeToggle = async () => {
+    const currentModeState = getModeState(adBreakMode);
+    
+    // Prevent rapid clicking during loading
+    if (currentModeState.loading) {
+      console.log(`🚫 ${adBreakMode} mode is loading, ignoring click`);
+      return;
+    }
+
+    if (currentModeState.active) {
+      // Stop current mode
+      await stopSpecificMode(adBreakMode);
+    } else {
+      // ✅ INSTANT FIX: Set loading state IMMEDIATELY to prevent double-clicking
+      setModeState(adBreakMode, { loading: true });
+      
+      // ✅ CRITICAL: If switching was active, deactivate it first!
+      if (isTimerRunning) {
+        console.log('🛑 Timer switching is active - stopping it first before starting manual mode');
+        onStopTimer();
+        // Small delay to ensure cleanup
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // Start current mode (first stop any other active mode)
+      const activeMode = getActiveMode();
+      if (activeMode && activeMode !== adBreakMode) {
+        console.log(`🔄 Stopping ${activeMode} to start ${adBreakMode}`);
+        await stopSpecificMode(activeMode);
+        // Brief pause to ensure cleanup
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      await startSpecificMode(adBreakMode);
+    }
+  };
+  // ✅ ISOLATED: Start a specific mode with complete isolation
+  const startSpecificMode = async (mode) => {
+    const currentModeState = getModeState(mode);
+    
+    // Prevent starting if already loading or active
+    if (currentModeState.loading || currentModeState.active) {
+      console.log(`🚫 ${mode} mode already loading/active, ignoring start request`);
+      return;
+    }
+
+    try {
+      console.log(`🎵 Starting isolated ${mode} mode test`);
+      
+      // Set loading state immediately for this specific mode
+      setModeState(mode, { loading: true });
+      
+      // ✅ CRITICAL: Stop any audio sources first
+      if (audioPlayer?.forceStopAllAudio) {
+        audioPlayer.forceStopAllAudio(`starting ${mode} mode`);
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+
+      // Start the specific mode
+      switch (mode) {
+        case 'playlist':
+          await startIsolatedPlaylistMode();
+          break;
+        case 'nonstop':
+          await startIsolatedNonstopMode();
+          break;
+        case 'lofi':
+          await startIsolatedLofiMode();
+          break;
+        default:
+          throw new Error(`Unknown mode: ${mode}`);
+      }
+
+      // Set active state only after successful start
+      setModeState(mode, { 
+        active: true, 
+        loading: false, 
+        startTime: Date.now() 
+      });
+      setSelectedManualMode(mode);
+
+      if (window.addNotification) {
+        const modeText = getModeDisplayName(mode);
+        window.addNotification(`🎵 ${modeText} Test Gestart (Geïsoleerd)`, 'success', 2000);
+      }
+    } catch (error) {
+      console.error(`Failed to start ${mode} mode:`, error);
+      
+      // Reset state on error
+      setModeState(mode, { active: false, loading: false, startTime: null });
+      
+      if (window.addNotification) {
+        window.addNotification(`❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`, 'error', 3000);
+      }
+    }
+  };
+  // ✅ ISOLATED: Stop a specific mode with complete isolation
+  const stopSpecificMode = async (mode) => {
+    const currentModeState = getModeState(mode);
+    
+    if (!currentModeState.active && !currentModeState.loading) {
+      console.log(`🚫 ${mode} mode not active, nothing to stop`);
+      return;
+    }
+
+    try {
+      console.log(`🛑 Stopping isolated ${mode} mode test`);
+      
+      // ✅ CLEAR nonstop mode flag when stopping nonstop mode
+      if (mode === 'nonstop') {
+        window.isInNonstopMode = false;
+      }
+      
+      // ✅ CRITICAL: Stop all audio sources completely
+      if (audioPlayer?.forceStopAllAudio) {
+        audioPlayer.forceStopAllAudio(`stopping ${mode} mode`);
+      }
+
+      // Special cleanup for lofi mode
+      if (mode === 'lofi') {
+        try {
+          const { closeLofiYouTubeOverlay } = await import('../utils/lofiUtils.js');
+          closeLofiYouTubeOverlay();
+        } catch (error) {
+          console.warn('Could not close lofi overlay:', error);
+        }
+      }
+
+      // Reset state for this specific mode
+      setModeState(mode, { active: false, loading: false, startTime: null });
+      
+      // Clear selected mode if this was the selected one
+      if (selectedManualMode === mode) {
+        setSelectedManualMode(null);
+      }
+
+      if (window.addNotification) {
+        window.addNotification(`🛑 ${getModeDisplayName(mode)} Test Gestopt`, 'info', 2000);
+      }
+    } catch (error) {
+      console.error(`Failed to stop ${mode} mode:`, error);
+      // Force reset state even on error
+      setModeState(mode, { active: false, loading: false, startTime: null });
+      if (selectedManualMode === mode) {
+        setSelectedManualMode(null);
+      }
+      // ✅ FORCE CLEAR nonstop mode flag even on error
+      if (mode === 'nonstop') {
+        window.isInNonstopMode = false;
+      }
+    }
+  };// ✅ ISOLATED: Individual mode start functions
+  const startIsolatedPlaylistMode = async () => {
+    if (!playlistUrl || !playlistInfo?.isValid) {
+      throw new Error('Geen geldige playlist URL ingesteld');
+    }
+
+    console.log('🎵 Starting isolated playlist test (no ad breaks, just playlist)');
+    
+    // Extract playlist ID and start playlist directly
+    const playlistId = playlistProvider === 'spotify' ? playlistUrl : extractPlaylistId(playlistUrl);
+    if (!playlistId) {
+      throw new Error('Ongeldige playlist URL');
+    }
+
+    // ✅ IMPORTANT: Start playlist directly without ad break logic
+    if (playlistProvider === 'spotify') {
+      await audioPlayer.playPlaylist(playlistId, { 
+        shuffle: playlistShuffle, 
+        provider: 'spotify',
+        isManualTest: true,
+        isIsolatedTest: true
+      });
+    } else {
+      await audioPlayer.playPlaylist(playlistId, { 
+        shuffle: playlistShuffle, 
+        provider: playlistProvider,
+        isManualTest: true,
+        isIsolatedTest: true
+      });
+    }
+  };
+
+  const startIsolatedNonstopMode = async () => {
+    console.log('🎵 Starting isolated nonstop radio test (no ad breaks, just nonstop radio)');
+    
+    const { getRandomNonstopStation } = await import('../utils/nonstopUtils.js');
+    const nonstopStation = getRandomNonstopStation();
+    if (!nonstopStation) {
+      throw new Error('Geen nonstop stations beschikbaar');
+    }
+      // ✅ IMPORTANT: Play radio directly without ad break logic - MARK as nonstop mode
+    window.isInNonstopMode = true; // ✅ FLAG: Mark that we're in deliberate nonstop mode
+    await audioPlayer.playRadio(nonstopStation, { 
+      isManualTest: true,
+      isIsolatedTest: true,
+      isNonstopMode: true  // ✅ DIFFERENTIATE: This is nonstop mode, not just a nonstop station
+    });
+  };
+
+  const startIsolatedLofiMode = async () => {
+    console.log('🎵 Starting isolated lofi test (no ad breaks, just lofi)');
+    
+    const { getNextLofiStream, createLofiStation, extractYouTubeVideoId, openLofiYouTubeOverlay } = await import('../utils/lofiUtils.js');
+    
+    const lofiStream = getNextLofiStream();
+    if (!lofiStream) {
+      throw new Error('Geen lofi streams beschikbaar');
+    }
+
+    if (lofiStream.type === 'youtube_video') {
+      const videoId = extractYouTubeVideoId(lofiStream.url);
+      if (videoId) {
+        // ✅ IMPORTANT: Open lofi overlay directly without ad break logic
+        openLofiYouTubeOverlay(videoId, { 
+          isManualTest: true,
+          isIsolatedTest: true
+        });
+      } else {
+        throw new Error('Invalid YouTube video ID');
+      }
+    } else {
+      const lofiStation = createLofiStation(lofiStream);
+      // ✅ IMPORTANT: Play radio directly without ad break logic
+      await audioPlayer.playRadio(lofiStation, { 
+        isManualTest: true,
+        isIsolatedTest: true
+      });
+    }
+  };
+
+  // Helper function to get mode display name
+  const getModeDisplayName = (mode) => {
+    switch (mode) {
+      case 'playlist': return 'Playlist';
+      case 'nonstop': return 'Nonstop Radio';
+      case 'lofi': return 'Lofi Girl';
+      default: return 'Onbekend';
+    }
+  };
+
+  // Helper function to extract playlist ID from URL
+  const extractPlaylistId = (url) => {
+    if (!url) return null;
+    const match = url.match(/[?&]list=([^&#]*)/);
+    return match ? match[1] : null;
+  };
+  // ✅ ISOLATED: Get button text based on current isolated state
+  const getManualModeButtonText = () => {
+    const currentModeState = getModeState(adBreakMode);
+    
+    if (currentModeState.loading) {
+      return `${getModeDisplayName(adBreakMode)} Opstarten...`;
+    }
+    
+    if (currentModeState.active) {
+      return `${getModeDisplayName(adBreakMode)} Stoppen`;
+    }
+    
+   // return `Alleen ${getModeDisplayName(adBreakMode)} afspelen`;
+     return `${getModeDisplayName(adBreakMode)} afspelen`;
+  };
 
   // Get status display text and color
   const getStatusDisplay = () => {
@@ -612,13 +789,42 @@ const AdBreakSettings = ({
         return { text: 'Unknown', color: 'text-gray-400' };
     }
   };
+  // ✅ INSTANT FIX: Wrapper for onStartTimer to set instant disable state
+  const handleStartTimer = async () => {
+    if (isTimerStarting || isTimerRunning) {
+      console.log('🚫 Timer already starting or running, ignoring click');
+      return;
+    }
+    
+    // Set instant state to disable manual mode buttons immediately
+    setIsTimerStarting(true);
+    
+    try {
+      await onStartTimer();
+    } catch (error) {
+      console.error('Error starting timer:', error);
+    } finally {
+      // Clear the loading state after a short delay (should be cleared by isTimerRunning becoming true)
+      setTimeout(() => {
+        setIsTimerStarting(false);
+      }, 2000);
+    }
+  };
+
+  // ✅ RESET TIMER STARTING STATE: When timer actually starts running
+  useEffect(() => {
+    if (isTimerRunning) {
+      setIsTimerStarting(false);
+    }
+  }, [isTimerRunning]);
+
   return (
     <div className="p-4">
       <div className="max-w-6xl mx-auto">
         <div className="space-y-4">          {/* ✅ NEW: Playlist Mode Selector at Top */}
    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
   <label className="block text-sm font-medium mb-3 text-gray-300">
-    Playlist Modus:
+    Switch Methode:
   </label>
   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
     {/* Playlist Mode */}
@@ -633,7 +839,7 @@ const AdBreakSettings = ({
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
           <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
         </svg>
-        <span className="font-semibold">Afspeellijst</span>
+        <span className="font-semibold">Playlist</span>
       </div>
       <p className="text-xs text-gray-400">
         Wissel naar YouTube/Spotify afspeellijst tijdens reclame
@@ -717,7 +923,7 @@ const AdBreakSettings = ({
         }}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
         </svg>
       </div>
     </div>
@@ -794,36 +1000,59 @@ const AdBreakSettings = ({
             : 'Timer uit'
           }
         </span>
-      </div>
-      <div className="flex items-center gap-2">
-        {!isTimerRunning ? (
-          <button
-            onClick={onStartTimer}
-            disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning)}
-            className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-          >
-            Activeer Switching
-          </button>
+      </div>      <div className="flex items-center gap-2">        {!isTimerRunning ? (
+          <div className="relative">
+            <button
+              onClick={handleStartTimer}
+              disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning) || isAnyModeActive() || isAnyModeLoading() || isTimerStarting}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${
+                (isAnyModeActive() || isAnyModeLoading() || isTimerStarting) 
+                  ? 'bg-gray-500 cursor-not-allowed text-gray-300'
+                  : 'bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
+              }`}
+            >
+              {isTimerStarting ? 'Starten...' : 'Activeer Switching'}
+            </button>
+            {(isAnyModeActive() || isAnyModeLoading() || isTimerStarting) && (
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                {isTimerStarting ? 'Timer wordt gestart...' : isAnyModeLoading() ? 'Manual mode start bezig...' : 'Manual mode is actief - stop eerst de manual mode'}
+              </div>
+            )}
+          </div>
         ) : (
           <button
-            onClick={onStopTimer}
-            disabled={audioPlayer && audioPlayer.isTransitioning}
+            onClick={onStopTimer}            disabled={audioPlayer && audioPlayer.isTransitioning}
             className="px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
           >
             Deactiveer Switching
           </button>
         )}
-
-        <button
-          onClick={handlePlaylistToggle}
-          disabled={!isModeValid()}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${isManualTestActive || isPlaylistModeActive
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
+        
+        <label>of</label>
+        
+        <div className="relative">
+          <button
+            onClick={handleManualModeToggle}
+            disabled={!isModeValid() || isAnyModeLoading() || isTimerRunning || isTimerStarting}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${
+              getModeState(adBreakMode).loading
+                ? 'bg-yellow-600 text-white cursor-wait'
+                : getModeState(adBreakMode).active
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : (isTimerRunning || isAnyModeLoading() || isTimerStarting)
+                    ? 'bg-gray-500 cursor-not-allowed text-gray-300'
+                    : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
             }`}
-        >
-          {isManualTestActive || isPlaylistModeActive ? 'Stoppen' : 'Playlist Afspelen'}
-        </button>
+          >
+            {getManualModeButtonText()}
+          </button>
+          {(isTimerRunning || isAnyModeLoading() || isTimerStarting) && (
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+              {isTimerStarting ? 'Timer wordt gestart...' : isTimerRunning ? 'Timer switching is actief - stop eerst de timer' : 'Andere manual mode start bezig...'}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   </div>         

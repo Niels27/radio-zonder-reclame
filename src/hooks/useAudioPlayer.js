@@ -595,9 +595,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       } catch (error) {
         console.warn('Could not stop Spotify player:', error);
       }
-    }
-
-    // Reset ALL states to initial values
+    }    // Reset ALL states to initial values
     setIsLoading(false);
     setLoadingProgress('');
     setIsTransitioning(false);
@@ -607,18 +605,38 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     setIsPlaying(false);
     setCurrentStation(null);
     setCurrentSource(null);
-    setIsRadioPausedForAdBreak(false);
-    setPausedRadioStation(null);
+    
+    // ✅ FIX: Don't clear paused radio state during ad breaks!
+    if (!window.isAdBreakActive || reason !== 'switching to playlist') {
+      setIsRadioPausedForAdBreak(false);
+      setPausedRadioStation(null);
+      localStorage.removeItem('pausedRadioState');
+    } else {
+      console.log('🎵 Preserving paused radio state during ad break playlist switch');
+    }
 
     // Clear global states
     window.isAdBreakActive = false;
 
     console.log('🛑 Nuclear reset complete - everything stopped');
   }, [currentConnectionAttempt]);
-
-  // ✅ CRITICAL FIX: Enhanced playRadio with immediate volume enforcement
+  // ✅ CRITICAL FIX: Enhanced playRadio with comprehensive audio source management
   const playRadio = useCallback(async (stationData) => {
     console.log('🎵 Playing radio:', stationData.name);
+
+    // ✅ GOLDEN RULE: Stop ANY active manual modes before playing radio
+    if (window.stopAllManualModes) {
+      console.log('🛑 Stopping all manual modes before radio (ONE AUDIO STREAM RULE)');
+      await window.stopAllManualModes();
+    }
+
+    // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts
+    if (currentSource === 'playlist' || (currentSource === 'radio' && !isRadioPausedForAdBreak)) {
+      console.log('🛑 Stopping current audio sources before radio');
+      forceStopAllAudio('switching to radio');
+      // Small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
 
     // Cancel any previous connection attempts
     if (currentConnectionAttempt) {
@@ -636,19 +654,33 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     // Apply station overrides before processing
     const effectiveStationData = stationReportingService.getEffectiveStationData(stationData);
-    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);    try {
-      // ✅ FIX: Handle nonstop rotation during ad break differently
-      if (window.isAdBreakActive && window.queueStationSwitch && !window.isNonstopRotation) {
+    console.log('🔧 Using station data:', effectiveStationData._hasOverride ? 'with override' : 'original', effectiveStationData);
+
+    try {
+      // ✅ DISABLED: Disable queueing entirely for robustness - always play immediately
+      // The queue system was causing issues with nonstop mode and manual mode switching
+      /*
+      if (window.isAdBreakActive && window.queueStationSwitch && 
+          !window.isNonstopRotation && 
+          window.currentAdBreakMode !== 'nonstop') {
         console.log('🎵 Ad break active - queueing station switch');
         window.queueStationSwitch(effectiveStationData);
         if (window.addNotification) {
           window.addNotification(`Station ${effectiveStationData.name} wordt na reclamepauze afgespeeld`, 'info', 3000);
         }
         return;
+      } else if (window.isAdBreakActive && window.currentAdBreakMode === 'nonstop') {
+        console.log('🔄 Nonstop rotation during ad break - playing immediately without queueing');
       }
 
       if (window.isNonstopRotation) {
         console.log('🔄 Nonstop rotation during ad break - playing immediately without queueing');
+      }
+      */
+      
+      // ✅ SIMPLIFIED: Always play directly - no queueing for better reliability
+      if (window.isAdBreakActive || window.isNonstopRotation) {
+        console.log('🔄 Playing station immediately (no queueing for robustness)');
       }
 
       if (isTransitioning) {
@@ -960,28 +992,95 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       console.log('🎵 No radio to pause for ad break');
       setIsTransitioning(false);
     }
-  }, [currentSource, currentStation, isTransitioning]);
-
-  // ✅ ADD: Resume radio from ad break function
+  }, [currentSource, currentStation, isTransitioning]);  // ✅ ENHANCED: Resume radio from ad break function with hard restart capability
   const resumeRadioFromAdBreak = useCallback(() => {
     console.log('🎵 Resuming radio from ad break');
-
-    if (isRadioPausedForAdBreak && pausedRadioStation) {
-      console.log('🎵 Resuming paused radio station:', pausedRadioStation.name);
+    console.log('🎵 isRadioPausedForAdBreak:', isRadioPausedForAdBreak);
+    console.log('🎵 pausedRadioStation:', pausedRadioStation);    if (isRadioPausedForAdBreak && pausedRadioStation) {
+      console.log('🎵 ✅ Found paused radio station - performing hard restart:', pausedRadioStation.name);
+      
+      // Clear the paused state first
+      setIsRadioPausedForAdBreak(false);
+      setPausedRadioStation(null);
+      localStorage.removeItem('pausedRadioState');
+      
+      // ✅ CRITICAL: Always perform a hard restart (not just resume)
+      // This ensures the audio stream is completely refreshed
       playRadio(pausedRadioStation);
+      
+      if (window.addNotification) {
+        window.addNotification(`🎵 Radio hervat: ${pausedRadioStation.name}`, 'success', 2000);
+      }
     } else {
-      console.log('🎵 No paused radio to resume from ad break');
+      console.log('🎵 ⚠️ No paused radio state found - checking localStorage...');
+      
+      // ✅ ENHANCED: Try to recover from localStorage
+      try {
+        const savedState = localStorage.getItem('pausedRadioState');
+        if (savedState) {
+          const radioState = JSON.parse(savedState);
+          console.log('🎵 ✅ Found radio state in localStorage - performing hard restart:', radioState.station.name);
+          
+          // Clear localStorage
+          localStorage.removeItem('pausedRadioState');
+          
+          // Hard restart the station
+          playRadio(radioState.station);
+          
+          if (window.addNotification) {
+            window.addNotification(`🎵 Radio hervat: ${radioState.station.name}`, 'success', 2000);
+          }
+        } else {
+          console.log('🎵 ❌ No radio state found in localStorage either');
+          
+          // Try to restart current station if available
+          if (currentStation) {
+            console.log('🎵 🔄 Attempting to restart current station as fallback:', currentStation.name);
+            playRadio(currentStation);
+          } else {
+            console.log('🎵 ❌ No current station available for fallback restart');
+            if (window.addNotification) {
+              window.addNotification('⚠️ Geen radio gevonden om te hervatten', 'warning', 3000);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to restore radio from localStorage:', error);
+        
+        // Final fallback: try current station
+        if (currentStation) {
+          console.log('🎵 🔄 Final fallback: restarting current station:', currentStation.name);
+          playRadio(currentStation);
+        }
+      }
     }
-  }, [isRadioPausedForAdBreak, pausedRadioStation, playRadio]);
-
-  // ✅ ADD: Force stop all audio function
-  const forceStopAllAudio = useCallback(() => {
-    console.log('🛑 FORCE STOPPING ALL AUDIO');
+  }, [isRadioPausedForAdBreak, pausedRadioStation, playRadio, currentStation]);  // ✅ ENHANCED: Robust force stop all audio function with comprehensive cleanup
+  const forceStopAllAudio = useCallback((reason = 'manual') => {    console.log(`🛑 FORCE STOPPING ALL AUDIO (${reason})`);
+    
+    // ✅ FIX: Preserve ad break radio state when switching to playlist
+    const preserveAdBreakState = (reason === 'switching to playlist' && window.isAdBreakActive) || 
+                                (reason === 'switching to playlist' && isRadioPausedForAdBreak);
+    
+    if (preserveAdBreakState) {
+      console.log('🎵 ✅ Preserving ad break radio state during playlist switch');
+      console.log('🎵 Current window.isAdBreakActive:', window.isAdBreakActive);
+      console.log('🎵 Current isRadioPausedForAdBreak:', isRadioPausedForAdBreak);
+      console.log('🎵 Current pausedRadioStation:', pausedRadioStation);
+    }
+    
+    // Set intentional stop flag to prevent error notifications
+    setIsIntentionalStop(true);
 
     // Stop radio
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current.load(); // Reset element completely
+        console.log('🛑 Radio audio stopped');
+      } catch (error) {
+        console.warn('Error stopping radio audio:', error);
+      }
     }
 
     // Stop YouTube
@@ -989,6 +1088,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       try {
         youtubePlayerRef.current.pauseVideo();
         youtubePlayerRef.current.stopVideo();
+        console.log('🛑 YouTube player stopped');
       } catch (error) {
         console.warn('Could not stop YouTube player:', error);
       }
@@ -998,50 +1098,62 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     if (spotifyPlayerRef.current) {
       try {
         pauseSpotify();
+        console.log('🛑 Spotify player stopped');
       } catch (error) {
         console.warn('Could not stop Spotify player:', error);
       }
     }
 
+    // Clear all timeouts and connection attempts
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
+    // Cancel any ongoing connection attempts
+    if (currentConnectionAttempt) {
+      currentConnectionAttempt.cancel = true;
+      setCurrentConnectionAttempt(null);
+    }
+
+    // Reset most audio states, but preserve ad break radio state if needed
     setIsPlaying(false);
+    setIsLoading(false);
+    setLoadingProgress('');
+    setIsTransitioning(false);
+    setError(null);    // ✅ FIX: Don't clear ad break radio state when switching to playlist during ad break
+    if (!preserveAdBreakState) {
+      console.log('🧹 Clearing radio pause states (not preserving ad break state)');
+      setIsRadioPausedForAdBreak(false);
+      setPausedRadioStation(null);
+      localStorage.removeItem('pausedRadioState');
+    } else {
+      console.log('🎵 ✅ Radio pause states preserved for ad break');
+    }
 
+    // Clear intentional stop flag after a brief delay
     setTimeout(() => setIsIntentionalStop(false), 1000);
-  }, []);
-
+    
+    console.log('🛑 All audio sources stopped successfully');
+    if (preserveAdBreakState) {
+      console.log('🎵 Ad break radio state preserved for later resume');
+    }
+  }, [currentConnectionAttempt, isRadioPausedForAdBreak]);
   const playPlaylist = useCallback(async (playlistId, options = {}) => {
     const provider = options.provider || currentPlaylistProvider;
     console.log('🎵 Starting playlist:', playlistId, 'Provider:', provider);
 
-    // ✅ FIX: ALWAYS stop any current audio first
-    console.log('🎵 Enforcing single audio stream - stopping current audio');
-
-    // Stop radio if playing (but don't clear paused radio state for ad breaks)
-    if (currentSource === 'radio' && audioRef.current && !isRadioPausedForAdBreak) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      console.log('🎵 Stopped radio for playlist');
-    }
-
-    // Stop any existing playlist
-    if (currentSource === 'playlist') {
-      if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
-        try {
-          const { pauseSpotify } = await import('../utils/spotifyUtils');
-          pauseSpotify();
-        } catch (error) {
-          console.warn('Could not pause existing Spotify player:', error);
-        }
-      }
-
-      if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
-        try {
-          youtubePlayerRef.current.pauseVideo();
-          youtubePlayerRef.current.stopVideo();
-        } catch (error) {
-          console.warn('Could not stop existing YouTube player:', error);
-        }
-      }
-    }
+    // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts
+    console.log('🛑 Stopping all audio sources before playlist');
+    forceStopAllAudio('switching to playlist');
+    
+    // Small delay to ensure cleanup completes
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     setIsTransitioning(true);
     setIsLoading(true);
@@ -1115,12 +1227,28 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
           autoCloseDuration: window.isAdBreakActive && window.currentAdBreakTimeLeft
             ? Math.ceil(window.currentAdBreakTimeLeft / 60)
             : options.duration
-        };
-
-        const success = await popupYouTubePlayer.playPlaylist(playlistId, enhancedOptions);
+        };        const success = await popupYouTubePlayer.playPlaylist(playlistId, enhancedOptions);
 
         if (success) {
-          console.log('🎵 YouTube playlist popup geopend');
+          console.log('🎵 YouTube playlist popup geopend');          // ✅ FIX: Set up close callback to handle radio resume
+          popupYouTubePlayer.onClose((reason) => {
+            console.log('🎵 YouTube popup closed, reason:', reason);
+            setIsPlaying(false);
+            setCurrentSource(null);
+            
+            // ✅ FIX: Resume radio when YouTube popup closes (if we have a paused radio)
+            if (isRadioPausedForAdBreak && pausedRadioStation) {
+              console.log('🎵 Resuming paused radio after YouTube popup close:', pausedRadioStation.name);
+              if (window.addNotification) {
+                window.addNotification(`🎵 Terugkeren naar radio: ${pausedRadioStation.name}`, 'info', 3000);
+              }
+              setTimeout(() => {
+                resumeRadioFromAdBreak();
+              }, 500); // Small delay to ensure cleanup
+            } else if (window.addNotification) {
+              window.addNotification('🎵 YouTube afspeellijst beëindigd', 'info', 2000);
+            }
+          });
 
           // ✅ CRITICAL FIX: Set isPlaying to true when YouTube starts playing
           setIsPlaying(true);
@@ -1168,18 +1296,28 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     setIsPlaying(false);
   }, [currentSource, currentPlaylistProvider]);
-
-  // ✅ FIX: Add next track method
-  const nextTrack = useCallback(() => {
+  // ✅ FIX: Enhanced next track method that respects shuffle
+  const nextTrack = useCallback(async () => {
     if (currentSource === 'playlist') {
       if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
         youtubePlayerRef.current.nextVideo();
+        console.log('🎵 YouTube next track');
       } else if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
-        spotifyPlayerRef.current.nextTrack().then(() => {
-          console.log('🎵 Spotify next track');
-        }).catch(error => {
-          console.warn('Could not skip Spotify track:', error);
-        });
+        try {
+          // ✅ FIX: Use Spotify utils nextTrack which handles shuffle properly
+          const { nextSpotifyTrack } = await import('../utils/spotifyUtils');
+          await nextSpotifyTrack();
+          console.log('🎵 Spotify next track with shuffle support');
+        } catch (error) {
+          console.warn('Could not skip to next Spotify track via utils, trying SDK:', error);
+          // Fallback to SDK
+          try {
+            await spotifyPlayerRef.current.nextTrack();
+            console.log('🎵 Spotify next track via SDK');
+          } catch (sdkError) {
+            console.error('Both utils and SDK next track failed:', sdkError);
+          }
+        }
       }
     }
   }, [currentSource, currentPlaylistProvider]);
@@ -1214,14 +1352,19 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       resumeAudio();
     }
   }, [isPlaying, pauseAudio, resumeAudio]);
-
   // ✅ FIX: Add toggleShuffle function
-  const toggleShuffle = useCallback((enabled) => {
+  const toggleShuffle = useCallback(async (enabled) => {
     if (currentSource === 'playlist') {
       if (currentPlaylistProvider === 'youtube' && youtubePlayerRef.current) {
         youtubePlayerRef.current.setShuffle(enabled);
-      } else if (currentPlaylistProvider === 'spotify' && spotifyPlayerRef.current) {
-        setSpotifyShuffleMode(enabled);
+      } else if (currentPlaylistProvider === 'spotify') {
+        try {
+          const { setSpotifyShuffleMode } = await import('../utils/spotifyUtils');
+          await setSpotifyShuffleMode(enabled);
+          console.log('🎵 Spotify shuffle set to:', enabled);
+        } catch (error) {
+          console.error('Failed to set Spotify shuffle:', error);
+        }
       }
     }
   }, [currentSource, currentPlaylistProvider]);
@@ -1402,6 +1545,34 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     return newVolume;
   }, [currentSource]);
 
+  // ✅ ADD: Direct Spotify playlist function for ad breaks
+  const playSpotifyPlaylist = useCallback(async (playlistId, options = {}) => {
+    if (!spotifyPlayerReady) {
+      throw new Error('Spotify player not ready');
+    }
+
+    try {
+      console.log('🎵 Starting Spotify playlist directly:', playlistId);
+      
+      // Import and call the Spotify utils function
+      const { playSpotifyPlaylist: playSpotifyPlaylistUtil } = await import('../utils/spotifyUtils');
+      await playSpotifyPlaylistUtil(playlistId, options.shuffle || false);
+      
+      // Update our state
+      setCurrentSource('playlist');
+      setCurrentPlaylistProvider('spotify');
+      setIsPlaying(true);
+      setIsLoading(false);
+      setError(null);
+      
+      console.log('✅ Spotify playlist started successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to start Spotify playlist:', error);
+      setError(error.message);
+      throw error;
+    }
+  }, [spotifyPlayerReady]);
   return {
     currentStation,
     isPlaying,
@@ -1413,6 +1584,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     isTransitioning,
     playRadio,
     playPlaylist,
+    playSpotifyPlaylist,
     pauseAudio,
     resumeAudio,
     togglePlayPause,
@@ -1422,7 +1594,8 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     youtubePlayerRef,
     spotifyPlayerRef,
     toggleShuffle,
-    nextTrack,    pauseRadioForAdBreak,
+    nextTrack,
+    pauseRadioForAdBreak,
     resumeRadioFromAdBreak,
     isRadioPausedForAdBreak,
     pausedRadioStation,

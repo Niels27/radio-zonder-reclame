@@ -19,11 +19,14 @@ const AudioPlayer = ({
   onToggleShuffle,
   onNextTrack,
   playlistInfo,
-  queuedStation,
-  onCancelQueuedSwitch,  adBreakMode,           // ✅ NEW: Add ad break mode prop
+  // queuedStation and onCancelQueuedSwitch removed - queue system disabled  
+  adBreakMode,           // ✅ NEW: Add ad break mode prop
   onRotateNonstopStation, // ✅ NEW: Add rotation callback prop
   useCommunityTimings,    // ✅ NEW: Add community timings flag prop
-  currentAdBreakUsedCommunityTiming // ✅ NEW: Track if current ad break used community timing
+  currentAdBreakUsedCommunityTiming, // ✅ NEW: Track if current ad break used community timing
+  nextCommunityTiming,    // ✅ NEW: Add community timing metadata prop
+  isRadioPausedForAdBreak, // ✅ NEW: Add paused radio state prop
+  pausedRadioStation      // ✅ NEW: Add paused radio station prop
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
@@ -477,8 +480,7 @@ const AudioPlayer = ({
                         </svg>
                         <span>Radio</span>
                       </span>
-                    )}
-                    {currentSource === 'playlist' && (
+                    )}                    {currentSource === 'playlist' && (
                       <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full flex items-center space-x-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
@@ -487,7 +489,17 @@ const AudioPlayer = ({
                           <span className="text-gray-300">({playlistInfo.videoCount})</span>
                         )}
                       </span>
-                    )}                    {/* Community Timing Report Button - Single button with hover bubble */}
+                    )}
+
+                    {/* ✅ NEW: Radio "On Hold" indicator during ad break */}
+                    {isAdBreakActive && isRadioPausedForAdBreak && pausedRadioStation && (
+                      <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1 animate-pulse">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                        </svg>
+                        <span>Radio wacht: {pausedRadioStation.name}</span>
+                      </span>
+                    )}{/* Community Timing Report Button - Single button with hover bubble */}
                     {currentSource === 'radio' && currentStation && (
                       <div className="relative">
                         <button
@@ -543,26 +555,7 @@ const AudioPlayer = ({
                         )}
                       </div>
                     )}
-                  </div>
-
-                  {/* Queued Station Display */}
-                  {queuedStation && (
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                        </svg>
-                        <span>Volgende: {queuedStation.name}</span>
-                      </span>
-                      <button
-                        onClick={onCancelQueuedSwitch}
-                        className="text-orange-400 hover:text-orange-300 text-xs"
-                        title="Annuleer geplande wisseling"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
+                  </div>                  {/* Queue system disabled for reliability */}
                 </div>
               </div>
             </div>
@@ -610,7 +603,7 @@ const AudioPlayer = ({
                       <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                     </svg>
                     <span>
-                      {currentAdBreakUsedCommunityTiming ? 'Community switch naar radio over:' : 'Switch naar radio over:'}
+                      {currentAdBreakUsedCommunityTiming ? 'Community switch naar radio over:' : 'Switch terug naar radio over:'}
                     </span>
                     <span className={`font-mono text-white px-2 py-1 rounded ${
                       currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
@@ -629,21 +622,19 @@ const AudioPlayer = ({
                   </div>
                 )}
               </div>
-            ) : (              nextAdBreakIn && (
-                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
-                  useCommunityTimings ? 'text-yellow-400' : 'text-radio-secondary'
+            ) : (              nextAdBreakIn && (                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+                  nextCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
                 }`}>
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                     <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                  </svg>
-                  <span>
-                    {useCommunityTimings ? 'Community Playlist switching in:' : 'Playlist Switching in:'}
+                  </svg>                  <span>
+                    {nextCommunityTiming ? 'Community pauze wisseling in:' : 'Pauze wisseling in:'}
                   </span>
                   <span className={`font-mono text-white px-2 py-1 rounded ${
-                    useCommunityTimings ? 'bg-yellow-600' : 'bg-gray-700'
+                    nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
                   }`}>
-                    {nextAdBreakIn}
+                    {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn * 60) : nextAdBreakIn}
                   </span>
                 </div>
               )

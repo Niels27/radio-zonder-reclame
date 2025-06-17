@@ -505,7 +505,9 @@ class CommunityTimings {
     
     return { 
       canReport: false, 
-      reason: `Rapporteren alleen mogelijk rond :00 (${60 - TIMING_WINDOWS.FULL_HOUR.BEFORE}-${TIMING_WINDOWS.FULL_HOUR.AFTER}) en :30 (${30 - TIMING_WINDOWS.HALF_HOUR.BEFORE}-${30 + TIMING_WINDOWS.HALF_HOUR.AFTER})` 
+           reason: `Rapporteren nu niet mogelijk` 
+
+     // reason: `Rapporteren alleen mogelijk rond :00 (${60 - TIMING_WINDOWS.FULL_HOUR.BEFORE}-${TIMING_WINDOWS.FULL_HOUR.AFTER}) en :30 (${30 - TIMING_WINDOWS.HALF_HOUR.BEFORE}-${30 + TIMING_WINDOWS.HALF_HOUR.AFTER})` 
     };
   }  // ✅ NEW: Get community timing suggestions for ad break triggers
   static async getSuggestedAdBreakTiming(stationName, currentHour) {

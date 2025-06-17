@@ -13,7 +13,7 @@ import VisualizerSettings from './components/VisualizerSettings';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useAdBreakTimer } from './hooks/useAdBreakTimer';
 import { validatePlaylistUrl } from './utils/youtubeUtils';
-import { validateSpotifyPlaylist } from './utils/spotifyUtils';
+import { validateSpotifyPlaylist, isSpotifyAuthenticated } from './utils/spotifyUtils';
 import LoadingIndicator from './components/LoadingIndicator';
 import TimeRangeSlider from './components/TimeRangeSlider';
 
@@ -120,6 +120,9 @@ function App() {
       spotifyElement: audioPlayer.spotifyPlayerRef?.current
     };
 
+    // ✅ FIX: Expose Spotify authentication check
+    window.isSpotifyAuthenticated = isSpotifyAuthenticated;
+
     // Force UI updates when Spotify becomes ready
     if (audioPlayer.spotifyPlayerReady) {
       // Trigger any UI components that might be waiting
@@ -140,8 +143,20 @@ function App() {
     audioPlayer.spotifyPlayerReady,
     playlistProvider // Add provider to dependencies
   ]);
-
   const handleStationSelect = (station) => {
+    // ✅ RULE: Playing any regular radio station should stop manual modes
+    // But we need to differentiate between:
+    // 1. Regular radio stations from grid -> stop manual modes 
+    // 2. Nonstop stations played as part of nonstop mode -> don't interfere
+    
+    // Check if this is a nonstop station being played from nonstop mode
+    const isNonstopModeRotation = window.isInNonstopMode && station.category === 'realnonstop';
+    
+    if (!isNonstopModeRotation && window.stopAllManualModes) {
+      console.log('🛑 Regular radio station selected from grid - stopping all manual modes');
+      window.stopAllManualModes();
+    }
+    
     // If ad break is active, the playRadio function will automatically queue it
     audioPlayer.playRadio(station);
 
@@ -377,7 +392,7 @@ function App() {
           {/* Banner Content */}
           <div className="text-center banner-text">
             <h1 className="text-3xl md:text-4xl font-bold mb-3 banner-title bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Nederlandse Radio / Playlist Switcher
+              Nederlandse Radio / Af Switcher
             </h1>
             <h2 className="text-2xl md:text-2xl font-semibold text-gray-300">
               Automatische reclamepauze wisseling
@@ -467,46 +482,52 @@ function App() {
             nextAdBreakIn={adBreakTimer.nextAdBreakIn}
             currentSource={audioPlayer.currentSource}
             error={audioPlayer.error}
-            playlistShuffle={adBreakTimer.playlistShuffle}
-            onToggleShuffle={(enabled) => {
+            playlistShuffle={adBreakTimer.playlistShuffle}            onToggleShuffle={(enabled) => {
               adBreakTimer.setPlaylistShuffle(enabled);
+              // ✅ FIX: Apply shuffle immediately when toggled
+              if (audioPlayer.currentSource === 'playlist') {
+                audioPlayer.toggleShuffle(enabled);
+              }
               if (window.addNotification) {
                 window.addNotification(`Shuffle ${enabled ? 'ingeschakeld' : 'uitgeschakeld'}`, 'info', 2000);
               }
             }} onNextTrack={() => {
               if (audioPlayer.currentPlaylistProvider === 'spotify' && audioPlayer.spotifyPlayerRef?.current) {
                 try {
-                  // Import nextSpotifyTrack for this operation
-                  import('./utils/spotifyUtils').then(({ nextSpotifyTrack }) => {
-                    nextSpotifyTrack();
-                    if (window.addNotification) {
-                      window.addNotification('Volgende nummer (Spotify)', 'info', 1500);
-                    }
-                  });
+                  // ✅ FIX: Use the audioPlayer's nextTrack method which respects shuffle
+                  audioPlayer.nextTrack();
+                  if (window.addNotification) {
+                    window.addNotification('Volgende nummer (Spotify)', 'info', 1500);
+                  }
                 } catch (error) {
                   console.error('Could not skip to next Spotify track:', error);
                 }
               } else if (audioPlayer.currentPlaylistProvider === 'youtube' && audioPlayer.youtubePlayerRef?.current) {
                 try {
-                  audioPlayer.youtubePlayerRef.current.nextVideo();
+                  // ✅ FIX: Use the audioPlayer's nextTrack method which respects shuffle
+                  audioPlayer.nextTrack();
                   if (window.addNotification) {
                     window.addNotification('Volgende nummer (YouTube)', 'info', 1500);
                   }
                 } catch (error) {
                   console.error('Could not skip to next YouTube track:', error);
                 }
-              }
-            }} playlistInfo={playlistInfo}
-            queuedStation={adBreakTimer.queuedStation}
-            onCancelQueuedSwitch={adBreakTimer.cancelQueuedSwitch}
+              }}} playlistInfo={playlistInfo}
+            // Queue system disabled for reliability
             currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
-            onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}
-            adBreakMode={adBreakTimer.adBreakMode}            onRotateNonstopStation={() => {
+            onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}            adBreakMode={adBreakTimer.adBreakMode}
+            onRotateNonstopStation={() => {
               // This will trigger a rotation to the next nonstop station
               if (adBreakTimer.isAdBreakActive && adBreakTimer.adBreakMode === 'nonstop') {
                 adBreakTimer.rotateToNextNonstopStation();
-              }            }}            useCommunityTimings={adBreakTimer.useCommunityTimings}
+              }
+            }}
+            useCommunityTimings={adBreakTimer.useCommunityTimings}
             currentAdBreakUsedCommunityTiming={adBreakTimer.currentAdBreakUsedCommunityTiming}
+            nextCommunityTiming={adBreakTimer.nextCommunityTiming}
+            // ✅ NEW: Add paused radio state props for "on hold" indicator
+            isRadioPausedForAdBreak={audioPlayer.isRadioPausedForAdBreak}
+            pausedRadioStation={audioPlayer.pausedRadioStation}
           />
           </div>
         </div>
