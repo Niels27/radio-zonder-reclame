@@ -4,6 +4,7 @@ import AudioPlayer from './components/AudioPlayer';
 import AdBreakSettings from './components/AdBreakSettings';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationSystem from './components/NotificationSystem';
+import FloatingYouTubePlayer from './components/FloatingYouTubePlayer';
 
 import DeveloperDashboard from './components/DeveloperDashboard';
 import PlaylistProviderSelector from './components/PlaylistProviderSelector';
@@ -142,8 +143,7 @@ function App() {
     audioPlayer,
     audioPlayer.spotifyPlayerReady,
     playlistProvider // Add provider to dependencies
-  ]);
-  const handleStationSelect = (station) => {
+  ]);  const handleStationSelect = (station) => {
     // ✅ RULE: Playing any regular radio station should stop manual modes
     // But we need to differentiate between:
     // 1. Regular radio stations from grid -> stop manual modes 
@@ -155,6 +155,12 @@ function App() {
     if (!isNonstopModeRotation && window.stopAllManualModes) {
       console.log('🛑 Regular radio station selected from grid - stopping all manual modes');
       window.stopAllManualModes();
+    }
+    
+    // ✅ NEW: Always close floating YouTube player when switching to radio
+    if (audioPlayer.showFloatingYouTube) {
+      console.log('🛑 Closing floating YouTube player for radio station');
+      audioPlayer.handleFloatingYouTubeClose();
     }
     
     // If ad break is active, the playRadio function will automatically queue it
@@ -578,14 +584,23 @@ function App() {
         )}        {/* Developer Dashboard */}
         {showDeveloperDashboard && (
           <DeveloperDashboard onClose={() => setShowDeveloperDashboard(false)} />
-        )}
-
-        {/* Community Timing Feedback Popup */}
+        )}        {/* Community Timing Feedback Popup */}
         <CommunityTimingFeedback
           isVisible={adBreakTimer.showFeedbackPopup}
           onClose={() => adBreakTimer.setShowFeedbackPopup(false)}
           stationName={adBreakTimer.feedbackStationName}
           timingType="auto-switch"
+        />
+
+        {/* ✅ NEW: Floating YouTube Player */}
+        <FloatingYouTubePlayer
+          isVisible={audioPlayer.showFloatingYouTube}
+          playlistId={audioPlayer.floatingYouTubePlaylistId}
+          onClose={audioPlayer.handleFloatingYouTubeClose}
+          volume={audioPlayer.floatingYouTubeVolume}
+          onVolumeChange={audioPlayer.handleFloatingYouTubeVolumeChange}
+          isShuffled={audioPlayer.floatingYouTubeShuffle}
+          onShuffleChange={audioPlayer.handleFloatingYouTubeShuffleChange}
         />
       </div>
     </ErrorBoundary>

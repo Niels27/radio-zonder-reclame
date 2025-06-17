@@ -467,10 +467,14 @@ const AdBreakSettings = ({
     }
     
     console.log('🛑 Stopping active manual modes:', activeModes);
-    
-    // Stop all active modes simultaneously
+      // Stop all active modes simultaneously
     const stopPromises = activeModes.map(mode => stopSpecificMode(mode));
     await Promise.all(stopPromises);
+    
+    // ✅ NEW: Also force stop all audio sources including floating YouTube player
+    if (audioPlayer && audioPlayer.forceStopAllAudio) {
+      audioPlayer.forceStopAllAudio('manual modes stopped');
+    }
     
     console.log('✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule');
   };  // ✅ EXPOSE GLOBALLY: Make the function available to other components
@@ -579,8 +583,7 @@ const AdBreakSettings = ({
         window.addNotification(`❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`, 'error', 3000);
       }
     }
-  };
-  // ✅ ISOLATED: Stop a specific mode with complete isolation
+  };  // ✅ ISOLATED: Stop a specific mode with complete isolation
   const stopSpecificMode = async (mode) => {
     const currentModeState = getModeState(mode);
     
@@ -597,9 +600,15 @@ const AdBreakSettings = ({
         window.isInNonstopMode = false;
       }
       
-      // ✅ CRITICAL: Stop all audio sources completely
+      // ✅ CRITICAL: Stop all audio sources completely INCLUDING floating YouTube player
       if (audioPlayer?.forceStopAllAudio) {
         audioPlayer.forceStopAllAudio(`stopping ${mode} mode`);
+      }
+      
+      // ✅ NEW: Specifically close floating YouTube player when stopping playlist mode
+      if (mode === 'playlist' && audioPlayer?.handleFloatingYouTubeClose) {
+        console.log('🛑 Closing floating YouTube player for playlist stop');
+        audioPlayer.handleFloatingYouTubeClose();
       }
 
       // Special cleanup for lofi mode

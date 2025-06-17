@@ -63,10 +63,15 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
   const [pausedRadioStation, setPausedRadioStation] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [connectionTimeout, setConnectionTimeout] = useState(null);
-  const [currentConnectionAttempt, setCurrentConnectionAttempt] = useState(null);
-  const [currentPlaylistProvider, setCurrentPlaylistProvider] = useState('youtube');
+  const [currentConnectionAttempt, setCurrentConnectionAttempt] = useState(null);  const [currentPlaylistProvider, setCurrentPlaylistProvider] = useState('youtube');
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
   const [forceUpdateCounter, setForceUpdateCounter] = useState(0);
+  
+  // ✅ NEW: Floating YouTube player state
+  const [showFloatingYouTube, setShowFloatingYouTube] = useState(false);
+  const [floatingYouTubePlaylistId, setFloatingYouTubePlaylistId] = useState(null);
+  const [floatingYouTubeVolume, setFloatingYouTubeVolume] = useState(50);
+  const [floatingYouTubeShuffle, setFloatingYouTubeShuffle] = useState(false);
 
   const audioRef = useRef(null);
   const youtubePlayerRef = useRef(null);
@@ -1081,9 +1086,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       } catch (error) {
         console.warn('Error stopping radio audio:', error);
       }
-    }
-
-    // Stop YouTube
+    }    // Stop YouTube
     if (youtubePlayerRef.current) {
       try {
         youtubePlayerRef.current.pauseVideo();
@@ -1092,6 +1095,11 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       } catch (error) {
         console.warn('Could not stop YouTube player:', error);
       }
+    }
+      // ✅ ENHANCED: Stop floating YouTube player with explicit close handler
+    if (showFloatingYouTube) {
+      console.log('🛑 Closing floating YouTube player via forceStopAllAudio');
+      handleFloatingYouTubeClose(); // Use the proper close handler instead of direct state changes
     }
 
     // Stop Spotify
@@ -1215,50 +1223,25 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
         // ✅ CRITICAL: Update UI to match YouTube volume
         setVolume(youtubeVolume);
-        volumeRef.current = youtubeVolume;
-
-        // Enhanced YouTube popup with ad break integration
-        console.log('🎵 Opening YouTube playlist in popup');
+        volumeRef.current = youtubeVolume;        // ✅ ENHANCED: Use floating YouTube player instead of popup
+        console.log('🎵 Starting floating YouTube player');
 
         setLoadingProgress('YouTube player openen...');
 
-        const enhancedOptions = {
-          ...options,
-          autoCloseDuration: window.isAdBreakActive && window.currentAdBreakTimeLeft
-            ? Math.ceil(window.currentAdBreakTimeLeft / 60)
-            : options.duration
-        };        const success = await popupYouTubePlayer.playPlaylist(playlistId, enhancedOptions);
+        // Show floating YouTube player
+        setFloatingYouTubePlaylistId(playlistId);
+        setFloatingYouTubeVolume(Math.round(youtubeVolume * 100));
+        setFloatingYouTubeShuffle(options.shuffle || false);
+        setShowFloatingYouTube(true);
+        
+        // Set playing state immediately
+        setIsPlaying(true);
 
-        if (success) {
-          console.log('🎵 YouTube playlist popup geopend');          // ✅ FIX: Set up close callback to handle radio resume
-          popupYouTubePlayer.onClose((reason) => {
-            console.log('🎵 YouTube popup closed, reason:', reason);
-            setIsPlaying(false);
-            setCurrentSource(null);
-            
-            // ✅ FIX: Resume radio when YouTube popup closes (if we have a paused radio)
-            if (isRadioPausedForAdBreak && pausedRadioStation) {
-              console.log('🎵 Resuming paused radio after YouTube popup close:', pausedRadioStation.name);
-              if (window.addNotification) {
-                window.addNotification(`🎵 Terugkeren naar radio: ${pausedRadioStation.name}`, 'info', 3000);
-              }
-              setTimeout(() => {
-                resumeRadioFromAdBreak();
-              }, 500); // Small delay to ensure cleanup
-            } else if (window.addNotification) {
-              window.addNotification('🎵 YouTube afspeellijst beëindigd', 'info', 2000);
-            }
-          });
-
-          // ✅ CRITICAL FIX: Set isPlaying to true when YouTube starts playing
-          setIsPlaying(true);
-
-          if (window.addNotification) {
-            window.addNotification('🎵 YouTube afspeellijst popup geopend', 'success', 3000);
-          }
-        } else {
-          throw new Error('Kon YouTube popup niet openen');
+        if (window.addNotification) {
+          window.addNotification('🎵 YouTube afspeellijst gestart', 'success', 3000);
         }
+        
+        console.log('🎵 Floating YouTube player shown');
       }
 
       setCurrentSource('playlist');
@@ -1545,7 +1528,41 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     return newVolume;
   }, [currentSource]);
 
-  // ✅ ADD: Direct Spotify playlist function for ad breaks
+  // ✅ NEW: Floating YouTube player handlers
+  const handleFloatingYouTubeClose = useCallback(() => {
+    console.log('🎵 Floating YouTube player closed');
+    setShowFloatingYouTube(false);
+    setFloatingYouTubePlaylistId(null);
+    setIsPlaying(false);
+    setCurrentSource(null);
+    
+    // ✅ FIX: Resume radio when floating YouTube closes (if we have a paused radio)
+    if (isRadioPausedForAdBreak && pausedRadioStation) {
+      console.log('🎵 Resuming paused radio after floating YouTube close:', pausedRadioStation.name);
+      if (window.addNotification) {
+        window.addNotification(`🎵 Terugkeren naar radio: ${pausedRadioStation.name}`, 'info', 3000);
+      }
+      setTimeout(() => {
+        resumeRadioFromAdBreak();
+      }, 500); // Small delay to ensure cleanup
+    } else if (window.addNotification) {
+      window.addNotification('🎵 YouTube afspeellijst beëindigd', 'info', 2000);
+    }
+  }, [isRadioPausedForAdBreak, pausedRadioStation, resumeRadioFromAdBreak]);
+
+  const handleFloatingYouTubeVolumeChange = useCallback((newVolume) => {
+    setFloatingYouTubeVolume(newVolume);
+    // Update overall volume to match
+    const normalizedVolume = newVolume / 100;
+    setVolumeWithEnforcement(normalizedVolume);
+    sourceVolumeRef.current.youtube = normalizedVolume;
+  }, [setVolumeWithEnforcement]);
+
+  const handleFloatingYouTubeShuffleChange = useCallback((enabled) => {
+    setFloatingYouTubeShuffle(enabled);
+    // The iframe will need to be reloaded with the new shuffle parameter
+    // This will be handled by the FloatingYouTubePlayer component
+  }, []);
   const playSpotifyPlaylist = useCallback(async (playlistId, options = {}) => {
     if (!spotifyPlayerReady) {
       throw new Error('Spotify player not ready');
@@ -1572,8 +1589,7 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       setError(error.message);
       throw error;
     }
-  }, [spotifyPlayerReady]);
-  return {
+  }, [spotifyPlayerReady]);  return {
     currentStation,
     isPlaying,
     volume,
@@ -1608,5 +1624,13 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     spotifyPlayerReady,
     manualInitializeSpotifyPlayer,
     forceUpdateCounter,
+    // ✅ NEW: Floating YouTube player state and handlers
+    showFloatingYouTube,
+    floatingYouTubePlaylistId,
+    floatingYouTubeVolume,
+    floatingYouTubeShuffle,
+    handleFloatingYouTubeClose,
+    handleFloatingYouTubeVolumeChange,
+    handleFloatingYouTubeShuffleChange,
   };
 };
