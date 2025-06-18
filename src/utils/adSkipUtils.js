@@ -287,7 +287,7 @@ export class AdSkipUtils {
   }
 
   // ✅ MISSING METHOD: Skip preroll functionality
-  static skipPreroll(audioElement, seconds = 17) {
+  static skipPreroll(audioElement, seconds = 18) {
     if (!audioElement) return false;
 
     try {
@@ -340,8 +340,7 @@ export class AdSkipUtils {
       }
     }
   }
-
-  // Create pre-roll skip functionality
+  // ✅ SIMPLIFIED: Create pre-roll skip functionality with simple one-line UI
   static createPrerollSkipButton(audioElement, onSkip, isAutoSkip = false) {
 
     // ✅ CRITICAL FIX: Remove any existing skip buttons first
@@ -353,57 +352,66 @@ export class AdSkipUtils {
       }
     });
 
+    // Check if auto-skip is enabled
+    const isAutoSkipEnabled = this.getAutoSkipSetting();
+
+    // ✅ ENHANCED: Don't show manual button if auto-skip is enabled
+    if (isAutoSkipEnabled && !isAutoSkip) {
+      console.log('⚡ Auto-skip is enabled, not showing manual button');
+      return null;
+    }
+
+    // ✅ SIMPLIFIED: Track timing for countdown only
+    const buttonCreatedTime = Date.now();
+    const totalDisplayTime = 8000; // 8 seconds total display time
+    const totalPrerollDuration = 18; // Total expected pre-roll duration
+
     const button = document.createElement('button');
-    button.innerHTML = `
-      <div class="flex items-center justify-center gap-3">
-        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z"/>
-        </svg>
-        <span class="font-semibold">Pre-roll reclame overslaan</span>
-      </div>
-    `;
+    let wasClickedByUser = false; // Track if user actually clicked
+    let textUpdateInterval = null; // ✅ FIX: Use let instead of const
+    
+    // ✅ SIMPLIFIED: One-line UI with countdown timer
+    const updateButtonText = () => {
+      const elapsedMs = Date.now() - buttonCreatedTime;
+      const timeLeftSeconds = Math.max(0, Math.ceil((totalDisplayTime - elapsedMs) / 1000));
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const remainingSkip = Math.max(1, totalPrerollDuration - elapsedSeconds);
+      
+      // ✅ SIMPLE: Just one line of text
+      button.textContent = `⏩ Pre-Roll Reclame Overslaan: (${timeLeftSeconds}s)`;
+    };
 
-    button.className = 'preroll-skip-button px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white text-m rounded-xl font-small transition-all transform hover:scale-105 shadow-2xl border-2 border-purple-400';
-    button.style.cssText = `
-      position: fixed;
-      bottom: 15px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      animation: ${isAutoSkip ? 'fastFadeInSlide' : 'fadeInSlide'} 0.4s ease-out;
-      min-width: 200px;
-      min-height: 50px;
-      backdrop-filter: blur(10px);
-      background: linear-gradient(145deg,rgba(234, 171, 12, 0),rgba(135, 38, 220, 0));
-    `;
+    // Initialize button text
+    updateButtonText();
 
-    // Add enhanced CSS animations
+    button.className = 'preroll-skip-button';
+    
+    // ✅ SIMPLIFIED: Clean, minimal styling
+    Object.assign(button.style, {
+      position: 'fixed',
+      bottom: '100px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: '#10b981',
+      color: 'white',
+      border: 'none',
+      borderRadius: '12px',
+      padding: '16px 24px',
+      fontSize: '16px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      zIndex: '10000',
+      boxShadow: '0 8px 32px rgba(16, 185, 129, 0.4)',
+      transition: 'all 0.3s ease',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      whiteSpace: 'nowrap'
+    });
+
+    // Add minimal CSS animations if not exists
     if (!document.getElementById('preroll-skip-styles')) {
       const styles = document.createElement('style');
       styles.id = 'preroll-skip-styles';
       styles.textContent = `
-        @keyframes fadeInSlide {
-          from { 
-            opacity: 0; 
-            transform: translateX(-50%) translateY(50px) scale(0.8); 
-          }
-          to { 
-            opacity: 1; 
-            transform: translateX(-50%) translateY(0) scale(1); 
-          }
-        }
-        
-        @keyframes fastFadeInSlide {
-          from { 
-            opacity: 0; 
-            transform: translateX(-50%) translateY(20px) scale(0.95); 
-          }
-          to { 
-            opacity: 1; 
-            transform: translateX(-50%) translateY(0) scale(1); 
-          }
-        }
-        
         @keyframes fadeOutSlide {
           from { 
             opacity: 1; 
@@ -416,57 +424,79 @@ export class AdSkipUtils {
         }
         
         .preroll-skip-button.fade-out {
-          animation: fadeOutSlide 0.3s ease-in forwards;
+          animation: fadeOutSlide 0.4s ease-in forwards;
         }
-
-        .preroll-skip-button.auto-click {
-          background: linear-gradient(145deg, #16a34a, #15803d);
-          transform: translateX(-50%) scale(0.9);
-        }
-
-      
       `;
       document.head.appendChild(styles);
     }
 
-    // ✅ NEW: Auto-click logic for automatic pre-roll skipping
-    let autoClickTimeout;
-    const isAutoSkipEnabled = this.getAutoSkipSetting();
+    // ✅ SIMPLIFIED: Update button text every second
+    textUpdateInterval = setInterval(updateButtonText, 1000);
 
-    if (isAutoSkipEnabled) {
-      // Show auto-click styling
-      button.classList.add('auto-click');
-
-      // Auto-click after 0.8 seconds
-      autoClickTimeout = setTimeout(() => {
-        console.log('🤖 Auto-clicking pre-roll skip button');
-        button.click();
-      }, 800);
-    }
-
-    button.addEventListener('click', () => {
-      // Clear auto-click timeout if user clicks manually
-      if (autoClickTimeout) {
-        clearTimeout(autoClickTimeout);
+    // ✅ SIMPLIFIED: User click handler with dynamic skip duration
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      wasClickedByUser = true;
+      console.log('👆 User clicked pre-roll skip button');
+      
+      // Calculate dynamic skip duration
+      const elapsedSeconds = Math.floor((Date.now() - buttonCreatedTime) / 1000);
+      const dynamicSkipDuration = Math.max(1, totalPrerollDuration - elapsedSeconds);
+      
+      console.log(`⏭️ Pre-roll skip: ${elapsedSeconds}s elapsed - skipping ${dynamicSkipDuration}s`);
+      
+      // Clear interval
+      if (textUpdateInterval) {
+        clearInterval(textUpdateInterval);
+        textUpdateInterval = null;
       }
 
-      this.skipPreroll(audioElement, 15);
-      onSkip?.();
-      this.removePrerollSkipButton(button);
+      // Visual feedback
+      button.style.transform = 'translateX(-50%) scale(0.95)';
+      button.style.backgroundColor = '#059669';
+      
+      setTimeout(() => {
+        // Perform skip and remove button
+        this.skipPreroll(audioElement, dynamicSkipDuration);
+        onSkip?.();
+        this.removePrerollSkipButton(button);
+      }, 150);
+    });
+
+    // ✅ SIMPLIFIED: Basic hover effects
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateX(-50%) scale(1.05)';
+      button.style.backgroundColor = '#059669';
+    });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateX(-50%) scale(1)';
+      button.style.backgroundColor = '#10b981';
     });
 
     document.body.appendChild(button);
 
-    // ✅ ENHANCED: Longer display time for manual interaction
-    const displayTime = isAutoSkipEnabled ? 1500 : 7000; // 1.5s for auto, 7s for manual
-
-    setTimeout(() => {
-      if (autoClickTimeout) {
-        clearTimeout(autoClickTimeout);
+    // ✅ SIMPLIFIED: Just remove button when timer expires - NO auto-skip
+    const cleanupTimeout = setTimeout(() => {
+      console.log('🕒 Pre-roll skip button expired - removing quietly');
+      
+      // Clear interval
+      if (textUpdateInterval) {
+        clearInterval(textUpdateInterval);
+        textUpdateInterval = null;
       }
-      this.removePrerollSkipButton(button);
-    }, displayTime); // ✅ FIX: This was set to wrong values (1 vs 6000)
+      
+      // ✅ SIMPLIFIED: Just remove button, no action taken
+      if (button.parentNode && !wasClickedByUser) {
+        console.log('🗑️ Removing button quietly (no action)');
+        this.removePrerollSkipButton(button);
+        // NO skipPreroll call - button just disappears
+      }
+    }, totalDisplayTime);
 
+    console.log(`⏩ Pre-roll skip button created (${totalDisplayTime/1000}s display time)`);
     return button;
   }
 
@@ -487,87 +517,116 @@ export class AdSkipUtils {
     } catch (error) {
       console.warn('Failed to save auto skip setting in AdSkipUtils:', error);
     }
-  }
-  // ✅ ENHANCED: Silent pre-roll skip that waits for proper loading before skipping
+  }  // ✅ ULTRA ENHANCED: Lightning-fast silent pre-roll skip with guaranteed muting
   static async skipPrerollSilently(audioElement, seconds = 17) {
     if (!audioElement) return;
 
     try {
-      console.log('🔇 Starting intelligent silent pre-roll skip...');
+      console.log('🔇 Starting ULTRA FAST silent pre-roll skip...');
 
-      // Store original volume
-      const originalVolume = audioElement.volume;
+      // Get the original volume that the audio SHOULD have (not current muted state)
+      const originalVolume = audioElement.dataset.targetVolume ? 
+        parseFloat(audioElement.dataset.targetVolume) : 
+        (audioElement.volume > 0 ? audioElement.volume : 0.5);
 
-      // Mute immediately to ensure silence
+      console.log(`🔊 Target volume for restoration: ${Math.round(originalVolume * 100)}%`);
+
+      // ✅ CRITICAL: Ensure audio stays muted during entire process
       audioElement.volume = 0;
-
-      // Wait for audio to be properly loaded and playing
-      const waitForStablePlayback = () => {
+        // ✅ ULTRA FAST: Minimal waiting - just check basic readiness
+      const waitForMinimalReadiness = () => {
         return new Promise((resolve) => {
-          let stableCount = 0;
-          const requiredStableEvents = 2; // Need 2 consecutive stable events
+          let checkCount = 0;
+          const maxChecks = 6; // Only 1.2 seconds max (6 * 200ms) - even faster!
 
-          const checkStability = () => {
-            if (audioElement.readyState >= 3 && // HAVE_FUTURE_DATA or better
+          const checkReadiness = () => {
+            checkCount++;
+            
+            // Very minimal requirements for faster execution
+            const isMinimallyReady = audioElement.readyState >= 1 && // HAVE_METADATA or better
               !audioElement.paused &&
-              audioElement.currentTime > 0 &&
-              !audioElement.seeking) {
-              stableCount++;
-              console.log(`🎵 Stability check ${stableCount}/${requiredStableEvents}: readyState=${audioElement.readyState}, currentTime=${audioElement.currentTime.toFixed(3)}`);
+              audioElement.currentTime >= 0; // Any time is fine
 
-              if (stableCount >= requiredStableEvents) {
-                resolve();
-                return;
+            console.log(`🎵 Quick readiness check ${checkCount}/${maxChecks}: ` +
+              `readyState=${audioElement.readyState}, ` +
+              `currentTime=${audioElement.currentTime.toFixed(3)}s, ` +
+              `paused=${audioElement.paused}`);
+
+            if (isMinimallyReady || checkCount >= maxChecks) {
+              if (isMinimallyReady) {
+                console.log('✅ Audio minimally ready, proceeding with ULTRA FAST skip');
+              } else {
+                console.log('⚠️ Proceeding with skip anyway (timeout - ultra fast)');
               }
-            } else {
-              stableCount = 0; // Reset if not stable
+              resolve();
+              return;
             }
 
-            // Continue checking
-            setTimeout(checkStability, 200);
+            // Continue checking every 200ms
+            setTimeout(checkReadiness, 200);
           };
 
-          checkStability();
+          checkReadiness();
         });
       };
 
-      // Wait for stable playback (max 3 seconds)
-      const stabilityTimeout = setTimeout(() => {
-        console.log('⚠️ Stability timeout - proceeding with skip anyway');
-      }, 3000);
+      // Wait for minimal readiness (much faster)
+      await waitForMinimalReadiness();
 
-      await Promise.race([
-        waitForStablePlayback(),
-        new Promise(resolve => setTimeout(resolve, 3000))
-      ]);
+      // ✅ ENSURE STILL MUTED: Double-check muting before skip
+      audioElement.volume = 0;
+      console.log('🔇 Audio confirmed muted before skip');
 
-      clearTimeout(stabilityTimeout);
+      // ✅ ULTRA FAST SKIP: Immediate skip execution
+      const currentTime = audioElement.currentTime;
+      const targetTime = currentTime + seconds;
+      
+      console.log(`⏭️ Performing LIGHTNING FAST skip: ${currentTime.toFixed(3)}s → ${targetTime.toFixed(3)}s`);
 
-      // Now perform the skip
-      const targetTime = Math.min(audioElement.currentTime + seconds, audioElement.duration || Infinity);
-      console.log(`⏭️ Performing smooth skip: ${audioElement.currentTime.toFixed(3)}s → ${targetTime.toFixed(3)}s`);
+      // Perform the skip immediately
+      audioElement.currentTime = targetTime;      // ✅ MINIMAL VERIFICATION: Quick check if skip worked
+      await new Promise(resolve => {
+        let settleChecks = 0;
+        const maxSettleChecks = 2; // Only 2 quick checks for speed
+        
+        const checkSkipSettled = () => {
+          settleChecks++;
+          const newTime = audioElement.currentTime;
+          
+          // More lenient - accept if we're close or max checks reached
+          if (Math.abs(newTime - targetTime) < 3.0 || settleChecks >= maxSettleChecks) {
+            console.log(`✅ Skip settled at ${newTime.toFixed(3)}s (target: ${targetTime.toFixed(3)}s)`);
+            resolve();
+          } else {
+            setTimeout(checkSkipSettled, 100);
+          }
+        };
+        
+        setTimeout(checkSkipSettled, 100); // Start checking even faster
+      });
 
-      // Skip to target time
-      audioElement.currentTime = targetTime;
+      // ✅ ENSURE STILL MUTED: Keep muted until restoration
+      audioElement.volume = 0;
+      console.log('🔇 Audio kept muted during skip verification');      // ✅ SMOOTH VOLUME RESTORATION: Only restore AFTER skip is complete
+      console.log('🔊 Starting volume restoration AFTER successful skip...');
+      await this.gradualVolumeRestore(audioElement, originalVolume, 600); // Even faster restoration
 
-      // Wait a moment for the skip to settle
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Gradually restore volume for smooth transition
-      await this.gradualVolumeRestore(audioElement, originalVolume, 800);
-
-      console.log('🔇 Silent pre-roll skip completed smoothly');
+      console.log(`🔇 ULTRA FAST silent pre-roll skip completed! Volume restored to ${Math.round(originalVolume * 100)}%`);
 
     } catch (error) {
-      console.error('❌ Silent pre-roll skip failed:', error);
+      console.error('❌ Ultra fast silent pre-roll skip failed:', error);
 
-      // Ensure volume is restored even if skip fails
+      // ✅ CRITICAL: Ensure volume is always restored, even on failure
       try {
-        if (audioElement.volume === 0) {
-          audioElement.volume = originalVolume ||0.5;
-        }
+        const fallbackVolume = audioElement.dataset.targetVolume ? 
+          parseFloat(audioElement.dataset.targetVolume) : 0.5;
+          
+        console.log(`🆘 Restoring volume after error: ${Math.round(fallbackVolume * 100)}%`);
+        audioElement.volume = fallbackVolume;
       } catch (restoreError) {
-        console.error('❌ Failed to restore volume:', restoreError);
+        console.error('❌ Failed to restore volume after error:', restoreError);
+        // Last resort: set to safe default
+        audioElement.volume = 0.5;
       }
     }
   }
@@ -610,7 +669,7 @@ export class AdSkipUtils {
   // ✅ ENHANCED: Check if pre-roll skip should be offered with auto-skip consideration
   static shouldOfferPrerollSkip(url, stationName) {
     // Don't offer skip for known ad-free streams with very high scores
-    if (this.getAdFreeScore(url) > 95) {
+    if (this.getAdFreeScore(url) >100) {
       console.log(`🚫 Not offering skip - high ad-free score (${this.getAdFreeScore(url)}) for:`, url);
       return false;
     }
@@ -690,12 +749,11 @@ export class AdSkipUtils {
       console.log(`Should offer pre-roll skip: ${this.shouldOfferPrerollSkip(station.url, station.name)}`);
 
       const alternatives = this.getAdFreeAlternatives(station.url, station.name);
-      console.log(`Found ${alternatives.length} alternatives`);
-
-      if (alternatives.length > 0) {
+      console.log(`Found ${alternatives.length} alternatives`);      if (alternatives.length > 0) {
         const sorted = this.sortByAdFreeLikelihood([station.url, ...alternatives]);
         console.log('Sorted by ad-free likelihood:', sorted.map(url => `${url} (score: ${this.getAdFreeScore(url)})`));
-      }    });
+      }
+    });
   }
 }
 

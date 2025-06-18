@@ -864,34 +864,56 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
         setIsPlaying(true);
         setIsLoading(false);
-        setLoadingProgress('');
-
-        // ✅ ADD: Check for pre-roll ads and offer skip
+        setLoadingProgress('');        // ✅ ENHANCED: Ultra-fast pre-roll detection and handling
         if (AdSkipUtils.shouldOfferPrerollSkip(workingUrl, effectiveStationData.name)) {
-          console.log('🚫 Pre-roll ads detected, offering skip option...');
+          console.log('🚫 Pre-roll ads detected, handling immediately...');
           
           // Check if auto-skip is enabled
           const autoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
           
           if (autoSkipEnabled) {
-            console.log('⚡ Auto-skip enabled, skipping pre-roll silently...');
+            console.log('⚡ Auto-skip enabled - immediate mute and ultra-fast skip...');
+            
+            // ✅ IMMEDIATE MUTE: Mute audio RIGHT NOW to ensure silence during pre-roll
+            if (audioRef.current) {
+              // Store the intended volume for later restoration
+              audioRef.current.dataset.targetVolume = radioVolume.toString();
+              audioRef.current.volume = 0;
+              console.log('🔇 Audio muted IMMEDIATELY for silent pre-roll skip');
+            }
+              // ✅ ULTRA FAST auto-skip - start almost immediately but wait for minimal stability
             setTimeout(() => {
-              AdSkipUtils.skipPrerollSilently(audioRef.current, 17);
-            }, 2000); // Wait 2 seconds before auto-skip
-          } else {
-            console.log('👆 Manual skip mode, showing skip button...');
+              if (audioRef.current) {
+                console.log('⚡ Executing ULTRA FAST silent pre-roll skip...');
+                AdSkipUtils.skipPrerollSilently(audioRef.current, 17);
+              }
+            }, 200); // Ultra fast - only 0.2 seconds!
+            
+            // ✅ BACKUP: If first attempt fails, try again quickly
             setTimeout(() => {
-              AdSkipUtils.createPrerollSkipButton(
-                audioRef.current,
-                () => {
-                  console.log('👆 User manually skipped pre-roll');
-                  if (window.addNotification) {
-                    window.addNotification('⏩ Pre-roll overgeslagen', 'success', 2000);
-                  }
-                },
-                false // Not auto-skip
-              );
-            }, 3000); // Wait 3 seconds to show button
+              if (audioRef.current && audioRef.current.volume === 0) {
+                console.log('⚡ Backup silent pre-roll skip attempt...');
+                AdSkipUtils.skipPrerollSilently(audioRef.current, 17);
+              }
+            }, 800); // Backup at 0.8 seconds
+              } else {
+            console.log('👆 Manual skip mode, showing skip button ULTRA FAST...');
+            
+            // ✅ ULTRA FAST MANUAL BUTTON: Show button much sooner
+            setTimeout(() => {
+              if (audioRef.current) {
+                AdSkipUtils.createPrerollSkipButton(
+                  audioRef.current,
+                  () => {
+                    console.log('👆 User manually skipped pre-roll');
+                    if (window.addNotification) {
+                      window.addNotification('⏩ Pre-roll overgeslagen', 'success', 2000);
+                    }
+                  },
+                  false // Not auto-skip
+                );
+              }
+            }, 300); // Even faster - only 0.3 seconds!
           }
         }
 
