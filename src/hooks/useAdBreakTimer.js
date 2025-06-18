@@ -69,25 +69,25 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
   const [playlistShuffle, setPlaylistShuffle] = useState(false);
   const [currentAdBreakTimeLeft, setCurrentAdBreakTimeLeft] = useState(null);
   const [enforcingAdBreak, setEnforcingAdBreak] = useState(false);
-  // Queue system state removed - queueing disabled for reliability
+  const [queuedStation, setQueuedStation] = useState(null);
   const [isManualTestActive, setIsManualTestActive] = useState(false);
   const [shouldPlayPlaylistDuringAdBreak, setShouldPlayPlaylistDuringAdBreak] = useState(false);
   const [adBreakMode, setAdBreakMode] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MODE, 'playlist')); // 'playlist', 'nonstop', 'lofi'
   const [currentNonstopAttempt, setCurrentNonstopAttempt] = useState(0);
-  const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);
-  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false);
+  const [currentLofiAttempt, setCurrentLofiAttempt] = useState(0);  const [isManualTestInProgress, setIsManualTestInProgress] = useState(false);
   const [isPermanentModeActive, setIsPermanentModeActive] = useState(false);
+  const [isNonstopModeManuallyActive, setIsNonstopModeManuallyActive] = useState(false); // Simple state for nonstop cycling button
 
   // Automatic ad detection states - DISABLED: Music detection temporarily disabled
   const [autoAdDetectionEnabled, setAutoAdDetectionEnabled] = useState(() => {
     // ✅ QUICK FIX: Force music detection to always be disabled
-    return false;
-  });
+    return false;  });
+
   // Refs for interval management
   const timerIntervalRef = useRef(null);
   const adBreakTimeoutRef = useRef(null);
   const adDetectionIntervalRef = useRef(null);
-  const countdownIntervalRef = useRef(null); // ✅ FIX: Add ref for countdown interval
+  const countdownIntervalRef = useRef(null); // ✅ NEW: Ref for countdown interval
 
   // Community timing states
   const [useCommunityTimings, setUseCommunityTimings] = useState(() => {
@@ -108,7 +108,8 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
   // Debug timing state
   const [debugTimingState, setDebugTimingState] = useState(null);
-  // ✅ FIXED: Get next community timing with correct function name
+
+  // ✅ NEW: Get next community timing with better logic
   const getNextCommunityTiming = useCallback(async () => {
     if (!useCommunityTimings || !audioPlayer.currentStation?.name) {
       return null;
@@ -116,98 +117,68 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
     try {
       const currentTime = new Date();
-      const currentHour = currentTime.getHours();
-      const currentMinute = currentTime.getMinutes();
+      const timing = await CommunityTimings.getNextAdBreakTime(audioPlayer.currentStation.name, currentTime);
       
-      // Use the correct function name
-      const suggestions = await CommunityTimings.getSuggestedAdBreakTiming(audioPlayer.currentStation.name, currentHour);
-      
-      if (!suggestions) {
-        return null;
-      }
-
-      // Check both half-hour and full-hour suggestions
-      const potentialTimings = [];
-      
-      // Add half-hour timing if available (around :30)
-      if (suggestions.halfHour && suggestions.halfHour.starts) {
-        const halfHourTiming = new Date();
-        halfHourTiming.setHours(currentHour, suggestions.halfHour.starts, 0, 0);
-        
-        // Only add if it's in the future (or very recent - within 30 seconds)
-        if (currentMinute < suggestions.halfHour.starts || 
-            (currentMinute === suggestions.halfHour.starts && currentTime.getSeconds() < 30)) {
-          potentialTimings.push({
-            start: halfHourTiming,
-            end: suggestions.halfHour.ends ? 
-              new Date(halfHourTiming.getTime() + (suggestions.halfHour.ends - suggestions.halfHour.starts) * 60 * 1000) :
-              new Date(halfHourTiming.getTime() + adBreakDuration * 60 * 1000),
-            duration: suggestions.halfHour.ends ? 
-              Math.abs(suggestions.halfHour.ends - suggestions.halfHour.starts) : 
-              adBreakDuration,
-            type: 'halfHour',
-            stationName: audioPlayer.currentStation.name,
-            source: 'community'
-          });
-        }
-      }
-      
-      // Add full-hour timing if available (around :00 of next hour)
-      if (suggestions.fullHour && suggestions.fullHour.starts) {
-        const fullHourTiming = new Date();
-        fullHourTiming.setHours(currentHour + 1, suggestions.fullHour.starts, 0, 0);
-        
-        potentialTimings.push({
-          start: fullHourTiming,
-          end: suggestions.fullHour.ends ? 
-            new Date(fullHourTiming.getTime() + (suggestions.fullHour.ends - suggestions.fullHour.starts) * 60 * 1000) :
-            new Date(fullHourTiming.getTime() + adBreakDuration2 * 60 * 1000),
-          duration: suggestions.fullHour.ends ? 
-            Math.abs(suggestions.fullHour.ends - suggestions.fullHour.starts) : 
-            adBreakDuration2,
-          type: 'fullHour',
+      // Only return if it's a real community timing (has start and end times)
+      if (timing && timing.start && timing.end) {
+        const duration = Math.round((timing.end - timing.start) / 1000 / 60); // Convert to minutes
+        return {
+          start: timing.start,
+          end: timing.end,
+          duration: duration,
           stationName: audioPlayer.currentStation.name,
           source: 'community'
-        });
+        };
       }
-
-      // Return the nearest future timing with all metadata
-      if (potentialTimings.length > 0) {
-        potentialTimings.sort((a, b) => a.start - b.start);
-        return potentialTimings[0];
-      }
-
+      
       return null;
     } catch (error) {
       console.warn('Failed to get community timing:', error);
       return null;
     }
-  }, [useCommunityTimings, audioPlayer.currentStation?.name, adBreakDuration, adBreakDuration2]);
-
-  // ✅ ENHANCED: Get next ad break time with community timing support
+  }, [useCommunityTimings, audioPlayer.currentStation?.name]);  // ✅ ENHANCED: Get next ad break time with community timing support
   const getNextAdBreakTime = useCallback(async () => {
     const now = new Date();
     const currentMinute = now.getMinutes();
-    const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+    const currentSecond = now.getSeconds();
 
     // Check for community timing first
     const communityTiming = await getNextCommunityTiming();
     if (communityTiming) {
-      const minutesUntil = Math.round((communityTiming.start - now) / 1000 / 60);
-      console.log('🔔 Next ad break (community):', minutesUntil, 'minutes');
+      const secondsUntil = Math.round((communityTiming.start - now) / 1000);
+      console.log('🔔 Next ad break (community):', secondsUntil, 'seconds');
       setNextCommunityTiming(communityTiming); // Store for UI
-      return minutesUntil;
+      return Math.max(0, secondsUntil); // ✅ FIX: Return seconds, not minutes
     }
 
     // Clear community timing if none found
     setNextCommunityTiming(null);
 
-    // Fallback to manual timing
-    const timeToAdBreak1 = (adBreakMinute - currentMinute + 60) % 60;
-    const timeToAdBreak2 = (adBreakMinute2 - currentMinute + 60) % 60;
-    const nextAdBreak = Math.min(timeToAdBreak1, timeToAdBreak2);
+    // ✅ FIX: Calculate exact seconds until next ad break
+    const timeToAdBreak1Minutes = (adBreakMinute - currentMinute + 60) % 60;
+    const timeToAdBreak2Minutes = (adBreakMinute2 - currentMinute + 60) % 60;
     
-    return nextAdBreak === 0 ? 60 : nextAdBreak;
+    let nextAdBreakMinutes = Math.min(timeToAdBreak1Minutes, timeToAdBreak2Minutes);
+    
+    // ✅ FIX: Calculate exact seconds remaining
+    if (nextAdBreakMinutes === 0) {
+      // We're in the ad break minute, check if we should start now
+      if (currentSecond <= 30) {
+        console.log('🔔 Ad break time reached!');
+        return 0;
+      } else {
+        // Go to the next ad break
+        const allBreaks = [timeToAdBreak1Minutes, timeToAdBreak2Minutes].filter(t => t > 0);
+        nextAdBreakMinutes = allBreaks.length > 0 ? Math.min(...allBreaks) : 60;
+      }
+    }
+    
+    // Convert to total seconds remaining (minutes * 60 - current seconds in this minute)
+    const totalSecondsRemaining = (nextAdBreakMinutes * 60) - currentSecond;
+    
+ 
+    
+    return Math.max(0, totalSecondsRemaining);
   }, [getNextCommunityTiming, adBreakMinute, adBreakMinute2]);
 
   // ✅ ENHANCED: Ad break mode descriptions
@@ -218,80 +189,51 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       case 'lofi': return 'lofi muziek';
       default: return 'alternatieve audio';
     }
-  }, [adBreakMode]);
-  // ✅ IMPROVED: Function to rotate to next nonstop station during ad break with error handling
+  }, [adBreakMode]);  // ✅ FIXED: Function to rotate to next nonstop station (manual mode OR ad break mode)
   const rotateToNextNonstopStation = useCallback(async () => {
-    if (!isAdBreakActive || adBreakMode !== 'nonstop') {
-      console.warn('❌ Cannot rotate: not in nonstop ad break mode');
+    if (adBreakMode !== 'nonstop') {
+      console.warn('❌ Cannot rotate: not in nonstop mode');
+      return;
+    }
+
+    if (!isNonstopModeManuallyActive && !isAdBreakActive) {
+      console.warn('❌ Cannot rotate: neither manual nonstop mode nor ad break is active');
       return;
     }
 
     try {
-      console.log('🔄 Manually rotating to next nonstop station...');
+      console.log('🔄 Rotating to next nonstop station...');
       
-      // Try up to 3 stations to find a working one
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const nextStation = getRandomNonstopStation();
-        if (!nextStation) {
-          throw new Error('Geen nonstop stations beschikbaar');
-        }
-
-        try {
-          console.log(`🔄 Trying rotation to station ${attempt + 1}/3:`, nextStation.name);
-          
-          // Mark as rotation to avoid queue system
-          window.isNonstopRotation = true;
-          
-          // Add timeout to prevent hanging
-          const playPromise = audioPlayer.playRadio(nextStation);
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Station timeout')), 8000)
-          );
-          
-          await Promise.race([playPromise, timeoutPromise]);
-          
-          console.log('✅ Successfully rotated to:', nextStation.name);
-          if (window.addNotification) {
-            window.addNotification(`🔄 Gewisseld naar: ${nextStation.name}`, 'info', 2000);
-          }
-          return; // Success - exit
-          
-        } catch (stationError) {
-          console.warn(`❌ Rotation attempt ${attempt + 1} failed:`, nextStation.name, stationError.message);
-          
-          // Mark station as failed
-          if (window.markStationAsFailed) {
-            window.markStationAsFailed(nextStation.name);
-          }
-          
-          // If this is the last attempt, throw the error
-          if (attempt === 2) {
-            throw new Error('Alle nonstop stations falen - kan niet wisselen');
-          }
-          
-          // Wait before next attempt
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
+      // Get the next station from nonstopUtils
+      const { getRandomNonstopStation } = await import('../utils/nonstopUtils.js');
+      const nextStation = getRandomNonstopStation();
+      if (!nextStation) {
+        throw new Error('No nonstop stations available');
+      }      // Actually play the station using the audioPlayer
+      await audioPlayer.playRadio(nextStation, { 
+        isIsolatedTest: isNonstopModeManuallyActive, // Only true for manual mode
+        isNonstopMode: true,
+        isNonstopRotation: true  // ✅ Flag to prevent stopping manual modes
+      });
       
-    } catch (error) {
-      console.error('❌ Failed to rotate nonstop station:', error);
       if (window.addNotification) {
-        window.addNotification(`❌ Kan niet wisselen naar andere station`, 'error', 3000);
+        window.addNotification(`🔄 Gewisseld naar: ${nextStation.name}`, 'info', 3000);
       }
-    } finally {
-      // Always clear rotation flag
-      window.isNonstopRotation = false;
+      
+      console.log('🎵 Successfully switched to nonstop station:', nextStation.name);
+    } catch (error) {
+      console.error('Failed to rotate nonstop station:', error);
+      if (window.addNotification) {
+        window.addNotification(`❌ Kan niet wisselen: ${error.message}`, 'error', 3000);
+      }
     }
-  }, [isAdBreakActive, adBreakMode, audioPlayer]);
+  }, [adBreakMode, audioPlayer, isNonstopModeManuallyActive, isAdBreakActive]);
 
   // Handle ad break errors
   const handleAdBreakError = useCallback(() => {
     if (audioPlayer.isRadioPausedForAdBreak) {
       audioPlayer.resumeRadioFromAdBreak();
-    }
-
-    setIsAdBreakActive(false);
+    }    setIsAdBreakActive(false);
     setShouldPlayPlaylistDuringAdBreak(false);
     window.isAdBreakActive = false;
     window.currentAdBreakTimeLeft = null;
@@ -300,76 +242,33 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       clearTimeout(adBreakTimeoutRef.current);
       adBreakTimeoutRef.current = null;
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
 
     if (window.addNotification) {
       window.addNotification('❌ Kon reclamepauze niet starten', 'error', 3000);
     }
   }, [audioPlayer]);
+
   // Playlist ad break (existing logic)
   const startPlaylistAdBreak = useCallback(async (duration) => {
     if (!playlistUrl) throw new Error('Geen playlist URL ingesteld');
-    
+
     const playlistId = extractPlaylistId(playlistUrl, playlistProvider);
     if (!playlistId) throw new Error('Ongeldige playlist URL');
-    
-    // ✅ CRITICAL FIX: Save radio state BEFORE pausing and ensure it's preserved
-    const currentRadioState = audioPlayer.currentStation;
-    console.log('🎵 Starting playlist ad break - current radio state:', currentRadioState);
-    
-    // Store radio state in multiple places for redundancy
-    if (currentRadioState) {
-      setOriginalRadioStation(currentRadioState);
-      localStorage.setItem('adBreakRadioState', JSON.stringify({
-        station: currentRadioState,
-        timestamp: Date.now(),
-        mode: 'playlist'
-      }));
-      console.log('🎵 Radio state saved for ad break recovery:', currentRadioState.name);
-    }
-    
+
     // Pause radio first
     audioPlayer.pauseRadioForAdBreak();
-    
+
     // Set states
     setIsAdBreakActive(true);
     window.isAdBreakActive = true;
-    
+
     // Try to start playlist
     try {
       if (playlistProvider === 'spotify') {
-        // ✅ FIX: Enhanced debugging and validation for Spotify playlist
-        console.log('🎵 Attempting to start Spotify playlist...');
-        console.log('🎵 audioPlayer object:', audioPlayer);
-        console.log('🎵 audioPlayer.playSpotifyPlaylist:', typeof audioPlayer.playSpotifyPlaylist);
-        console.log('🎵 audioPlayer.spotifyPlayerReady:', audioPlayer.spotifyPlayerReady);
-        console.log('🎵 audioPlayer.spotifyPlayerRef:', audioPlayer.spotifyPlayerRef?.current);
-        
-        if (!audioPlayer.playSpotifyPlaylist) {
-          console.error('🚨 playSpotifyPlaylist function not available');
-          console.error('🚨 Available audioPlayer functions:', Object.keys(audioPlayer).filter(key => typeof audioPlayer[key] === 'function'));
-          throw new Error('playSpotifyPlaylist function not available - audioPlayer may not be initialized properly');
-        }
-        
-        // ✅ FIX: Check if user is still authenticated with Spotify
-        if (window.isSpotifyAuthenticated && !window.isSpotifyAuthenticated()) {
-          throw new Error('Spotify authentication expired or invalid - please log in to Spotify again');
-        }
-        
-        if (!audioPlayer.spotifyPlayerReady) {
-          console.warn('⚠️ Spotify player not ready, attempting to initialize...');
-          if (audioPlayer.manualInitializeSpotifyPlayer) {
-            try {
-              await audioPlayer.manualInitializeSpotifyPlayer();
-              console.log('✅ Spotify player initialized successfully');
-            } catch (initError) {
-              console.error('❌ Failed to initialize Spotify player:', initError);
-              throw new Error(`Failed to initialize Spotify player: ${initError.message}`);
-            }
-          } else {
-            throw new Error('Spotify player not ready and no initialization method available');
-          }
-        }
-        
         await audioPlayer.playSpotifyPlaylist(playlistId, { shuffle: playlistShuffle });
       } else {
         await audioPlayer.playPlaylist(playlistId, { shuffle: playlistShuffle });
@@ -405,56 +304,23 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     window.isAdBreakActive = true;
     setShouldPlayPlaylistDuringAdBreak(false);
     setCurrentNonstopAttempt(0);
+    
+    // ✅ NEW: Set cycling button state for automatic ad break
+    setIsNonstopModeManuallyActive(true);
 
-    // ✅ FIX: Enhanced nonstop station fallback logic with better error prevention
-    const tryNonstopStation = async (attempt = 0) => {
-      const maxAttempts = 3; // Reduced from 5 to 3 to prevent long delays
-      
-      if (attempt >= maxAttempts) {
-        console.error('❌ All nonstop stations failed after', maxAttempts, 'attempts');
-        throw new Error(`Geen werkende nonstop stations beschikbaar na ${maxAttempts} pogingen`);
-      }
+    // Get first nonstop station
+    const nonstopStation = getRandomNonstopStation();
+    if (!nonstopStation) {
+      throw new Error('Geen nonstop stations beschikbaar');
+    }
 
-      // Get next nonstop station (with failed station avoidance)
-      const nonstopStation = getRandomNonstopStation();
-      if (!nonstopStation) {
-        throw new Error('Geen nonstop stations beschikbaar');
-      }
-
-      try {
-        console.log(`🎵 Trying nonstop station ${attempt + 1}/${maxAttempts}:`, nonstopStation.name);
-        
-        // Mark this as a nonstop rotation so it doesn't get queued
-        window.isNonstopRotation = true;
-
-        // Add timeout to prevent hanging
-        const playPromise = audioPlayer.playRadio(nonstopStation);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Station timeout after 10 seconds')), 10000)
-        );
-        
-        await Promise.race([playPromise, timeoutPromise]);
-        console.log('✅ Successfully switched to nonstop station:', nonstopStation.name);
-        return nonstopStation;
-        
-      } catch (stationError) {
-        console.warn(`❌ Nonstop station failed (attempt ${attempt + 1}):`, nonstopStation.name, stationError.message);
-        
-        // Mark station as failed for this session to avoid retry loops
-        if (window.markStationAsFailed) {
-          window.markStationAsFailed(nonstopStation.name);
-        }
-        
-        // Add delay between attempts to prevent rapid-fire requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Try next station
-        return tryNonstopStation(attempt + 1);
-      }
-    };
+    // Mark this as a nonstop rotation so it doesn't get queued
+    window.isNonstopRotation = true;
 
     try {
-      const successfulStation = await tryNonstopStation();
+      // Switch to nonstop station
+      await audioPlayer.playRadio(nonstopStation);
+      console.log('🎵 Switched to nonstop station:', nonstopStation.name);
 
       // Schedule end of ad break
       const endTime = Date.now() + (duration * 60 * 1000);
@@ -465,40 +331,13 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       console.log(`🔄 Nonstop ad break scheduled to end at ${new Date(endTime).toLocaleTimeString()}`);
 
     } catch (error) {
-      console.error('❌ Failed to start nonstop ad break:', error);
-      
-      // ✅ FIX: Better error handling - graceful fallback without spam
-      if (window.addNotification) {
-        window.addNotification(`❌ Nonstop modus mislukt - schakel terug naar radio`, 'error', 4000);
-      }
-      
-      // Try to restore original radio station
-      if (originalRadioStation) {
-        try {
-          console.log('🔄 Fallback: Restoring original radio station');
-          window.isNonstopRotation = false; // Clear rotation flag
-          await audioPlayer.playRadio(originalRadioStation);
-        } catch (restoreError) {
-          console.error('❌ Failed to restore original station:', restoreError);
-          // Don't show another notification - we already showed one above
-        }
-      }
-      
-      // End the ad break gracefully - don't throw error to prevent UI crashes
-      console.log('🛑 Ending ad break due to nonstop failure');
-      setIsAdBreakActive(false);
-      window.isAdBreakActive = false;
-      setShouldPlayPlaylistDuringAdBreak(false);
-      setCurrentAdBreakTimeLeft(null);
-      window.currentAdBreakTimeLeft = null;
-      
-      // Don't re-throw error to prevent crashes/loops
-      return; // Exit gracefully instead of throwing
+      console.error('Failed to start nonstop ad break:', error);
+      throw error;
     } finally {
-      // Always clear the rotation flag
+      // Clear the rotation flag
       window.isNonstopRotation = false;
     }
-  }, [audioPlayer, originalRadioStation]);
+  }, [audioPlayer]);
 
   // Lofi ad break
   const startLofiAdBreak = useCallback(async (duration) => {
@@ -551,12 +390,11 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       throw error;
     }
   }, [audioPlayer]);
-
   // ✅ ENHANCED: Main ad break start function with community timing support
   const startAdBreak = useCallback(async (useManualDuration = false, manualDuration = null) => {
-    // ✅ CRITICAL: Prevent infinite ad break loops
+    // ✅ FIX: Prevent multiple ad breaks from starting simultaneously
     if (isAdBreakActive) {
-      console.warn('🚫 Ad break is already active - preventing infinite loop');
+      console.warn('🚨 Ad break already active, ignoring duplicate start request');
       return;
     }
     
@@ -597,19 +435,21 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
             duration = adBreakDuration2;
           }
           console.log('🎵 Using configured duration:', duration, 'minutes');
-          setCurrentAdBreakUsedCommunityTiming(false);        }
+          setCurrentAdBreakUsedCommunityTiming(false);
+        }
+      }      // Clear any existing countdown interval first
+      if (countdownIntervalRef.current) {
+        console.log('🚨 Clearing existing countdown interval');
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
       }
 
       // Set countdown timer
       setCurrentAdBreakTimeLeft(duration * 60);
       window.currentAdBreakTimeLeft = duration * 60;
 
-      // ✅ FIX: Clear any existing countdown interval
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-
       // Start countdown
+      console.log('🕒 Starting countdown timer for', duration * 60, 'seconds');
       countdownIntervalRef.current = setInterval(() => {
         setCurrentAdBreakTimeLeft(prev => {
           if (prev <= 1) {
@@ -650,26 +490,22 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         window.addNotification(`❌ Reclamepauze mislukt: ${error.message}`, 'error', 5000);
       }
     }
-  }, [isAdBreakActive, adBreakMode, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startPlaylistAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, handleAdBreakError, getNextCommunityTiming, audioPlayer]);
+  }, [adBreakMode, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startPlaylistAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, handleAdBreakError, getNextCommunityTiming, audioPlayer]);
 
   // ✅ NEW: Start ad break with community timing duration
   const startAdBreakWithCommunityDuration = useCallback(async (communityTiming) => {
     try {
       console.log('🔔 Starting ad break with community timing:', communityTiming);
-        // Set flag for feedback popup
+      
+      // Set flag for feedback popup
       setCurrentAdBreakUsedCommunityTiming(true);
       setFeedbackStationName(communityTiming.stationName);
       
-      // Set states
-      setIsAdBreakActive(true);
-      window.isAdBreakActive = true;
-      window.currentAdBreakMode = adBreakMode; // ✅ FIX: Store current ad break mode globally
-      
       // ✅ NEW: Store the original radio station for nonstop mode restoration
       if (adBreakMode === 'nonstop' && audioPlayer.currentStation) {
-      setOriginalRadioStation(audioPlayer.currentStation);
-      console.log('🎵 Stored original radio station for nonstop mode:', audioPlayer.currentStation.name);
-    }
+        setOriginalRadioStation(audioPlayer.currentStation);
+        console.log('🎵 Stored original radio station for nonstop mode:', audioPlayer.currentStation.name);
+      }
       
       // Show feedback popup for 10 seconds
       setShowFeedbackPopup(true);
@@ -688,15 +524,11 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
   // ✅ ENHANCED: End ad break with proper restoration
   const endAdBreak = useCallback(() => {
-    console.log('🎵 Ending ad break...');
-
-    // Clear timeout
+    console.log('🎵 Ending ad break...');    // Clear timeout and countdown interval
     if (adBreakTimeoutRef.current) {
       clearTimeout(adBreakTimeoutRef.current);
       adBreakTimeoutRef.current = null;
     }
-    
-    // ✅ FIX: Clear countdown interval
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
@@ -724,116 +556,30 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         window.isNonstopRotation = false;
         // Fallback to regular resume
         audioPlayer.resumeRadioFromAdBreak();
-      });    } else {      // ✅ FIX: Enhanced radio resume logic for playlist mode with multiple fallbacks
-      console.log('🎵 Ad break ending - attempting to resume radio...');
-      console.log('🎵 audioPlayer.isRadioPausedForAdBreak:', audioPlayer.isRadioPausedForAdBreak);
-      console.log('🎵 audioPlayer.pausedRadioStation:', audioPlayer.pausedRadioStation);
-      console.log('🎵 adBreakMode:', adBreakMode);
-      console.log('🎵 originalRadioStation:', originalRadioStation);
-      
-      // Define the resume function with multiple fallback mechanisms
-      const attemptRadioResume = () => {
-        // Priority 1: Use built-in radio pause state
-        if (audioPlayer.isRadioPausedForAdBreak || audioPlayer.pausedRadioStation) {
-          console.log('🎵 Resuming paused radio from ad break (priority 1)');
-          audioPlayer.resumeRadioFromAdBreak();
-          return;
-        }
-        
-        // Priority 2: Use stored original radio station (for playlist ad breaks)
-        if (originalRadioStation) {
-          console.log('🎵 Resuming from stored original radio station (priority 2):', originalRadioStation.name);
-          audioPlayer.playRadio(originalRadioStation);
-          setOriginalRadioStation(null); // Clear after use
-          return;
-        }
-        
-        // Priority 3: Check localStorage for ad break radio state
-        try {
-          const adBreakState = localStorage.getItem('adBreakRadioState');
-          if (adBreakState) {
-            const radioState = JSON.parse(adBreakState);
-            console.log('🎵 Found ad break radio state in localStorage (priority 3):', radioState.station.name);
-            audioPlayer.playRadio(radioState.station);
-            localStorage.removeItem('adBreakRadioState');
-            return;
-          }
-        } catch (error) {
-          console.error('Error reading ad break radio state from localStorage:', error);
-        }
-        
-        // Priority 4: Check localStorage for general paused radio state
-        try {
-          const savedState = localStorage.getItem('pausedRadioState');
-          if (savedState) {
-            const radioState = JSON.parse(savedState);
-            console.log('🎵 Found saved radio state in localStorage (priority 4):', radioState.station.name);
-            audioPlayer.playRadio(radioState.station);
-            localStorage.removeItem('pausedRadioState');
-            return;
-          }
-        } catch (error) {
-          console.error('Error checking localStorage for radio state:', error);
-        }
-        
-        // Priority 5: Check if there's any current station reference
-        if (audioPlayer.currentStation) {
-          console.log('🎵 Attempting to restart current station (priority 5):', audioPlayer.currentStation.name);
-          audioPlayer.playRadio(audioPlayer.currentStation);
-          return;
-        }
-        
-        // No radio to resume
-        console.log('🎵 No radio to resume from ad break - all fallback mechanisms exhausted');
-        if (window.addNotification) {
-          window.addNotification('⚠️ Geen radio gevonden om te hervatten', 'warning', 3000);
-        }
-      };
-        // First, stop any playing playlist to free up audio resources
-      if (audioPlayer.currentSource === 'playlist') {
-        console.log('🛑 Stopping playlist before resuming radio');
-        audioPlayer.forceStopAllAudio('ad break ending');
-        
-        // Wait a moment for cleanup, then attempt resume
-        setTimeout(() => {
-          console.log('🔄 Attempting radio resume after playlist cleanup...');
-          attemptRadioResume();
-        }, 300);
-      } else {
-        console.log('🔄 No playlist to stop, attempting direct radio resume...');
-        attemptRadioResume();
-      }
-    }
-
-    // Reset states with enhanced logging
-    console.log('🎵 Resetting ad break states...');
+      });
+    } else if (audioPlayer.isRadioPausedForAdBreak) {
+      // For playlist and lofi modes, resume paused radio
+      console.log('🎵 Resuming paused radio from ad break');
+      audioPlayer.resumeRadioFromAdBreak();
+    } else {
+      console.log('🎵 No radio to resume from ad break');
+    }    // Reset states
     setIsAdBreakActive(false);
     setShouldPlayPlaylistDuringAdBreak(false);
     setCurrentAdBreakTimeLeft(null);
     setCurrentAdBreakUsedCommunityTiming(false);
     setFeedbackStationName('');
     
+    // ✅ NEW: Clear cycling button state when ad break ends
+    setIsNonstopModeManuallyActive(false);
+    
     // Clear global states
     window.isAdBreakActive = false;
     window.currentAdBreakTimeLeft = null;
-    window.currentAdBreakMode = null; // ✅ FIX: Clear the ad break mode
-    
-    // Clean up localStorage ad break states
-    try {
-      localStorage.removeItem('adBreakRadioState');
-    } catch (error) {
-      console.warn('Error cleaning up ad break localStorage:', error);
-    }
 
     if (window.addNotification) {
       window.addNotification('🎵 Reclamepauze beëindigd', 'success', 2000);
     }
-    
-    console.log('🎵 Ad break ended - final state check:');
-    console.log('🎵 Final audioPlayer.isRadioPausedForAdBreak:', audioPlayer.isRadioPausedForAdBreak);
-    console.log('🎵 Final audioPlayer.pausedRadioStation:', audioPlayer.pausedRadioStation);
-    console.log('🎵 Final audioPlayer.currentStation:', audioPlayer.currentStation);
-    console.log('🎵 Final audioPlayer.currentSource:', audioPlayer.currentSource);
   }, [audioPlayer, adBreakMode, originalRadioStation]);
 
   // Manual ad break for testing
@@ -847,10 +593,16 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       setIsManualTestInProgress(false);
     }, 5000);
     
-    startAdBreak();  }, [startAdBreak]);
-
+    startAdBreak();
+  }, [startAdBreak]);
   // Enhanced timer functionality
   const startTimer = useCallback(() => {
+    // ✅ FIX: Prevent multiple timers from starting
+    if (isTimerRunning) {
+      console.warn('🚨 Timer already running, ignoring duplicate start request');
+      return;
+    }
+    
     console.log('⏰ Starting ad break timer');
     setIsTimerRunning(true);
     
@@ -866,50 +618,36 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
 
     checkTime();
     
+    // ✅ FIX: Clear any existing timer interval first
     if (timerIntervalRef.current) {
+      console.log('🚨 Clearing existing timer interval');
       clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
     
-    timerIntervalRef.current = setInterval(checkTime, 60000);  }, [getNextAdBreakTime, startAdBreak]);
+    timerIntervalRef.current = setInterval(checkTime, 60000);
+  }, [getNextAdBreakTime, startAdBreak, isTimerRunning]);
 
-  // ✅ ENHANCED: Stop timer and exit any active ad break mode
   const stopTimer = useCallback(() => {
-    console.log('⏰ Stopping ad break timer and exiting any active modes');
+    console.log('⏰ Stopping ad break timer');
     setIsTimerRunning(false);
     setNextAdBreakIn(null);
-    setNextCommunityTiming(null);
     
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-
-    // ✅ CRITICAL: If we're currently in nonstop mode or any ad break, end it properly
-    if (isAdBreakActive) {
-      console.log('🛑 Force ending active ad break due to timer stop');
-      endAdBreak();
-    }
-
-    if (window.addNotification) {
-      window.addNotification('⏰ Reclamepauze timer gestopt', 'info', 2000);
-    }  }, [isAdBreakActive, endAdBreak]);
+  }, []);
 
   // ✅ ENHANCED: Check ad break time with community timing integration
   const checkAdBreakTime = useCallback(async () => {
-    // ✅ CRITICAL: Prevent infinite loop by checking if ad break is already active
-    if (isAdBreakActive) {
-      //console.log('🚫 Ad break already active, skipping auto-trigger');
-      return;
-    }
-    
     const now = new Date();
     const currentMinute = now.getMinutes();
 
     // Check for community timing first
     if (useCommunityTimings && audioPlayer.currentStation?.name) {
       try {
-        // Use the correct function name from the cleaned version above
-        const communityTiming = await getNextCommunityTiming();
+        const communityTiming = await CommunityTimings.getNextAdBreakTime(audioPlayer.currentStation.name, now);
         
         if (communityTiming && communityTiming.start) {
           const minutesUntilStart = Math.round((communityTiming.start - now) / 1000 / 60);
@@ -923,7 +661,18 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
               setOriginalRadioStation(audioPlayer.currentStation);
             }
             
-            await startAdBreakWithCommunityDuration(communityTiming);
+            // Calculate duration if end time is available
+            const duration = communityTiming.end ? 
+              Math.round((communityTiming.end - communityTiming.start) / 1000 / 60) : 
+              adBreakDuration;
+            
+            const timingWithDuration = {
+              ...communityTiming,
+              duration: duration,
+              stationName: audioPlayer.currentStation.name
+            };
+            
+            await startAdBreakWithCommunityDuration(timingWithDuration);
             return;
           }
         }
@@ -941,16 +690,18 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       
       // ✅ NEW: Store original radio station before ad break
       if (adBreakMode === 'nonstop' && audioPlayer.currentStation) {
-        setOriginalRadioStation(audioPlayer.currentStation);      }
+        setOriginalRadioStation(audioPlayer.currentStation);
+      }
       
       await startAdBreak();
     }
-  }, [isAdBreakActive, useCommunityTimings, audioPlayer.currentStation, adBreakMinute, adBreakMinute2, adBreakDuration, startAdBreakWithCommunityDuration, startAdBreak, adBreakMode]);
+  }, [useCommunityTimings, audioPlayer.currentStation, adBreakMinute, adBreakMinute2, adBreakDuration, startAdBreakWithCommunityDuration, startAdBreak, adBreakMode]);
 
   // ✅ NEW: Function to start ad break with remaining time
   const startAdBreakWithRemainingTime = useCallback(async (remainingMinutes) => {
     console.log('🎵 Starting ad break with remaining time:', remainingMinutes, 'minutes');
-    await startAdBreak(true, remainingMinutes);  }, [startAdBreak]);
+    await startAdBreak(true, remainingMinutes);
+  }, [startAdBreak]);
 
   // ✅ NEW: Function to cancel ad break timer
   const cancelAdBreakTimer = useCallback(() => {
@@ -961,109 +712,32 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       adBreakTimeoutRef.current = null;
     }
     
-    // ✅ FIX: Clear countdown interval
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    
     setCurrentAdBreakTimeLeft(null);
     window.currentAdBreakTimeLeft = null;
     
     if (window.addNotification) {
       window.addNotification('🚫 Reclamepauze timer geannuleerd', 'info', 2000);
-    }  }, []);
-
-  // Queue functions disabled - system removed for reliability
-  const queueStationSwitch = useCallback(() => {
-    console.log('� Queue system disabled - playing immediately');
+    }
   }, []);
 
-  const cancelQueuedSwitch = useCallback(() => {
-    console.log('🚫 Queue system disabled - no action needed');
-  }, []);
-
-  // ✅ NEW: Force exit from any active ad break or nonstop mode
-  const forceExitAdBreakMode = useCallback(() => {
-    console.log('🛑 FORCE EXIT: Exiting any active ad break or nonstop mode');
-
-    // Stop timer if running
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-
-    // ✅ FIX: Clear countdown interval
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
-    // Clear any pending ad break timeout
-    if (adBreakTimeoutRef.current) {
-      clearTimeout(adBreakTimeoutRef.current);
-      adBreakTimeoutRef.current = null;
-    }
-
-    // Close lofi overlay if open
-    if (isLofiOverlayOpen()) {
-      closeLofiYouTubeOverlay();
-    }
-
-    // Force stop all audio to prevent conflicts
-    if (audioPlayer.forceStopAllAudio) {
-      audioPlayer.forceStopAllAudio('force exit nonstop mode');
-    }
-
-    // Clear nonstop rotation flags
-    window.isNonstopRotation = false;
-
-    // Reset ALL states to normal
-    setIsTimerRunning(false);
-    setIsAdBreakActive(false);
-    setShouldPlayPlaylistDuringAdBreak(false);
-    setCurrentAdBreakTimeLeft(null);
-    setCurrentAdBreakUsedCommunityTiming(false);
-    setFeedbackStationName('');
-    setNextAdBreakIn(null);
-    setNextCommunityTiming(null);
-    setOriginalRadioStation(null);
-    setIsManualTestActive(false);
-    setIsManualTestInProgress(false);
+  // Queue station switch functionality
+  const queueStationSwitch = useCallback((station) => {
+    console.log('📋 Queueing station switch:', station.name);
+    setQueuedStation(station);
     
-    // Clear global states
-    window.isAdBreakActive = false;
-    window.currentAdBreakTimeLeft = null;
-    window.isTimerRunning = false;
-
-    // Small delay then try to resume normal radio if there was a paused station
-    setTimeout(() => {
-      if (audioPlayer.isRadioPausedForAdBreak) {
-        console.log('🎵 Attempting to resume paused radio after force exit');
-        try {
-          audioPlayer.resumeRadioFromAdBreak();
-        } catch (error) {
-          console.warn('Could not resume paused radio:', error);
-        }
-      }
-    }, 500);
-
     if (window.addNotification) {
-      window.addNotification('🛑 Geforceerd uitgeschakeld - alle modi gestopt', 'warning', 3000);
+      window.addNotification(`📋 Station ${station.name} in wachtrij voor na reclamepauze`, 'info', 3000);
     }
-  }, [audioPlayer]);
-
-  // Effect for timer management
+  }, []);
+  // Effect for timer management - ✅ FIX: Check more frequently for ad break triggers
   useEffect(() => {
     if (isTimerRunning) {
-      const interval = setInterval(checkAdBreakTime, 60000);
+      const interval = setInterval(checkAdBreakTime, 30000); // ✅ FIX: Check every 30 seconds instead of 60
       checkAdBreakTime(); // Check immediately
       
       return () => clearInterval(interval);
     }
-  }, [isTimerRunning, checkAdBreakTime]);
-
-  // Effect for next ad break calculation
+  }, [isTimerRunning, checkAdBreakTime]);  // Effect for next ad break calculation - ✅ FIX: Update every second for real-time countdown
   useEffect(() => {
     if (isTimerRunning) {
       const updateNextAdBreak = async () => {
@@ -1072,11 +746,12 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       };
       
       updateNextAdBreak();
-      const interval = setInterval(updateNextAdBreak, 60000);
+      const interval = setInterval(updateNextAdBreak, 1000); // ✅ FIX: Update every second for smooth countdown
       
       return () => clearInterval(interval);
     }
   }, [isTimerRunning, getNextAdBreakTime]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -1088,10 +763,6 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       }
       if (adDetectionIntervalRef.current) {
         clearInterval(adDetectionIntervalRef.current);
-      }
-      // ✅ FIX: Clear countdown interval on unmount
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
       }
     };
   }, []);
@@ -1105,6 +776,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
       console.warn('Failed to save community timing setting:', error);
     }
   }, [useCommunityTimings]);
+
   return {
     adBreakMinute,
     setAdBreakMinute,
@@ -1117,47 +789,52 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     isTimerRunning,
     isAdBreakActive,
     nextAdBreakIn,
-    nextCommunityTiming,
     playlistUrl,
     setPlaylistUrl,
     playlistShuffle,
     setPlaylistShuffle,
-    shouldPlayPlaylistDuringAdBreak,
-    setShouldPlayPlaylistDuringAdBreak,
     currentAdBreakTimeLeft,
     enforcingAdBreak,
     setEnforcingAdBreak,
+    queuedStation,
+    setQueuedStation,
     isManualTestActive,
     setIsManualTestActive,
+    shouldPlayPlaylistDuringAdBreak,
+    setShouldPlayPlaylistDuringAdBreak,
     adBreakMode,
     setAdBreakMode,
     currentNonstopAttempt,
     currentLofiAttempt,
     isManualTestInProgress,
     autoAdDetectionEnabled,
+    // ✅ DISABLED: Music detection setter function - always keeps it disabled
     setAutoAdDetectionEnabled: () => {
-      console.log('🚫 Music detection is disabled - ignoring enable request');
+      console.log('🚫 Music detection is temporarily disabled - ignoring enable request');
+      // Do nothing - always keep it false
     },
+    // Community timing states and methods
     useCommunityTimings,
     setUseCommunityTimings,
     showFeedbackPopup,
     setShowFeedbackPopup,
     feedbackStationName,
     setFeedbackStationName,
-    currentAdBreakUsedCommunityTiming,
-    originalRadioStation,
+    currentAdBreakUsedCommunityTiming, // Track if current ad break used community timing
+    nextCommunityTiming, // Full community timing metadata for UI
+    originalRadioStation, // For proper restoration in nonstop mode
     startAdBreak,
     endAdBreak,
-    manualAdBreak,
-    startTimer,
+    manualAdBreak,    startTimer,
     stopTimer,
     startAdBreakWithRemainingTime,
-    startAdBreakWithCommunityDuration,
-    cancelAdBreakTimer,
-    rotateToNextNonstopStation,
+    startAdBreakWithCommunityDuration, // Export the new function
+    cancelAdBreakTimer, // ✅ ADD: Export the new function
+    rotateToNextNonstopStation, // ✅ ADD: Export rotation function
     getAdBreakModeDescription,
     queueStationSwitch,
-    cancelQueuedSwitch,
-    forceExitAdBreakMode
+    // ✅ NEW: Simple nonstop mode state for cycling button
+    isNonstopModeManuallyActive,
+    setIsNonstopModeManuallyActive
   };
 };

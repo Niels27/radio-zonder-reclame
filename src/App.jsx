@@ -450,9 +450,10 @@ function App() {
               visualizerEnabled={visualizerEnabled}
               onVisualizerToggle={setVisualizerEnabled}
               visualizerType={visualizerType}
-              onVisualizerTypeChange={setVisualizerType}
-              visualizerBlur={visualizerBlur}
+              onVisualizerTypeChange={setVisualizerType}              visualizerBlur={visualizerBlur}
               onVisualizerBlurChange={setVisualizerBlur}
+              // ✅ NEW: Simple nonstop cycling button state
+              setIsNonstopModeManuallyActive={adBreakTimer.setIsNonstopModeManuallyActive}
             />
           </ErrorBoundary>
 
@@ -521,19 +522,22 @@ function App() {
               }}} playlistInfo={playlistInfo}
             // Queue system disabled for reliability
             currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
-            onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}            adBreakMode={adBreakTimer.adBreakMode}
-            onRotateNonstopStation={() => {
-              // This will trigger a rotation to the next nonstop station
-              if (adBreakTimer.isAdBreakActive && adBreakTimer.adBreakMode === 'nonstop') {
+            onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}            adBreakMode={adBreakTimer.adBreakMode}            onRotateNonstopStation={() => {
+              // Allow rotation during manual nonstop mode OR ad break nonstop mode
+              if (adBreakTimer.adBreakMode === 'nonstop' && 
+                  (adBreakTimer.isNonstopModeManuallyActive || adBreakTimer.isAdBreakActive)) {
                 adBreakTimer.rotateToNextNonstopStation();
               }
             }}
             useCommunityTimings={adBreakTimer.useCommunityTimings}
             currentAdBreakUsedCommunityTiming={adBreakTimer.currentAdBreakUsedCommunityTiming}
-            nextCommunityTiming={adBreakTimer.nextCommunityTiming}
-            // ✅ NEW: Add paused radio state props for "on hold" indicator
+            nextCommunityTiming={adBreakTimer.nextCommunityTiming}            // ✅ NEW: Add paused radio state props for "on hold" indicator
             isRadioPausedForAdBreak={audioPlayer.isRadioPausedForAdBreak}
             pausedRadioStation={audioPlayer.pausedRadioStation}
+            // ✅ NEW: Add manual test state for nonstop rotation button
+            isManualTestActive={adBreakTimer.isManualTestActive}
+            // ✅ NEW: Simple state for nonstop cycling button
+            isNonstopModeManuallyActive={adBreakTimer.isNonstopModeManuallyActive}
           />
           </div>
         </div>

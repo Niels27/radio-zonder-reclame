@@ -15,7 +15,7 @@ const FloatingYouTubePlayer = ({
   const [isLoading, setIsLoading] = useState(true);
   const [showError, setShowError] = useState(false);  const [errorMessage, setErrorMessage] = useState('');
   const [showFallbackOptions, setShowFallbackOptions] = useState(false);
-  const [localVolume, setLocalVolume] = useState(volume);  const [retryCount, setRetryCount] = useState(0);  const [maxRetries] = useState(1); // MUCH fewer retries to prevent cycling
+  const [localVolume, setLocalVolume] = useState(volume);  const [retryCount, setRetryCount] = useState(0);  const [maxRetries] = useState(0); // NO retries to prevent cycling - stick with first method
   const [videoCheckAttempts, setVideoCheckAttempts] = useState(0);
   const [maxVideoChecks] = useState(1); // Only 1 check
   const [isActuallyPlaying, setIsActuallyPlaying] = useState(false); // Track if we're hearing audio
@@ -110,16 +110,32 @@ const FloatingYouTubePlayer = ({
       return;
     }
     
-    // ✅ ULTRA CONSERVATIVE: Only switch if we're really sure it's not working
-    console.log('🎵 ⚠️ ULTRA CONSERVATIVE method switch - only if absolutely necessary');
+    // ✅ FINAL CHECK: Is the iframe actually working?
+    if (iframeRef.current && iframeRef.current.src) {
+      console.log('🎵 ⚠️ Iframe is loaded with source, giving it more time before switching');
+      // Give it even more time if iframe is loaded
+      setTimeout(() => {
+        if (!isActuallyPlaying && retryCount < maxRetries) {
+          console.log('🎵 🔄 Final attempt to switch after extra delay');
+          performMethodSwitch();
+        }
+      }, 10000); // Extra 10 seconds
+      return;
+    }
     
-    const nextIndex = (currentMethodIndex + 1) % fallbackMethods.length;
-    console.log(`🎵 🔄 Switching to method: ${fallbackMethods[nextIndex]} (attempt ${retryCount + 1}/${maxRetries})`);
+    performMethodSwitch();
     
-    setCurrentMethodIndex(nextIndex);
-    setCurrentMethod(fallbackMethods[nextIndex]);
-    setShowFallbackOptions(false);
-    setRetryCount(prev => prev + 1);
+    function performMethodSwitch() {
+      console.log('🎵 ⚠️ ULTRA CONSERVATIVE method switch - only if absolutely necessary');
+      
+      const nextIndex = (currentMethodIndex + 1) % fallbackMethods.length;
+      console.log(`🎵 🔄 Switching to method: ${fallbackMethods[nextIndex]} (attempt ${retryCount + 1}/${maxRetries})`);
+      
+      setCurrentMethodIndex(nextIndex);
+      setCurrentMethod(fallbackMethods[nextIndex]);
+      setShowFallbackOptions(false);
+      setRetryCount(prev => prev + 1);
+    }
   }, [currentMethodIndex, retryCount, maxRetries, isActuallyPlaying, isLoading]);
 
   // Load player with current method and aggressive timeout handling
@@ -149,28 +165,14 @@ const FloatingYouTubePlayer = ({
       loadTimeout = 90000; // 90 seconds for full players - much more conservative
     } else {
       loadTimeout = 75000; // 75 seconds default - much more conservative
-    }
-      loadTimeoutRef.current = setTimeout(() => {
-      // ✅ CRITICAL: Don't timeout if we're actually playing or have ever played
-      if (isActuallyPlaying) {
-        console.log(`🎵 ✅ Loading timeout avoided - audio is playing (method: ${currentMethod})`);
-        setIsLoading(false);
-        return;
-      }
-      
-      console.warn(`🎵 ⏰ Loading timeout after ${loadTimeout}ms - trying next method`);
-      setIsLoading(false);
-      
-      // Only try next method if we haven't heard any audio yet
-      if (retryCount < maxRetries) {
-        setRetryCount(prev => prev + 1);
-        tryNextMethod();
-      } else {
-        console.warn('🎵 Maximum retries reached, staying with current method');
-        setShowError(true);
-        setErrorMessage('Alle methoden uitgeprobeerd - huidige methode wordt gebruikt');
-      }
+    }    // ✅ CONSERVATIVE: Don't set timeout at all - if iframe loads, it's working
+    console.log('🎵 No timeout set - iframe load will determine success');
+    
+    /* DISABLED: No timeout to prevent cycling
+    loadTimeoutRef.current = setTimeout(() => {
+      // Timeout logic disabled to prevent cycling
     }, loadTimeout);
+    */
     
     // Update iframe src
     if (iframeRef.current) {
@@ -330,32 +332,30 @@ const FloatingYouTubePlayer = ({
   const handleIframeLoad = useCallback(() => {
     console.log('🎵 YouTube iframe loaded, method:', currentMethod);
     
+    // ✅ CRITICAL: Clear any existing timeout immediately when iframe loads successfully
     if (loadTimeoutRef.current) {
       clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+      console.log('🎵 ✅ Cleared load timeout on successful iframe load');
     }
     
     // ✅ ULTRA CONSERVATIVE: Just let YouTube do its thing naturally
-    console.log('🎵 🎯 ULTRA CONSERVATIVE strategy - letting YouTube work naturally');
+    console.log('🎵 🎯 ULTRA CONSERVATIVE strategy - iframe loaded, assuming success');
     
-    // Set loading to false after iframe loads - no aggressive intervention
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log('🎵 ✅ YouTube player ready - no further intervention');
-      
-      // ✅ OPTIMISTIC: Assume it's working after successful load
-      // This prevents unnecessary method switching when YouTube is actually working
-      setTimeout(() => {
-        if (!isActuallyPlaying) {
-          console.log('🎵 🎯 Optimistically assuming player is working after successful load');
-          setIsActuallyPlaying(true);
-        }
-      }, 10000); // Give it 10 seconds to start playing, then assume it's working
-      
-    }, 5000); // Even longer delay to allow YouTube to fully initialize
+    // Set loading to false immediately and assume success
+    setIsLoading(false);
+    setIsActuallyPlaying(true); // ✅ OPTIMISTIC: Assume success immediately on load
+    setShowError(false);
+    console.log('🎵 ✅ YouTube iframe loaded successfully - marked as playing');
     
-    // DO NOT start any availability checking or autostart - let it work naturally
+    // ✅ SAVE SUCCESSFUL METHOD: Remember this method works
+    localStorage.setItem('youtube_preferred_method', currentMethod);
+    localStorage.setItem('youtube_preferred_method_index', currentMethodIndex.toString());
+    console.log('🎵 ✅ Auto-saved working method preference:', currentMethod);
     
-  }, [currentMethod, isActuallyPlaying]);
+    // DO NOT set any timeouts or do any further checking - just assume it works
+    
+  }, [currentMethod, currentMethodIndex]);
 
   // Assign function to ref to avoid circular dependencies
   useEffect(() => {
@@ -418,7 +418,7 @@ const FloatingYouTubePlayer = ({
       loadPlayer();
     }
   }, [isVisible, playlistId, loadPlayer]);
-    // Detect if we're actually playing by monitoring volume changes from parent
+  // Detect if we're actually playing by monitoring volume changes from parent
   // If parent is sending volume changes to us, it probably means we're the active player
   useEffect(() => {
     if (volume !== localVolume && isVisible) {
@@ -433,8 +433,15 @@ const FloatingYouTubePlayer = ({
         loadTimeoutRef.current = null;
         console.log('🎵 ✅ Cleared load timeout - audio is working');
       }
+      
+      // ✅ SAVE SUCCESSFUL METHOD: Remember this method works
+      if (currentMethod) {
+        localStorage.setItem('youtube_preferred_method', currentMethod);
+        localStorage.setItem('youtube_preferred_method_index', currentMethodIndex.toString());
+        console.log('🎵 ✅ Saved working method preference:', currentMethod);
+      }
     }
-  }, [volume, localVolume, isVisible]);
+  }, [volume, localVolume, isVisible, currentMethod, currentMethodIndex]);
     // Also set as playing when user interacts with our volume control
   const handleVolumeChange = (e) => {
     const newVolume = parseInt(e.target.value);

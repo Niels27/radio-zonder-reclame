@@ -624,15 +624,16 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     window.isAdBreakActive = false;
 
     console.log('🛑 Nuclear reset complete - everything stopped');
-  }, [currentConnectionAttempt]);
-  // ✅ CRITICAL FIX: Enhanced playRadio with comprehensive audio source management
-  const playRadio = useCallback(async (stationData) => {
+  }, [currentConnectionAttempt]);  // ✅ CRITICAL FIX: Enhanced playRadio with comprehensive audio source management
+  const playRadio = useCallback(async (stationData, options = {}) => {
     console.log('🎵 Playing radio:', stationData.name);
 
-    // ✅ GOLDEN RULE: Stop ANY active manual modes before playing radio
-    if (window.stopAllManualModes) {
+    // ✅ SMART RULE: Only stop manual modes if this is NOT a nonstop rotation
+    if (window.stopAllManualModes && !options.isNonstopRotation) {
       console.log('🛑 Stopping all manual modes before radio (ONE AUDIO STREAM RULE)');
       await window.stopAllManualModes();
+    } else if (options.isNonstopRotation) {
+      console.log('🔄 Nonstop rotation - preserving manual nonstop mode');
     }
 
     // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts

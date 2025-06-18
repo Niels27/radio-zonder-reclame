@@ -81,11 +81,12 @@ const AdBreakSettings = ({
   playlistShuffle, onShuffleChange, isValidatingPlaylist,
   isPlaylistInputHovered,  setIsPlaylistInputHovered,  // ✅ NEW: Visualizer props
   visualizerEnabled,
-  onVisualizerToggle,
-  visualizerType,
+  onVisualizerToggle,  visualizerType,
   onVisualizerTypeChange,
   visualizerBlur,
-  onVisualizerBlurChange
+  onVisualizerBlurChange,
+  // ✅ NEW: Simple nonstop cycling button state
+  setIsNonstopModeManuallyActive
 
 }) => {
   // ✅ INSTANT STATE TRACKING: Prevent double-clicking between timer and manual modes
@@ -594,10 +595,13 @@ const AdBreakSettings = ({
 
     try {
       console.log(`🛑 Stopping isolated ${mode} mode test`);
-      
-      // ✅ CLEAR nonstop mode flag when stopping nonstop mode
+        // ✅ CLEAR nonstop mode flag when stopping nonstop mode
       if (mode === 'nonstop') {
         window.isInNonstopMode = false;
+        // ✅ NEW: Clear simple state for cycling button
+        if (setIsNonstopModeManuallyActive) {
+          setIsNonstopModeManuallyActive(false);
+        }
       }
       
       // ✅ CRITICAL: Stop all audio sources completely INCLUDING floating YouTube player
@@ -675,7 +679,6 @@ const AdBreakSettings = ({
       });
     }
   };
-
   const startIsolatedNonstopMode = async () => {
     console.log('🎵 Starting isolated nonstop radio test (no ad breaks, just nonstop radio)');
     
@@ -686,6 +689,12 @@ const AdBreakSettings = ({
     }
       // ✅ IMPORTANT: Play radio directly without ad break logic - MARK as nonstop mode
     window.isInNonstopMode = true; // ✅ FLAG: Mark that we're in deliberate nonstop mode
+    
+    // ✅ NEW: Set simple state for cycling button
+    if (setIsNonstopModeManuallyActive) {
+      setIsNonstopModeManuallyActive(true);
+    }
+    
     await audioPlayer.playRadio(nonstopStation, { 
       isManualTest: true,
       isIsolatedTest: true,

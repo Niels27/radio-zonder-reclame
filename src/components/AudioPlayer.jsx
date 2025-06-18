@@ -18,15 +18,15 @@ const AudioPlayer = ({
   playlistShuffle,
   onToggleShuffle,
   onNextTrack,
-  playlistInfo,
-  // queuedStation and onCancelQueuedSwitch removed - queue system disabled  
+  playlistInfo,  // queuedStation and onCancelQueuedSwitch removed - queue system disabled  
   adBreakMode,           // ✅ NEW: Add ad break mode prop
-  onRotateNonstopStation, // ✅ NEW: Add rotation callback prop
-  useCommunityTimings,    // ✅ NEW: Add community timings flag prop
-  currentAdBreakUsedCommunityTiming, // ✅ NEW: Track if current ad break used community timing
+  onRotateNonstopStation, // ✅ NEW: Add rotation callback prop  useCommunityTimings,    // ✅ NEW: Add community timings flag prop
+  currentAdBreakUsedCommunityTiming = false, // ✅ NEW: Track if current ad break used community timing
   nextCommunityTiming,    // ✅ NEW: Add community timing metadata prop
   isRadioPausedForAdBreak, // ✅ NEW: Add paused radio state prop
-  pausedRadioStation      // ✅ NEW: Add paused radio station prop
+  pausedRadioStation,      // ✅ NEW: Add paused radio station prop
+  isManualTestActive,       // ✅ NEW: Add manual test state prop
+  isNonstopModeManuallyActive // ✅ NEW: Simple state for nonstop cycling button
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
@@ -630,17 +630,16 @@ const AudioPlayer = ({
                     <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                   </svg>                  <span>
                     {nextCommunityTiming ? 'Community pauze wisseling in:' : 'Pauze wisseling in:'}
-                  </span>
-                  <span className={`font-mono text-white px-2 py-1 rounded ${
+                  </span>                  <span className={`font-mono text-white px-2 py-1 rounded ${
                     nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
                   }`}>
-                    {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn * 60) : nextAdBreakIn}
+                    {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn) : nextAdBreakIn}
                   </span>
                 </div>
               )
-            )}
-            {/* Rotation Button for Nonstop Mode */}
-            {adBreakMode === 'nonstop' && onRotateNonstopStation && isAdBreakActive && (
+            )}            {/* Rotation Button for Nonstop Mode - Show during any nonstop mode */}
+            {adBreakMode === 'nonstop' && onRotateNonstopStation && 
+             (isNonstopModeManuallyActive || isAdBreakActive) && (
               <button
                 onClick={onRotateNonstopStation}
                 className="ml-2 w-12 h-8 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-l transition-colors"
