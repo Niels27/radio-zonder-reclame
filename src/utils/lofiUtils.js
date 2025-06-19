@@ -124,7 +124,7 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         padding: 20px;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         position: relative;
-        max-width: 90vw;
+        max-width: 100vw;
         max-height: 90vh;
         transition: all 0.3s ease;
       `;
@@ -248,8 +248,8 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
           position: fixed;
           bottom: 100px;
           right: 20px;
-          width: 320px;
-          height: 200px;
+          width: 360px;
+          height: 225px;
           background: transparent;
           z-index: 10000;
           backdrop-filter: none;
@@ -474,7 +474,7 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         updateTimer(); // Initial update
         window.lofiOverlayTimer = setInterval(updateTimer, 1000);
       } else {
-        timerDisplay.textContent = 'Playing until manually closed';
+       //timerDisplay.textContent = 'Playing until manually closed';
       }
 
       // ✅ Assemble the overlay
