@@ -32,6 +32,66 @@ let currentLofiIndex = 0;
 let failedStreams = new Set();
 let currentLofiOverlay = null;
 
+// ✅ NEW: Volume synchronization for lofi overlay
+let currentLofiVolume = 0.5; // Store current volume (0.0 to 1.0)
+let lofiIframeRef = null; // Reference to the iframe for volume control
+
+// ✅ NEW: Global volume sync function for lofi overlay
+export const syncLofiVolume = (volume) => {
+  currentLofiVolume = Math.max(0, Math.min(1, volume)); // Clamp between 0 and 1
+ // console.log(`🎵 Syncing lofi volume to ${Math.round(currentLofiVolume * 100)}%`);
+  
+  // Update timer display if overlay is open
+  if (currentLofiOverlay && document.body.contains(currentLofiOverlay)) {
+    const timerDisplay = currentLofiOverlay.querySelector('div[style*="text-align: center"]');
+    if (timerDisplay && window.updateLofiTimerDisplay) {
+      window.updateLofiTimerDisplay();
+    }
+  }
+  
+  // Try to communicate with iframe if available
+  if (lofiIframeRef && lofiIframeRef.contentWindow) {
+    try {
+      // YouTube iframe API volume control (this might not work due to CORS, but we try)
+      const message = {
+        event: 'command',
+        func: 'setVolume',
+        args: [currentLofiVolume * 100] // YouTube expects 0-100
+      };
+      lofiIframeRef.contentWindow.postMessage(JSON.stringify(message), '*');
+    } catch (error) {
+      console.warn('Could not directly control YouTube iframe volume:', error);
+    }
+  }
+  
+  // Store volume in localStorage for persistence
+  try {
+    localStorage.setItem('lofi_volume', currentLofiVolume.toString());
+  } catch (error) {
+    console.warn('Could not store lofi volume:', error);
+  }
+};
+
+// ✅ NEW: Get current lofi volume
+export const getLofiVolume = () => {
+  return currentLofiVolume;
+};
+
+// ✅ NEW: Initialize lofi volume from storage
+export const initializeLofiVolume = () => {
+  try {
+    const storedVolume = localStorage.getItem('lofi_volume');
+    if (storedVolume) {
+      currentLofiVolume = parseFloat(storedVolume);
+    }
+  } catch (error) {
+    console.warn('Could not load stored lofi volume:', error);
+  }
+};
+
+// Initialize volume on module load
+initializeLofiVolume();
+
 export const getNextLofiStream = () => {
   // Check for custom lofi URL first
   try {
@@ -209,11 +269,10 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       closeButton.onmouseout = () => {
         closeButton.style.background = '#ef4444';
         closeButton.style.transform = 'scale(1)';
-      };
-
-      // ✅ Create iframe for YouTube
+      };      // ✅ Create iframe for YouTube with volume support
       const iframe = document.createElement('iframe');
-      const youtubeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}`;
+      const volumePercent = Math.round(currentLofiVolume * 100);
+      const youtubeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}&enablejsapi=1&volume=${volumePercent}`;
       iframe.src = youtubeUrl;
       iframe.style.cssText = `
         width: 800px;
@@ -223,8 +282,9 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         transition: all 0.3s ease;
       `;
       iframe.allow = 'autoplay; encrypted-media';
-
-      // ✅ Create timer display
+      
+      // ✅ Store iframe reference for volume control
+      lofiIframeRef = iframe;      // ✅ Create timer display with volume indicator
       const timerDisplay = document.createElement('div');
       timerDisplay.style.cssText = `
         margin-top: 15px;
@@ -233,6 +293,22 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         font-size: 14px;
         transition: all 0.3s ease;
       `;
+      
+      // ✅ NEW: Update timer display to show volume
+      const updateTimerDisplay = (timeText = '') => {
+        const volumeText = `🔊 ${Math.round(currentLofiVolume * 100)}%`;
+        if (timeText) {
+         // timerDisplay.innerHTML = `${timeText}<br><span style="font-size: 12px; opacity: 0.7;">${volumeText}</span>`;
+        } else {
+         // timerDisplay.innerHTML = `<span style="font-size: 12px; opacity: 0.7;">${volumeText}</span>`;
+        }
+      };
+      
+      // Initial display
+      updateTimerDisplay();
+
+      // Store reference for volume control
+      lofiIframeRef = iframe;
 
       // ✅ MINIMIZE FUNCTIONALITY
       let isMinimized = false;
@@ -248,8 +324,8 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
           position: fixed;
           bottom: 100px;
           right: 20px;
-          width: 360px;
-          height: 225px;
+          width: 400px;
+          height: 350px;
           background: transparent;
           z-index: 10000;
           backdrop-filter: none;
@@ -457,12 +533,11 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       // ✅ Auto-close timer (optional)
       if (duration && duration > 0) {
         let timeLeft = duration * 60; // Convert to seconds
-        
-        const updateTimer = () => {
+          const updateTimer = () => {
           const minutes = Math.floor(timeLeft / 60);
           const seconds = timeLeft % 60;
           const timeText = `Auto-close in ${minutes}:${seconds.toString().padStart(2, '0')}`;
-          timerDisplay.textContent = timeText;
+          updateTimerDisplay(timeText);
           timeLeft--;
           
           if (timeLeft < 0) {
@@ -490,13 +565,13 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       
       overlay.appendChild(container);      // ✅ Add to DOM
       document.body.appendChild(overlay);
-      
-      // ✅ Store reference and global functions
+        // ✅ Store reference and global functions
       currentLofiOverlay = overlay;
       window.currentLofiOverlay = overlay;
       window.closeLofiOverlay = closeOverlay;
       window.minimizeLofiOverlay = minimizeOverlay;
-      window.maximizeLofiOverlay = maximizeOverlay;      // ✅ Start minimized immediately for less intrusive experience
+      window.maximizeLofiOverlay = maximizeOverlay;
+      window.updateLofiTimerDisplay = updateTimerDisplay; // ✅ NEW: Make timer update function global// ✅ Start minimized immediately for less intrusive experience
       minimizeOverlay();
       console.log('🎵 Lofi overlay started in minimized mode');
 
@@ -520,6 +595,10 @@ export const closeLofiYouTubeOverlay = () => {
       currentLofiOverlay = null;
       window.currentLofiOverlay = null;
     }
+    
+    // ✅ NEW: Clear iframe reference when closing
+    lofiIframeRef = null;
+    console.log('🎵 Lofi overlay closed and iframe reference cleared');
   } catch (error) {
     console.warn('Error closing Lofi overlay:', error);
   }
@@ -557,3 +636,14 @@ export const createLofiStation = (lofiStream) => {
     };
   }
 };
+
+// ✅ NEW: Expose global functions for testing and debugging (after all functions are declared)
+if (typeof window !== 'undefined') {
+  window.lofiUtils = {
+    syncLofiVolume,
+    getLofiVolume,
+    initializeLofiVolume,
+    isLofiOverlayOpen,
+    closeLofiYouTubeOverlay
+  };
+}

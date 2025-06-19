@@ -475,21 +475,7 @@ const FloatingYouTubePlayer = ({
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Volume Control */}
-              <div className="flex items-center gap-2 px-3">
-                <span className="text-sm">🔊</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={localVolume}
-                  onChange={handleVolumeChange}
-                  className="w-20 h-2 bg-gray-600 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, #4f46e5 0%, #4f46e5 ${localVolume}%, #374151 ${localVolume}%, #374151 100%)`
-                  }}
-                />
-              </div>
+        
                 
               {/* Fallback Button */}
               <button
@@ -624,21 +610,7 @@ const FloatingYouTubePlayer = ({
           </div>
           
           <div className="flex items-center gap-1">
-            {/* Volume Control */}
-            <div className="flex items-center gap-1 px-2">
-              <span className="text-xs">🔊</span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={localVolume}
-                onChange={handleVolumeChange}
-                className="w-16 h-1 bg-gray-600 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #4f46e5 0%, #4f46e5 ${localVolume}%, #374151 ${localVolume}%, #374151 100%)`
-                }}
-              />
-            </div>
+        
               
             {/* Fallback Button */}
             <button

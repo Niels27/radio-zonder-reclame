@@ -9,7 +9,8 @@ import {
   openLofiYouTubeOverlay,  // ← Updated import
   closeLofiYouTubeOverlay,
   markLofiStreamAsFailed,
-  isLofiOverlayOpen        // ← Updated import
+  isLofiOverlayOpen,       // ← Updated import
+  syncLofiVolume          // ← NEW: Volume sync import
 } from '../utils/lofiUtils.js';
 import { setupAdDetection } from '../utils/musicDetection.js';
 import CommunityTimings from '../utils/communityTimings.jsx';
@@ -57,7 +58,7 @@ const extractPlaylistId = (url, provider) => {
   }
 };
 
-export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
+export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoCloseOverlays = true) => {
   const [adBreakMinute, setAdBreakMinute] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE, 29));
   const [adBreakMinute2, setAdBreakMinute2] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_MINUTE2, 59));
   const [adBreakDuration, setAdBreakDuration] = useState(() => loadFromStorage(STORAGE_KEYS.AD_BREAK_DURATION, 6));
@@ -356,9 +357,12 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     const lofiStream = getNextLofiStream();
     if (!lofiStream) {
       throw new Error('Geen lofi streams beschikbaar');
-    }
-
-    try {
+    }    try {
+      // ✅ NEW: Sync lofi volume with current audio player volume
+      if (audioPlayer?.volume !== undefined) {
+        syncLofiVolume(audioPlayer.volume);
+      }
+      
       // ✅ FIX: Check for YouTube video type correctly and prioritize YouTube overlay
       if (lofiStream.type === 'youtube_video' || lofiStream.url.includes('youtube.com') || lofiStream.url.includes('youtu.be')) {
         const videoId = extractYouTubeVideoId(lofiStream.url);
@@ -401,10 +405,14 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
         // Mark this stream as failed and try another
         markLofiStreamAsFailed(lofiStream.url);
         
-        // Try with a different stream
-        const fallbackStream = getNextLofiStream();
+        // Try with a different stream        const fallbackStream = getNextLofiStream();
         if (fallbackStream && fallbackStream.url !== lofiStream.url) {
           console.log('🎵 Trying fallback lofi stream:', fallbackStream.name);
+          
+          // ✅ NEW: Sync lofi volume with current audio player volume for fallback
+          if (audioPlayer?.volume !== undefined) {
+            syncLofiVolume(audioPlayer.volume);
+          }
           
           if (fallbackStream.type === 'youtube_video' || fallbackStream.url.includes('youtube.com')) {
             const videoId = extractYouTubeVideoId(fallbackStream.url);
@@ -582,11 +590,19 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
-    }
-
-    // Close lofi overlay if open
-    if (isLofiOverlayOpen()) {
-      closeLofiYouTubeOverlay();
+    }    // Close overlays if auto-close is enabled
+    if (autoCloseOverlays) {
+      // Close lofi overlay if open
+      if (isLofiOverlayOpen()) {
+        console.log('🔧 Auto-closing lofi overlay (auto-close enabled)');
+        closeLofiYouTubeOverlay();
+      }
+        // Close floating YouTube player if open
+      if (audioPlayer.showFloatingYouTube && audioPlayer.safeCloseFloatingYouTube) {
+        audioPlayer.safeCloseFloatingYouTube('ad break ended');
+      }
+    } else {
+      console.log('🔧 Auto-close disabled - leaving overlays open');
     }
 
     // Handle different restoration scenarios
@@ -630,7 +646,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     if (window.addNotification) {
       window.addNotification('🎵 Reclamepauze beëindigd', 'success', 2000);
     }
-  }, [audioPlayer, adBreakMode, originalRadioStation]);
+  }, [audioPlayer, adBreakMode, originalRadioStation, autoCloseOverlays]);
 
   // Manual ad break for testing
   const manualAdBreak = useCallback(() => {
@@ -713,10 +729,25 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
-    }
-    if (adBreakTimeoutRef.current) {
+    }    if (adBreakTimeoutRef.current) {
       clearTimeout(adBreakTimeoutRef.current);
       adBreakTimeoutRef.current = null;
+    }
+    
+    // Close overlays if auto-close is enabled and we were in an ad break
+    if (isAdBreakActive && autoCloseOverlays) {
+      console.log('🔧 Manual stop - closing overlays (auto-close enabled)');
+      
+      // Close lofi overlay if open
+      if (isLofiOverlayOpen()) {
+        closeLofiYouTubeOverlay();
+      }
+        // Close floating YouTube player if open
+      if (audioPlayer.showFloatingYouTube && audioPlayer.safeCloseFloatingYouTube) {
+        audioPlayer.safeCloseFloatingYouTube('manual timer stop');
+      }
+    } else if (isAdBreakActive && !autoCloseOverlays) {
+      console.log('🔧 Manual stop - auto-close disabled, leaving overlays open');
     }
     
     setCurrentAdBreakTimeLeft(null);
@@ -725,7 +756,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube') => {
     if (window.addNotification) {
       window.addNotification('⏰ Switching volledig gedeactiveerd', 'success', 2000);
     }
-  }, [isAdBreakActive]);
+  }, [isAdBreakActive, autoCloseOverlays]);
 
   // ✅ ENHANCED: Check ad break time with community timing integration
   const checkAdBreakTime = useCallback(async () => {

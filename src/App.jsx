@@ -20,8 +20,18 @@ import TimeRangeSlider from './components/TimeRangeSlider';
 
 function App() {
   const [playlistProvider, setPlaylistProvider] = useState('spotify');
-  const audioPlayer = useAudioPlayer(playlistProvider);
-  const adBreakTimer = useAdBreakTimer(audioPlayer, playlistProvider);
+  
+  // Auto-close overlays setting (default ON) - moved up before audioPlayer
+  const [autoCloseOverlays, setAutoCloseOverlays] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('auto_close_overlays') || 'true');
+    } catch {
+      return true;
+    }
+  });
+  
+  const audioPlayer = useAudioPlayer(playlistProvider, autoCloseOverlays);
+  const adBreakTimer = useAdBreakTimer(audioPlayer, playlistProvider, autoCloseOverlays);
   const [playlistInfo, setPlaylistInfo] = useState(null);
   const [isValidatingPlaylist, setIsValidatingPlaylist] = useState(false);
   const [isPlaylistInputHovered, setIsPlaylistInputHovered] = useState(false); const [showDeveloperDashboard, setShowDeveloperDashboard] = useState(false);
@@ -31,10 +41,10 @@ function App() {
     try {
       return JSON.parse(localStorage.getItem('visualizer_enabled') || 'true');
     } catch {
-      return true;
-    }
+      return true;    }
   });
-    const [visualizerType, setVisualizerType] = useState(() => {
+  
+  const [visualizerType, setVisualizerType] = useState(() => {
     try {
       return localStorage.getItem('visualizer_type') || 'bars';
     } catch {
@@ -151,16 +161,18 @@ function App() {
     
     // Check if this is a nonstop station being played from nonstop mode
     const isNonstopModeRotation = window.isInNonstopMode && station.category === 'realnonstop';
-    
-    if (!isNonstopModeRotation && window.stopAllManualModes) {
+      if (!isNonstopModeRotation && window.stopAllManualModes) {
       console.log('🛑 Regular radio station selected from grid - stopping all manual modes');
       window.stopAllManualModes();
     }
-    
-    // ✅ NEW: Always close floating YouTube player when switching to radio
+      // ✅ FIX: Only close floating YouTube player if auto-close is enabled
     if (audioPlayer.showFloatingYouTube) {
-      console.log('🛑 Closing floating YouTube player for radio station');
-      audioPlayer.handleFloatingYouTubeClose();
+      const wasClosed = audioPlayer.safeCloseFloatingYouTube('radio station selected');
+      if (wasClosed) {
+        console.log('🛑 Closed floating YouTube player for radio station (auto-close enabled)');
+      } else {
+        console.log('🔧 Auto-close disabled - keeping floating YouTube player open while playing radio');
+      }
     }
     
     // If ad break is active, the playRadio function will automatically queue it
@@ -317,11 +329,12 @@ function App() {
   useEffect(() => {
     localStorage.setItem('visualizer_type', visualizerType);
   }, [visualizerType]);
-    useEffect(() => {
-    localStorage.setItem('visualizer_blur', visualizerBlur.toString());
-    // Update CSS custom property for dynamic blur
-    document.documentElement.style.setProperty('--visualizer-blur', `${visualizerBlur}px`);
-  }, [visualizerBlur]);
+  
+  // Save auto-close overlays setting to localStorage
+  useEffect(() => {
+    localStorage.setItem('auto_close_overlays', JSON.stringify(autoCloseOverlays));
+  }, [autoCloseOverlays]);
+
   // Scroll detection for visualizer placement
   useEffect(() => {
     const handleScroll = () => {
@@ -452,6 +465,9 @@ function App() {
               visualizerType={visualizerType}
               onVisualizerTypeChange={setVisualizerType}              visualizerBlur={visualizerBlur}
               onVisualizerBlurChange={setVisualizerBlur}
+              // ✅ NEW: Auto-close overlays setting
+              autoCloseOverlays={autoCloseOverlays}
+              onAutoCloseOverlaysChange={setAutoCloseOverlays}
               // ✅ NEW: Simple nonstop cycling button state
               setIsNonstopModeManuallyActive={adBreakTimer.setIsNonstopModeManuallyActive}
             />

@@ -18,6 +18,7 @@ import { stationReportingService } from '../utils/stationReporting';
 import { extractPlaylistId } from '../utils/youtubeUtils';
 import { AudioOnlyPlayer } from '../utils/audioOnlyPlayer';
 import { popupYouTubePlayer } from '../utils/popupYouTubePlayer';
+import { syncLofiVolume } from '../utils/lofiUtils';
 
 // Production-specific error handling for Spotify CloudPlaybackClientError 404
 const handleSpotifyProductionErrors = (error) => {
@@ -50,7 +51,7 @@ const handleSpotifyProductionErrors = (error) => {
   return error;
 };
 
-export const useAudioPlayer = (playlistProvider = 'spotify') => {
+export const useAudioPlayer = (playlistProvider = 'spotify', autoCloseOverlays = true) => {
   const [currentStation, setCurrentStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
@@ -192,7 +193,6 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     lastAppliedVolumeRef.current = safeVolume;
   }, [volume, currentSource, currentPlaylistProvider, enforceSpotifyVolumeSync]);
-
   // ✅ CRITICAL FIX: Enhanced setVolume with source switching protection
   const setVolumeWithEnforcement = useCallback((newVolume) => {
     const safeVolume = Math.max(0, Math.min(1, newVolume));
@@ -210,6 +210,13 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     // Only apply to currently active source
     enforceVolumeSync(safeVolume, false); // Don't force sync to inactive sources
+
+    // ✅ NEW: Sync volume with lofi overlay if it's open
+    try {
+      syncLofiVolume(safeVolume);
+    } catch (error) {
+      console.warn('Could not sync lofi volume:', error);
+    }
 
   }, [enforceVolumeSync, currentSource]);
 
@@ -634,12 +641,10 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       await window.stopAllManualModes();
     } else if (options.isNonstopRotation) {
       console.log('🔄 Nonstop rotation - preserving manual nonstop mode');
-    }
-
-    // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts
+    }    // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts
     if (currentSource === 'playlist' || (currentSource === 'radio' && !isRadioPausedForAdBreak)) {
       console.log('🛑 Stopping current audio sources before radio');
-      forceStopAllAudio('switching to radio');
+      forceStopAllAudio('switching to radio', autoCloseOverlays);
       // Small delay to ensure cleanup completes
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -1083,7 +1088,11 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       }
     }
   }, [isRadioPausedForAdBreak, pausedRadioStation, playRadio, currentStation]);  // ✅ ENHANCED: Robust force stop all audio function with comprehensive cleanup
-  const forceStopAllAudio = useCallback((reason = 'manual') => {    console.log(`🛑 FORCE STOPPING ALL AUDIO (${reason})`);
+  const forceStopAllAudio = useCallback((reason = 'manual', shouldCloseOverlays = null) => {
+    // If shouldCloseOverlays is not explicitly set, use the autoCloseOverlays setting
+    const closeOverlays = shouldCloseOverlays !== null ? shouldCloseOverlays : autoCloseOverlays;
+
+    console.log(`🛑 FORCE STOPPING ALL AUDIO (${reason}) - closeOverlays: ${closeOverlays}`);
     
     // ✅ FIX: Preserve ad break radio state when switching to playlist
     const preserveAdBreakState = (reason === 'switching to playlist' && window.isAdBreakActive) || 
@@ -1118,11 +1127,12 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       } catch (error) {
         console.warn('Could not stop YouTube player:', error);
       }
-    }
-      // ✅ ENHANCED: Stop floating YouTube player with explicit close handler
+    }    // ✅ ENHANCED: Stop floating YouTube player (only if auto-close enabled)
     if (showFloatingYouTube) {
-      console.log('🛑 Closing floating YouTube player via forceStopAllAudio');
-      handleFloatingYouTubeClose(); // Use the proper close handler instead of direct state changes
+      const wasClosed = safeCloseFloatingYouTube('forceStopAllAudio');
+      if (!wasClosed) {
+        console.log('🔧 Floating YouTube player kept open due to auto-close setting');
+      }
     }
 
     // Stop Spotify
@@ -1174,14 +1184,12 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     if (preserveAdBreakState) {
       console.log('🎵 Ad break radio state preserved for later resume');
     }
-  }, [currentConnectionAttempt, isRadioPausedForAdBreak]);
+  }, [currentConnectionAttempt, isRadioPausedForAdBreak, autoCloseOverlays, showFloatingYouTube]);
   const playPlaylist = useCallback(async (playlistId, options = {}) => {
     const provider = options.provider || currentPlaylistProvider;
-    console.log('🎵 Starting playlist:', playlistId, 'Provider:', provider);
-
-    // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts
+    console.log('🎵 Starting playlist:', playlistId, 'Provider:', provider);    // ✅ CRITICAL: Always stop all audio sources first to prevent conflicts
     console.log('🛑 Stopping all audio sources before playlist');
-    forceStopAllAudio('switching to playlist');
+    forceStopAllAudio('switching to playlist', autoCloseOverlays);
     
     // Small delay to ensure cleanup completes
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -1550,10 +1558,9 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
 
     return newVolume;
   }, [currentSource]);
-
   // ✅ NEW: Floating YouTube player handlers
   const handleFloatingYouTubeClose = useCallback(() => {
-    console.log('🎵 Floating YouTube player closed');
+    console.log('🎵 Floating YouTube player closed by user');
     setShowFloatingYouTube(false);
     setFloatingYouTubePlaylistId(null);
     setIsPlaying(false);
@@ -1572,6 +1579,19 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
       window.addNotification('🎵 YouTube afspeellijst beëindigd', 'info', 2000);
     }
   }, [isRadioPausedForAdBreak, pausedRadioStation, resumeRadioFromAdBreak]);
+
+  // ✅ NEW: Safe floating YouTube close that respects auto-close setting
+  const safeCloseFloatingYouTube = useCallback((reason = 'system') => {
+    if (!autoCloseOverlays) {
+      console.log(`🔧 Auto-close disabled - NOT closing floating YouTube player (${reason})`);
+      return false; // Indicate that close was prevented
+    }
+    
+    console.log(`🛑 Auto-close enabled - closing floating YouTube player (${reason})`);
+    setShowFloatingYouTube(false);
+    setFloatingYouTubePlaylistId(null);
+    return true; // Indicate that close was performed
+  }, [autoCloseOverlays]);
 
   const handleFloatingYouTubeVolumeChange = useCallback((newVolume) => {
     setFloatingYouTubeVolume(newVolume);
@@ -1646,13 +1666,13 @@ export const useAudioPlayer = (playlistProvider = 'spotify') => {
     currentPlaylistProvider,
     spotifyPlayerReady,
     manualInitializeSpotifyPlayer,
-    forceUpdateCounter,
-    // ✅ NEW: Floating YouTube player state and handlers
+    forceUpdateCounter,    // ✅ NEW: Floating YouTube player state and handlers
     showFloatingYouTube,
     floatingYouTubePlaylistId,
     floatingYouTubeVolume,
     floatingYouTubeShuffle,
     handleFloatingYouTubeClose,
+    safeCloseFloatingYouTube,
     handleFloatingYouTubeVolumeChange,
     handleFloatingYouTubeShuffleChange,
   };

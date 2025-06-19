@@ -661,7 +661,7 @@ const AudioPlayer = ({
                       <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                       <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                     </svg>                    <span>
-                      {nextCommunityTiming ? 'Community pauze wisseling in:' : 'Switching naar pauze:'}
+                      {nextCommunityTiming ? 'Community pauze wisseling in:' : 'Switch naar pauze over:'}
                     </span>                    <span className={`font-mono text-white px-2 py-1 rounded ${
                       nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
                     }`}>
@@ -691,7 +691,7 @@ const AudioPlayer = ({
                         className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
                         title="1 minuut langer wachten"
                       >
-                        +1min
+                         +1 min
                       </button>
                     </div>
                   )}
