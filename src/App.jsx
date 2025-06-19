@@ -398,7 +398,7 @@ function App() {
           {/* Banner Content */}
           <div className="text-center banner-text">
             <h1 className="text-3xl md:text-4xl font-bold mb-3 banner-title bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Nederlandse Radio / Af Switcher
+              Nederlandse Radio / Playlist Switcher
             </h1>
             <h2 className="text-2xl md:text-2xl font-semibold text-gray-300">
               Automatische reclamepauze wisseling
@@ -538,6 +538,10 @@ function App() {
             isManualTestActive={adBreakTimer.isManualTestActive}
             // ✅ NEW: Simple state for nonstop cycling button
             isNonstopModeManuallyActive={adBreakTimer.isNonstopModeManuallyActive}
+            // ✅ NEW: Manual timer control functions
+            onJumpToSwitchNow={adBreakTimer.jumpToSwitchNow}
+            onSkipCurrentSwitch={adBreakTimer.skipCurrentSwitch}
+            onAddOneMinute={adBreakTimer.addOneMinute}
           />
           </div>
         </div>

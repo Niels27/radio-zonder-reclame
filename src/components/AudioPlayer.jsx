@@ -17,17 +17,23 @@ const AudioPlayer = ({
   error,
   playlistShuffle,
   onToggleShuffle,
-  onNextTrack,
-  playlistInfo,  // queuedStation and onCancelQueuedSwitch removed - queue system disabled  
+  onNextTrack,  playlistInfo,  // queuedStation and onCancelQueuedSwitch removed - queue system disabled  
   adBreakMode,           // ✅ NEW: Add ad break mode prop
-  onRotateNonstopStation, // ✅ NEW: Add rotation callback prop  useCommunityTimings,    // ✅ NEW: Add community timings flag prop
+  onRotateNonstopStation, // ✅ NEW: Add rotation callback prop
+  useCommunityTimings,    // ✅ NEW: Add community timings flag prop
   currentAdBreakUsedCommunityTiming = false, // ✅ NEW: Track if current ad break used community timing
   nextCommunityTiming,    // ✅ NEW: Add community timing metadata prop
   isRadioPausedForAdBreak, // ✅ NEW: Add paused radio state prop
   pausedRadioStation,      // ✅ NEW: Add paused radio station prop
   isManualTestActive,       // ✅ NEW: Add manual test state prop
-  isNonstopModeManuallyActive // ✅ NEW: Simple state for nonstop cycling button
+  isNonstopModeManuallyActive, // ✅ NEW: Simple state for nonstop cycling button
+  // ✅ NEW: Manual timer control functions
+  onJumpToSwitchNow,
+  onSkipCurrentSwitch,
+  onAddOneMinute
 }) => {
+  // ✅ FIX: Add safety check for pausedRadioStation prop
+  const safePausedRadioStation = pausedRadioStation || null;
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
   const [isVolumeChanging, setIsVolumeChanging] = useState(false);
@@ -489,15 +495,13 @@ const AudioPlayer = ({
                           <span className="text-gray-300">({playlistInfo.videoCount})</span>
                         )}
                       </span>
-                    )}
-
-                    {/* ✅ NEW: Radio "On Hold" indicator during ad break */}
-                    {isAdBreakActive && isRadioPausedForAdBreak && pausedRadioStation && (
+                    )}                    {/* ✅ NEW: Radio "On Hold" indicator during ad break */}
+                    {isAdBreakActive && isRadioPausedForAdBreak && safePausedRadioStation && (
                       <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1 animate-pulse">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                         </svg>
-                        <span>Radio wacht: {pausedRadioStation.name}</span>
+                        <span>Radio wacht: {safePausedRadioStation?.name || 'Onbekend'}</span>
                       </span>
                     )}{/* Community Timing Report Button - Single button with hover bubble */}
                     {currentSource === 'radio' && currentStation && (
@@ -592,24 +596,52 @@ const AudioPlayer = ({
               </div>
             )}            {/* Ad Break Status - ENHANCED with timer and cancel button */}
             {isAdBreakActive ? (
-              <div className="flex items-center space-x-3">
-                {/* Timer Display with Cancel Button */}
+              <div className="flex items-center space-x-3">                {/* Timer Display with Cancel Button */}
                 {currentAdBreakTimeLeft !== null ? (
-                  <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+                  <div className={`hidden sm:flex flex-col items-center space-y-2 text-sm ${
                     currentAdBreakUsedCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
                   }`}>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                    </svg>
-                    <span>
-                      {currentAdBreakUsedCommunityTiming ? 'Community switch naar radio over:' : 'Switch terug naar radio over:'}
-                    </span>
-                    <span className={`font-mono text-white px-2 py-1 rounded ${
-                      currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
-                    }`}>
-                      {formatAdBreakTimer(currentAdBreakTimeLeft)}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                        <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                      </svg>
+                      <span>
+                        {currentAdBreakUsedCommunityTiming ? 'Community switch naar radio over:' : 'Switch terug naar radio over:'}
+                      </span>
+                      <span className={`font-mono text-white px-2 py-1 rounded ${
+                        currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
+                      }`}>
+                        {formatAdBreakTimer(currentAdBreakTimeLeft)}
+                      </span>
+                    </div>
+                    
+                    {/* ✅ NEW: Timer Control Buttons */}
+                    {onJumpToSwitchNow && onSkipCurrentSwitch && onAddOneMinute && (
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={onJumpToSwitchNow}
+                          className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                          title="Direct terugschakelen naar radio"
+                        >
+                          Nu switchen
+                        </button>
+                        <button
+                          onClick={onSkipCurrentSwitch}
+                          className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
+                          title="Niet meer terugschakelen"
+                        >
+                          Niet terug switchen
+                        </button>
+                        <button
+                          onClick={onAddOneMinute}
+                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          title="1 minuut langer wachten"
+                        >
+                          +1min
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                 ) : (
@@ -621,20 +653,48 @@ const AudioPlayer = ({
                     <span>Reclamepauze Actief</span>
                   </div>
                 )}
-              </div>
-            ) : (              nextAdBreakIn && (                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+              </div>            ) : (              nextAdBreakIn && (                <div className={`hidden sm:flex flex-col items-center space-y-2 text-sm ${
                   nextCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
                 }`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-                    <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                  </svg>                  <span>
-                    {nextCommunityTiming ? 'Community pauze wisseling in:' : 'Pauze wisseling in:'}
-                  </span>                  <span className={`font-mono text-white px-2 py-1 rounded ${
-                    nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
-                  }`}>
-                    {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn) : nextAdBreakIn}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                    </svg>                    <span>
+                      {nextCommunityTiming ? 'Community pauze wisseling in:' : 'Switching naar pauze:'}
+                    </span>                    <span className={`font-mono text-white px-2 py-1 rounded ${
+                      nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
+                    }`}>
+                      {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn) : nextAdBreakIn}
+                    </span>
+                  </div>
+                  
+                  {/* ✅ NEW: Timer Control Buttons for normal countdown */}
+                  {onJumpToSwitchNow && onSkipCurrentSwitch && onAddOneMinute && (
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={onJumpToSwitchNow}
+                        className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                        title="Direct naar reclamepauze"
+                      >
+                        Nu switchen
+                      </button>
+                      <button
+                        onClick={onSkipCurrentSwitch}
+                        className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
+                        title="Deze pauze overslaan"
+                      >
+                        Skip switch
+                      </button>
+                      <button
+                        onClick={onAddOneMinute}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                        title="1 minuut langer wachten"
+                      >
+                        +1min
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             )}            {/* Rotation Button for Nonstop Mode - Show during any nonstop mode */}

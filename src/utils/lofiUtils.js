@@ -46,7 +46,6 @@ export const getNextLofiStream = () => {
   } catch (error) {
     console.warn('Failed to get custom lofi URL:', error);
   }
-
   // Fall back to default streams
   let attempts = 0;
   let stream = null;
@@ -55,7 +54,7 @@ export const getNextLofiStream = () => {
     stream = LOFI_STREAMS[currentLofiIndex];
     currentLofiIndex = (currentLofiIndex + 1) % LOFI_STREAMS.length;
     
-    if (!failedStreams.has(stream.name) || attempts === LOFI_STREAMS.length - 1) {
+    if (!failedStreams.has(stream.url) || attempts === LOFI_STREAMS.length - 1) {
       break;
     }
     
@@ -65,9 +64,9 @@ export const getNextLofiStream = () => {
   return stream;
 };
 
-export const markLofiStreamAsFailed = (streamName) => {
-  console.log(`🚫 Marking lofi stream as failed: ${streamName}`);
-  failedStreams.add(streamName);
+export const markLofiStreamAsFailed = (streamUrl) => {
+  console.log(`🚫 Marking lofi stream as failed: ${streamUrl}`);
+  failedStreams.add(streamUrl);
   
   if (failedStreams.size >= LOFI_STREAMS.length * 0.8) {
     console.log('🔄 Too many failed lofi streams, resetting failed list');
@@ -489,9 +488,7 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       container.appendChild(iframe);
       container.appendChild(timerDisplay);
       
-      overlay.appendChild(container);
-
-      // ✅ Add to DOM
+      overlay.appendChild(container);      // ✅ Add to DOM
       document.body.appendChild(overlay);
       
       // ✅ Store reference and global functions
@@ -499,7 +496,9 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       window.currentLofiOverlay = overlay;
       window.closeLofiOverlay = closeOverlay;
       window.minimizeLofiOverlay = minimizeOverlay;
-      window.maximizeLofiOverlay = maximizeOverlay;
+      window.maximizeLofiOverlay = maximizeOverlay;      // ✅ Start minimized immediately for less intrusive experience
+      minimizeOverlay();
+      console.log('🎵 Lofi overlay started in minimized mode');
 
       console.log('🎵 Lofi overlay created successfully');
       resolve(overlay);
