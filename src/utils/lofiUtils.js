@@ -158,424 +158,267 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         return;
       }
 
-      // ✅ Create overlay container
+      // ✅ Display mode management
+      let displayMode = 'medium'; // minimized, medium, maximized
+      let isPlaying = true;
+      let isMuted = false;
+
+      // Common button style
+      const buttonStyle = "width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; font-weight: bold; transition: all 0.2s; cursor: pointer; border: none; color: white;";
+
+      // Create main overlay container
       const overlay = document.createElement('div');
       overlay.id = 'lofi-overlay';
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        backdrop-filter: blur(5px);
-        transition: all 0.3s ease;
-      `;
-
-      // ✅ Create video container
-      const container = document.createElement('div');
-      container.style.cssText = `
-        background: #1f2937;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        position: relative;
-        max-width: 100vw;
-        max-height: 90vh;
-        transition: all 0.3s ease;
-      `;
-
-      // ✅ Create header with title and buttons
-      const header = document.createElement('div');
-      header.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        color: white;
-      `;
-
-      const title = document.createElement('h3');
-      title.textContent = 'Lofi Girl - Study Stream';
-      title.style.cssText = `
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-      `;
-
-      // ✅ Create button container
-      const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = `
-        display: flex;
-        gap: 10px;
-        align-items: center;
-      `;
-
-      // ✅ Create minimize button
-      const minimizeButton = document.createElement('button');
-      minimizeButton.innerHTML = '−';
-      minimizeButton.style.cssText = `
-        background: #3b82f6;
-        border: none;
-        color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 18px;
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-      `;
       
-      minimizeButton.onmouseover = () => {
-        minimizeButton.style.background = '#2563eb';
-        minimizeButton.style.transform = 'scale(1.1)';
-      };
-      minimizeButton.onmouseout = () => {
-        minimizeButton.style.background = '#3b82f6';
-        minimizeButton.style.transform = 'scale(1)';
-      };
-
-      // ✅ Create close button
-      const closeButton = document.createElement('button');
-      closeButton.innerHTML = '✕';
-      closeButton.style.cssText = `
-        background: #ef4444;
-        border: none;
-        color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-      `;
-      
-      closeButton.onmouseover = () => {
-        closeButton.style.background = '#dc2626';
-        closeButton.style.transform = 'scale(1.1)';
-      };
-      closeButton.onmouseout = () => {
-        closeButton.style.background = '#ef4444';
-        closeButton.style.transform = 'scale(1)';
-      };      // ✅ Create iframe for YouTube with volume support
+      // Create iframe
       const iframe = document.createElement('iframe');
       const volumePercent = Math.round(currentLofiVolume * 100);
       const youtubeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}&enablejsapi=1&volume=${volumePercent}`;
       iframe.src = youtubeUrl;
-      iframe.style.cssText = `
-        width: 800px;
-        height: 450px;
-        border: none;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-      `;
       iframe.allow = 'autoplay; encrypted-media';
+      iframe.style.cssText = 'border: none; background: black; border-radius: 8px;';
       
-      // ✅ Store iframe reference for volume control
-      lofiIframeRef = iframe;      // ✅ Create timer display with volume indicator
-      const timerDisplay = document.createElement('div');
-      timerDisplay.style.cssText = `
-        margin-top: 15px;
-        text-align: center;
-        color: #9ca3af;
-        font-size: 14px;
-        transition: all 0.3s ease;
-      `;
-      
-      // ✅ NEW: Update timer display to show volume
-      const updateTimerDisplay = (timeText = '') => {
-        const volumeText = `🔊 ${Math.round(currentLofiVolume * 100)}%`;
-        if (timeText) {
-         // timerDisplay.innerHTML = `${timeText}<br><span style="font-size: 12px; opacity: 0.7;">${volumeText}</span>`;
-        } else {
-         // timerDisplay.innerHTML = `<span style="font-size: 12px; opacity: 0.7;">${volumeText}</span>`;
-        }
-      };
-      
-      // Initial display
-      updateTimerDisplay();
-
-      // Store reference for volume control
       lofiIframeRef = iframe;
 
-      // ✅ MINIMIZE FUNCTIONALITY
-      let isMinimized = false;
-      
-      const minimizeOverlay = () => {
-        if (isMinimized) return;
-        
-        console.log('🎵 Minimizing Lofi overlay');
-        isMinimized = true;
-        
-        // Change overlay to bottom-right corner
-        overlay.style.cssText = `
-          position: fixed;
-          bottom: 100px;
-          right: 20px;
-          width: 400px;
-          height: 350px;
-          background: transparent;
-          z-index: 10000;
-          backdrop-filter: none;
-          transition: all 0.3s ease;
-          cursor: pointer;
-        `;
-        
-        // Change container to compact style
-        container.style.cssText = `
-          background: #1f2937;
-          border-radius: 12px;
-          padding: 10px;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-          position: relative;
-          width: 100%;
-          height: 100%;
-          border: 2px solid #3b82f6;
-          transition: all 0.3s ease;
-        `;
-        
-        // Update header
-        header.style.cssText = `
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-          color: white;
-        `;
-        
-        // Update title
-        title.style.cssText = `
-          margin: 0;
-          font-size: 12px;
-          font-weight: 600;
-          color: #93c5fd;
-        `;
-        title.textContent = 'Lofi Girl';
-        
-        // Change minimize button to expand button
-        minimizeButton.innerHTML = '□';
-        minimizeButton.title = 'Maximize';
-        
-        // Update iframe to smaller size
-        iframe.style.cssText = `
-          width: 100%;
-          height: 140px;
-          border: none;
-          border-radius: 6px;
-          transition: all 0.3s ease;
-        `;
-        
-        // Update timer display
-        timerDisplay.style.cssText = `
-          margin-top: 5px;
-          text-align: center;
-          color: #6b7280;
-          font-size: 10px;
-          transition: all 0.3s ease;
-        `;
-        
-        // Remove backdrop click to minimize (only works in fullscreen)
-        overlay.onclick = null;
-        
-        // Add click to maximize
-        container.onclick = (e) => {
-          if (e.target === container || e.target === iframe) {
-            maximizeOverlay();
-          }
-        };
-      };
-      
-      const maximizeOverlay = () => {
-        if (!isMinimized) return;
-        
-        console.log('🎵 Maximizing Lofi overlay');
-        isMinimized = false;
-        
-        // Restore original overlay style
-        overlay.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.8);
-          z-index: 10000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          backdrop-filter: blur(5px);
-          transition: all 0.3s ease;
-        `;
-        
-        // Restore original container style
-        container.style.cssText = `
-          background: #1f2937;
-          border-radius: 12px;
-          padding: 20px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-          position: relative;
-          max-width: 90vw;
-          max-height: 90vh;
-          transition: all 0.3s ease;
-        `;
-        
-        // Restore header
-        header.style.cssText = `
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 15px;
-          color: white;
-        `;
-        
-        // Restore title
-        title.style.cssText = `
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-        `;
-        title.textContent = 'Lofi Girl - Study Stream';
-        
-        // Change expand button back to minimize button
-        minimizeButton.innerHTML = '−';
-        minimizeButton.title = 'Minimize';
-        
-        // Restore iframe
-        iframe.style.cssText = `
-          width: 800px;
-          height: 450px;
-          border: none;
-          border-radius: 8px;
-          transition: all 0.3s ease;
-        `;
-        
-        // Restore timer display
-        timerDisplay.style.cssText = `
-          margin-top: 15px;
-          text-align: center;
-          color: #9ca3af;
-          font-size: 14px;
-          transition: all 0.3s ease;
-        `;
-        
-        // Restore backdrop click to minimize
-        overlay.onclick = (e) => {
-          if (e.target === overlay) minimizeOverlay();
-        };
-        
-        // Remove container click
-        container.onclick = null;
+      // Mode switching functions
+      const setModeMinimized = () => {
+        displayMode = 'minimized';
+        updateDisplay();
       };
 
-      // ✅ Close function that we control
+      const setModeMedium = () => {
+        displayMode = 'medium';
+        updateDisplay();
+      };
+
+      const setModeMaximized = () => {
+        displayMode = 'maximized';
+        updateDisplay();
+      };
+
+      // Control functions
+      const togglePlayPause = () => {
+        isPlaying = !isPlaying;
+        try {
+          if (iframe.contentWindow) {
+            const message = isPlaying ? 
+              '{"event":"command","func":"playVideo","args":""}' :
+              '{"event":"command","func":"pauseVideo","args":""}';
+            iframe.contentWindow.postMessage(message, '*');
+          }
+        } catch (e) {
+          // CORS limitations
+        }
+        updateDisplay();
+      };
+
+      const toggleMute = () => {
+        isMuted = !isMuted;
+        try {
+          if (iframe.contentWindow) {
+            const volume = isMuted ? 0 : Math.round(currentLofiVolume * 100);
+            const message = `{"event":"command","func":"setVolume","args":[${volume}]}`;
+            iframe.contentWindow.postMessage(message, '*');
+          }
+        } catch (e) {
+          // CORS limitations
+        }
+        updateDisplay();
+      };
+
+      const handleVolumeChange = (newVolume) => {
+        currentLofiVolume = newVolume / 100;
+        isMuted = false;
+        syncLofiVolume(currentLofiVolume);
+        updateDisplay();
+      };
+
+      // Settings panel toggle
+      let showSettings = false;
+      const toggleSettings = () => {
+        showSettings = !showSettings;
+        updateDisplay();
+      };
+
+      // Close function
       const closeOverlay = () => {
         console.log('🎵 Closing Lofi overlay');
         if (overlay && document.body.contains(overlay)) {
           document.body.removeChild(overlay);
         }
         currentLofiOverlay = null;
-        window.currentLofiOverlay = null;
-        
-        // Clear timer if exists
+        lofiIframeRef = null;
         if (window.lofiOverlayTimer) {
           clearInterval(window.lofiOverlayTimer);
           window.lofiOverlayTimer = null;
         }
       };
 
-      // ✅ Set up button handlers
-      minimizeButton.onclick = (e) => {
-        e.stopPropagation();
-        if (isMinimized) {
-          maximizeOverlay();
-        } else {
-          minimizeOverlay();
-        }
-      };
-      
-      closeButton.onclick = (e) => {
-        e.stopPropagation();
-        closeOverlay();
-      };
-      
-      // ✅ Initial backdrop click to minimize (only in fullscreen mode)
-      overlay.onclick = (e) => {
-        if (e.target === overlay && !isMinimized) {
-          minimizeOverlay();
-        }
-      };
-
-      // ✅ ESC key handler
-      const handleEscape = (e) => {
-        if (e.key === 'Escape') {
-          if (isMinimized) {
+      // Timer management
+      let timeLeft = duration ? duration * 60 : null;
+      const updateTimer = () => {
+        if (timeLeft !== null) {
+          if (timeLeft <= 0) {
             closeOverlay();
-          } else {
-            minimizeOverlay();
+            return;
           }
-          document.removeEventListener('keydown', handleEscape);
-        }
-      };
-      document.addEventListener('keydown', handleEscape);
-
-      // ✅ Auto-close timer (optional)
-      if (duration && duration > 0) {
-        let timeLeft = duration * 60; // Convert to seconds
-          const updateTimer = () => {
-          const minutes = Math.floor(timeLeft / 60);
-          const seconds = timeLeft % 60;
-          const timeText = `Auto-close in ${minutes}:${seconds.toString().padStart(2, '0')}`;
-          updateTimerDisplay(timeText);
           timeLeft--;
-          
-          if (timeLeft < 0) {
-            console.log('🎵 Auto-closing Lofi overlay after timer');
-            closeOverlay();
-          }
-        };
-        
-        updateTimer(); // Initial update
+        }
+      };
+
+      if (timeLeft !== null) {
         window.lofiOverlayTimer = setInterval(updateTimer, 1000);
-      } else {
-       //timerDisplay.textContent = 'Playing until manually closed';
       }
 
-      // ✅ Assemble the overlay
-      buttonContainer.appendChild(minimizeButton);
-      buttonContainer.appendChild(closeButton);
-      
-      header.appendChild(title);
-      header.appendChild(buttonContainer);
-      
-      container.appendChild(header);
-      container.appendChild(iframe);
-      container.appendChild(timerDisplay);
-      
-      overlay.appendChild(container);      // ✅ Add to DOM
+      // Main update display function
+      const updateDisplay = () => {
+        if (displayMode === 'minimized') {
+          // MINIMIZED MODE - Footer bar (RIGHT side, footer level) - MATCH YouTube positioning EXACTLY
+          overlay.style.cssText = 
+            'position: fixed; bottom: 17px; right: 8px; width: 350px; height: 48px; background: #111827; border-radius: 8px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #374151; z-index: 100; transition: all 0.3s ease; overflow: hidden;';
+
+          overlay.innerHTML = 
+            '<!-- Hidden iframe for audio continuity -->' +
+            '<iframe src="' + youtubeUrl + '" allow="autoplay; encrypted-media" style="position: absolute; top: -400px; left: -400px; width: 400px; height: 300px; border: none; pointer-events: none;"></iframe>' +
+            '<div style="height: 100%; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; color: white;">' +
+              '<div style="display: flex; align-items: center; gap: 8px; flex: 1;">' +
+                '<div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>' +
+                '<span style="font-size: 12px; font-weight: 600; color: white;">🎵 Lofi Girl</span>' +
+              '</div>' +
+              '<div style="display: flex; align-items: center; gap: 8px;">' +
+                '<button id="lofi-play-btn" style="' + buttonStyle + '; background: ' + (isPlaying ? '#059669' : '#6b7280') + ';" title="' + (isPlaying ? 'Pauzeren' : 'Afspelen') + '">' +
+                  (isPlaying ? '⏸' : '▶') +
+                '</button>' +
+                '<button id="lofi-mute-btn" style="' + buttonStyle + '; background: ' + (isMuted ? '#dc2626' : '#3b82f6') + ';" title="' + (isMuted ? 'Geluid aan' : 'Dempen') + '">' +
+                  (isMuted ? '🔇' : '🔊') +
+                '</button>' +
+                '<div style="width: 48px; margin: 0 4px;">' +
+                  '<input type="range" id="lofi-volume" min="0" max="100" value="' + (isMuted ? 0 : Math.round(currentLofiVolume * 100)) + '" style="width: 100%; height: 4px; background: #6b7280; border-radius: 2px; outline: none; cursor: pointer;" />' +
+                '</div>' +
+              '</div>' +
+              '<div style="display: flex; align-items: center; gap: 4px;">' +
+                '<button id="lofi-min-btn" style="' + buttonStyle + '; background: #3b82f6;" title="Minimaal (huidig)">_</button>' +
+                '<button id="lofi-med-btn" style="' + buttonStyle + '; background: #6b7280;" title="Medium weergave">⧉</button>' +
+                '<button id="lofi-max-btn" style="' + buttonStyle + '; background: #6b7280;" title="Maximaliseren">⧈</button>' +
+                '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
+              '</div>' +
+            '</div>';
+
+        } else if (displayMode === 'maximized') {
+          // MAXIMIZED MODE - Full screen overlay
+          overlay.style.cssText = 
+            'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); transition: all 0.3s ease;';
+
+          const timerText = timeLeft !== null ? 
+            'Auto-close in ' + Math.floor(timeLeft / 60) + ':' + (timeLeft % 60).toString().padStart(2, '0') : 
+            '';
+
+          overlay.innerHTML = 
+            '<div style="background: #111827; border-radius: 12px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); max-width: 95vw; max-height: 95vh; overflow: hidden; border: 1px solid #374151;">' +
+              '<div style="background: #1f2937; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; color: white; margin-bottom: 16px; border-radius: 8px;">' +
+                '<div style="display: flex; align-items: center; gap: 12px;">' +
+                  '<div style="width: 12px; height: 12px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>' +
+                  '<span style="font-size: 18px; font-weight: 600;">🎵 Lofi Girl</span>' +
+                '</div>' +
+                '<div style="display: flex; align-items: center; gap: 8px;">' +
+                  '<button id="lofi-min-btn" style="' + buttonStyle + '; background: #6b7280;" title="Minimaliseren">_</button>' +
+                  '<button id="lofi-med-btn" style="' + buttonStyle + '; background: #6b7280;" title="Medium weergave">⧉</button>' +
+                  '<button id="lofi-max-btn" style="' + buttonStyle + '; background: #3b82f6;" title="Maximaal (huidig)">⧈</button>' +
+                  '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
+                '</div>' +
+              '</div>' +
+              (showSettings ? 
+                '<div style="background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 16px;">' +
+                  '<div style="color: #d1d5db; font-size: 14px; margin-bottom: 8px;">Lofi Girl instellingen - <span style="color: #60a5fa;">Study Stream actief</span></div>' +
+                  '<div style="color: #9ca3af; font-size: 12px;">Volume wordt gesynchroniseerd met hoofdvolume</div>' +
+                '</div>' : '') +
+              '<div style="position: relative; width: 900px; height: 500px;">' +
+                '<div id="lofi-iframe-container" style="width: 100%; height: 100%;"></div>' +
+              '</div>' +
+              (timerText ? 
+                '<div style="margin-top: 15px; text-align: center; color: #9ca3af; font-size: 14px;">' +
+                  timerText + '<br>' +
+                  '<span style="font-size: 12px; opacity: 0.7;">🔊 ' + Math.round(currentLofiVolume * 100) + '%</span>' +
+                '</div>' : 
+                '<div style="margin-top: 15px; text-align: center; color: #9ca3af; font-size: 14px;">' +
+                  '<span style="font-size: 12px; opacity: 0.7;">🔊 ' + Math.round(currentLofiVolume * 100) + '%</span>' +
+                '</div>') +
+            '</div>';
+
+        } else {
+          // MEDIUM MODE - Default floating player (right side)
+          overlay.style.cssText = 
+            'position: fixed; bottom: 80px; right: 20px; width: 384px; height: 320px; background: #111827; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #374151; z-index: 10000; transition: all 0.3s ease; overflow: hidden;';
+
+          overlay.innerHTML = 
+            '<div style="background: #1f2937; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; color: white;">' +
+              '<div style="display: flex; align-items: center; gap: 8px; flex: 1;">' +
+                '<div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>' +
+                '<span style="font-size: 14px; font-weight: 600;">🎵 Lofi Girl</span>' +
+              '</div>' +
+              '<div style="display: flex; align-items: center; gap: 4px;">' +
+                '<button id="lofi-min-btn" style="' + buttonStyle + '; background: #6b7280;" title="Minimaliseren">_</button>' +
+                '<button id="lofi-med-btn" style="' + buttonStyle + '; background: #3b82f6;" title="Medium (huidig)">⧉</button>' +
+                '<button id="lofi-max-btn" style="' + buttonStyle + '; background: #6b7280;" title="Maximaliseren">⧈</button>' +
+                '<button id="lofi-settings-btn" style="' + buttonStyle + '; background: #d97706;" title="Instellingen">⚙️</button>' +
+                '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
+              '</div>' +
+            '</div>' +
+            (showSettings ? 
+              '<div style="background: #1f2937; border-top: 1px solid #374151; padding: 8px;">' +
+                '<div style="color: #d1d5db; font-size: 12px; margin-bottom: 4px;">Lofi Girl - <span style="color: #60a5fa;">Study Stream</span></div>' +
+                '<div style="color: #9ca3af; font-size: 10px;">Volume sync met hoofdvolume actief</div>' +
+              '</div>' : '') +
+            '<div style="position: relative; height: ' + (showSettings ? '220px' : '280px') + ';">' +
+              '<div id="lofi-iframe-container" style="width: 100%; height: 100%;"></div>' +
+            '</div>';
+        }
+
+        // Add iframe to container
+        const iframeContainer = overlay.querySelector('#lofi-iframe-container');
+        if (iframeContainer) {
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframeContainer.appendChild(iframe);
+        }
+
+        // Add event listeners
+        const playBtn = overlay.querySelector('#lofi-play-btn');
+        const muteBtn = overlay.querySelector('#lofi-mute-btn');
+        const volumeSlider = overlay.querySelector('#lofi-volume');
+        const minBtn = overlay.querySelector('#lofi-min-btn');
+        const medBtn = overlay.querySelector('#lofi-med-btn');
+        const maxBtn = overlay.querySelector('#lofi-max-btn');
+        const settingsBtn = overlay.querySelector('#lofi-settings-btn');
+        const closeBtn = overlay.querySelector('#lofi-close-btn');
+
+        if (playBtn) playBtn.onclick = togglePlayPause;
+        if (muteBtn) muteBtn.onclick = toggleMute;
+        if (volumeSlider) {
+          volumeSlider.oninput = (e) => handleVolumeChange(parseInt(e.target.value));
+        }
+        if (minBtn) minBtn.onclick = setModeMinimized;
+        if (medBtn) medBtn.onclick = setModeMedium;
+        if (maxBtn) maxBtn.onclick = setModeMaximized;
+        if (settingsBtn) settingsBtn.onclick = toggleSettings;
+        if (closeBtn) closeBtn.onclick = closeOverlay;
+      };
+
+      // Initial display
+      updateDisplay();
+
+      // Add to DOM
       document.body.appendChild(overlay);
-        // ✅ Store reference and global functions
+
+      // Store references
       currentLofiOverlay = overlay;
       window.currentLofiOverlay = overlay;
       window.closeLofiOverlay = closeOverlay;
-      window.minimizeLofiOverlay = minimizeOverlay;
-      window.maximizeLofiOverlay = maximizeOverlay;
-      window.updateLofiTimerDisplay = updateTimerDisplay; // ✅ NEW: Make timer update function global// ✅ Start minimized immediately for less intrusive experience
-      minimizeOverlay();
-      console.log('🎵 Lofi overlay started in minimized mode');
+      window.setLofiModeMinimized = setModeMinimized;
+      window.setLofiModeMedium = setModeMedium;
+      window.setLofiModeMaximized = setModeMaximized;
 
-      console.log('🎵 Lofi overlay created successfully');
+      console.log('🎵 Lofi overlay created successfully with 3-mode system');
       resolve(overlay);
 
     } catch (error) {
@@ -636,6 +479,16 @@ export const createLofiStation = (lofiStream) => {
     };
   }
 };
+
+// Add CSS animations for pulse effect
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = 
+    '@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }' +
+    '.lofi-volume-slider::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; cursor: pointer; }' +
+    '.lofi-volume-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; cursor: pointer; border: none; }';
+  document.head.appendChild(style);
+}
 
 // ✅ NEW: Expose global functions for testing and debugging (after all functions are declared)
 if (typeof window !== 'undefined') {

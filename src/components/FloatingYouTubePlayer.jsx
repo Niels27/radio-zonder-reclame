@@ -8,9 +8,8 @@ const FloatingYouTubePlayer = ({
   onVolumeChange,
   isShuffled = false,
   onShuffleChange 
-}) => {  // UI States
-  const [isMinimized, setIsMinimized] = useState(false); // Start with floating player (not minimized)
-  const [isMaximized, setIsMaximized] = useState(false); // New state for large centered overlay
+}) => {  // UI States - Three display modes
+  const [displayMode, setDisplayMode] = useState('medium'); // 'minimized', 'medium', 'maximized'
   const [isLoading, setIsLoading] = useState(true);
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -23,9 +22,10 @@ const FloatingYouTubePlayer = ({
   const [videoCheckAttempts, setVideoCheckAttempts] = useState(0);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
-  
-  // Volume
+    // Volume state
   const [localVolume, setLocalVolume] = useState(volume);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   
   // Refs
   const iframeRef = useRef(null);
@@ -368,13 +368,50 @@ const FloatingYouTubePlayer = ({
     // Reload player with new method
     loadPlayer();
   }, [loadPlayer]);
-
   // Get status message based on current state
   const getStatusMessage = () => {
     if (isLoading) return 'Laden...';
     if (showError) return 'Fout - Probeer andere methode';
     return 'Aan het spelen';
   };
+
+  // Toggle display mode
+  const toggleDisplayMode = () => {
+    if (displayMode === 'minimized') {
+      setDisplayMode('medium');
+    } else if (displayMode === 'medium') {
+      setDisplayMode('maximized');
+    } else {
+      setDisplayMode('minimized');
+    }
+  };
+
+  // Set specific display mode
+  const setModeMinimized = () => setDisplayMode('minimized');
+  const setModeMedium = () => setDisplayMode('medium');
+  const setModeMaximized = () => setDisplayMode('maximized');
+  // Volume control
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+
+  const togglePlayPause = () => {
+    setIsPlaying(!isPlaying);
+    // Try to control iframe if possible
+    if (iframeRef.current) {
+      try {
+        const iframe = iframeRef.current;
+        if (isPlaying) {
+          iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        } else {
+          iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        }
+      } catch (e) {
+        // CORS limitations
+      }
+    }
+  };
+
   // Load user preference on mount
   useEffect(() => {
     const savedMethod = localStorage.getItem('youtube_preferred_method');
@@ -458,12 +495,146 @@ const FloatingYouTubePlayer = ({
     };
   }, []);  if (!isVisible) return null;
 
-  // Maximized overlay (like lofi player)
-  if (isMaximized) {
+  // Common button style
+  const buttonStyle = "w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-all duration-200 cursor-pointer";
+
+  // MINIMIZED MODE - Footer bar (LEFT side, footer level)
+  if (displayMode === 'minimized') {
     return (
-      <div className="fixed inset-0 z-50 bg-black bg-opacity-80 flex items-center justify-center backdrop-blur-sm">
-        <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-700 p-6 max-w-4xl max-h-screen overflow-hidden">
-          {/* Header for maximized view */}
+      <div className="fixed bottom-4 left-2 z-[100] w-100 h-12 bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden" style={{marginBottom: '4px'}}>
+        {/* Hidden iframe for audio continuity */}
+        <iframe
+          ref={iframeRef}
+          className="absolute -top-96 -left-96 w-96 h-96"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="eager"
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox"
+        />
+        
+        <div className="h-full px-3 flex items-center justify-between text-white">
+          {/* Left side - Title and status */}
+          <div className="flex items-center gap-2 flex-1">
+            <div className={`w-2 h-2 rounded-full ${
+              isLoading ? 'bg-yellow-400 animate-pulse' :
+              showError ? 'bg-red-400' :
+              'bg-green-400 animate-pulse'
+            }`}></div>
+            <span className="text-xs font-medium truncate">🎵 YouTube</span>
+          </div>
+          
+          {/* Middle - Controls */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={togglePlayPause}
+              className={`${buttonStyle} ${isPlaying ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}`}
+              title={isPlaying ? 'Pauzeren' : 'Afspelen'}
+            >
+              {isPlaying ? '⏸' : '▶'}
+            </button>
+            
+            <button 
+              onClick={toggleMute}
+              className={`${buttonStyle} ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              title={isMuted ? 'Geluid aan' : 'Dempen'}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+            
+            <div className="w-12 mx-1">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={isMuted ? 0 : localVolume}
+                onChange={(e) => {
+                  const newVolume = parseInt(e.target.value);
+                  setLocalVolume(newVolume);
+                  onVolumeChange?.(newVolume);
+                  setIsMuted(false);
+                }}
+                className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                title={`Volume: ${localVolume}%`}
+              />
+            </div>
+          </div>
+          
+          {/* Right side - Mode buttons */}
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={setModeMinimized}
+              className={`${buttonStyle} ${displayMode === 'minimized' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+              title="Minimaal (huidig)"
+            >
+              _
+            </button>
+            <button 
+              onClick={setModeMedium}
+              className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
+              title="Medium weergave"
+            >
+              ⧉
+            </button>
+            <button 
+              onClick={setModeMaximized}
+              className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
+              title="Maximaliseren"
+            >
+              ⧈
+            </button>
+            <button
+              onClick={() => setShowFallbackOptions(!showFallbackOptions)}
+              className={`${buttonStyle} bg-yellow-600 hover:bg-yellow-700`}
+              title="Instellingen"
+            >
+              ⚙️
+            </button>
+            <button 
+              onClick={onClose}
+              className={`${buttonStyle} bg-red-600 hover:bg-red-700`}
+              title="Sluiten"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        {/* Settings dropdown for minimized mode */}
+        {showFallbackOptions && (
+          <div className="absolute bottom-full right-0 mb-2 w-64 bg-gray-800 border border-gray-700 rounded-lg p-3 shadow-xl">
+            <div className="text-xs text-gray-300 mb-2">
+              Methode: <span className="font-medium text-blue-400">{getMethodDisplayName(currentMethod)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {fallbackMethods.map((method, index) => (
+                <button
+                  key={method}
+                  onClick={() => saveUserPreference(index)}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    index === currentMethodIndex
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                  disabled={index === currentMethodIndex}
+                >
+                  {getMethodDisplayName(method)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // MAXIMIZED MODE - Full screen overlay
+  if (displayMode === 'maximized') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black bg-opacity-80 flex items-center justify-center backdrop-blur-sm">
+        <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-700 p-6 max-w-6xl max-h-screen overflow-hidden">
+          {/* Header */}
           <div className="bg-gray-800 px-4 py-3 flex items-center justify-between text-white mb-4 rounded-lg">
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${
@@ -471,34 +642,41 @@ const FloatingYouTubePlayer = ({
                 showError ? 'bg-red-400' :
                 'bg-green-400 animate-pulse'
               }`}></div>
-              <span className="text-lg font-medium">🎵 YouTube Player - Maximized</span>
+              <span className="text-lg font-medium">🎵 YouTube Player</span>
             </div>
             
             <div className="flex items-center gap-2">
-        
-                
-              {/* Fallback Button */}
+              <button 
+                onClick={setModeMinimized}
+                className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
+                title="Minimaliseren"
+              >
+                _
+              </button>
+              <button 
+                onClick={setModeMedium}
+                className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
+                title="Medium weergave"
+              >
+                ⧉
+              </button>
+              <button 
+                onClick={setModeMaximized}
+                className={`${buttonStyle} ${displayMode === 'maximized' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+                title="Maximaal (huidig)"
+              >
+                ⧈
+              </button>
               <button
                 onClick={() => setShowFallbackOptions(!showFallbackOptions)}
-                className="px-3 py-2 text-sm bg-yellow-600 hover:bg-yellow-700 rounded transition-colors"
-                title="Probeer andere methode"
+                className={`${buttonStyle} bg-yellow-600 hover:bg-yellow-700`}
+                title="Instellingen"
               >
-                🔄
+                ⚙️
               </button>
-              
-              {/* Minimize Button */}
-              <button
-                onClick={() => setIsMaximized(false)}
-                className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                title="Minimaliseer naar floating player"
-              >
-                🔽
-              </button>
-              
-              {/* Close Button */}
-              <button
+              <button 
                 onClick={onClose}
-                className="px-3 py-2 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+                className={`${buttonStyle} bg-red-600 hover:bg-red-700`}
                 title="Sluiten"
               >
                 ✕
@@ -506,13 +684,12 @@ const FloatingYouTubePlayer = ({
             </div>
           </div>
 
-          {/* Fallback Options for maximized view */}
+          {/* Settings panel */}
           {showFallbackOptions && (
             <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 mb-4">
               <div className="text-sm text-gray-300 mb-2">
                 Huidige methode: <span className="font-medium text-blue-400">{getMethodDisplayName(currentMethod)}</span>
               </div>
-              <div className="text-sm text-gray-400 mb-3">Probeer andere methode:</div>
               <div className="grid grid-cols-3 gap-2">
                 {fallbackMethods.map((method, index) => (
                   <button
@@ -532,30 +709,21 @@ const FloatingYouTubePlayer = ({
             </div>
           )}
 
-          {/* Player Content - Large */}
+          {/* Player content */}
           <div className="relative" style={{ width: '900px', height: '500px' }}>
-            {/* Loading Overlay */}
             {isLoading && (
-              <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white">
+              <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white rounded-lg">
                 <div className="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                 <div className="text-lg font-medium mb-2">🎵 YouTube wordt geladen...</div>
-                <div className="text-sm opacity-70 text-center px-4">
-                  {getMethodDisplayName(currentMethod)}
-                </div>
-                <div className="text-sm opacity-50 mt-3">
-                  Playlist: {playlistId}
-                </div>
+                <div className="text-sm opacity-70">{getMethodDisplayName(currentMethod)}</div>
               </div>
             )}
             
-            {/* Error Overlay */}
             {showError && (
-              <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white p-6">
+              <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white p-6 rounded-lg">
                 <div className="text-4xl mb-4">🚫</div>
                 <div className="text-lg font-medium mb-3">YouTube Probleem</div>
-                <div className="text-sm opacity-70 text-center mb-6">
-                  {errorMessage}
-                </div>
+                <div className="text-sm opacity-70 text-center mb-6">{errorMessage}</div>
                 <button
                   onClick={() => setShowFallbackOptions(true)}
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors"
@@ -565,7 +733,6 @@ const FloatingYouTubePlayer = ({
               </div>
             )}
               
-            {/* YouTube Iframe - Large */}
             <iframe
               ref={iframeRef}
               className="w-full h-full border-none bg-black rounded-lg"
@@ -576,7 +743,6 @@ const FloatingYouTubePlayer = ({
               onError={handleIframeError}
               onMouseEnter={() => {
                 if (!isActuallyPlaying) {
-                  console.log('🎵 ✅ User mouse interaction - assuming audio is playing');
                   setIsActuallyPlaying(true);
                   setShowError(false);
                 }
@@ -589,143 +755,126 @@ const FloatingYouTubePlayer = ({
     );
   }
 
-  // Default floating player
+  // MEDIUM MODE - Default floating player (positioned on left)
   return (
-    <div className={`fixed bottom-20 mb-7 left-5 z-50 transition-all duration-300 ${
-      isMinimized 
-        ? 'w-80 h-12' 
-        : 'w-96 h-80'
-    }`}>
-      {/* Player Container */}
-      <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gray-800 px-3 py-2 flex items-center justify-between text-white">
-          <div className="flex items-center gap-2 flex-1">
-            <div className={`w-2 h-2 rounded-full ${
-              isLoading ? 'bg-yellow-400 animate-pulse' :
-              showError ? 'bg-red-400' :
-              'bg-green-400 animate-pulse'
-            }`}></div>
-            <span className="text-sm font-medium">🎵 YouTube Player</span>
-          </div>
-          
-          <div className="flex items-center gap-1">
+    <div className="fixed bottom-20 left-5 z-[100] w-96 h-80 bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gray-800 px-3 py-2 flex items-center justify-between text-white">
+        <div className="flex items-center gap-2 flex-1">
+          <div className={`w-2 h-2 rounded-full ${
+            isLoading ? 'bg-yellow-400 animate-pulse' :
+            showError ? 'bg-red-400' :
+            'bg-green-400 animate-pulse'
+          }`}></div>
+          <span className="text-sm font-medium">🎵 YouTube Player</span>
+        </div>
         
-              
-            {/* Fallback Button */}
-            <button
-              onClick={() => setShowFallbackOptions(!showFallbackOptions)}
-              className="px-2 py-1 text-xs bg-yellow-600 hover:bg-yellow-700 rounded transition-colors"
-              title="Probeer andere methode"
-            >
-              🔄
-            </button>
-              {/* Maximize Button */}
-            <button
-              onClick={() => setIsMaximized(true)}
-              className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 rounded transition-colors"
-              title="Maximaliseer naar groot scherm"
-            >
-              🔼
-            </button>
-            
-            {/* Minimize/Expand */}
-         
-            
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded transition-colors"
-              title="Sluiten"
-            >
-              ✕
-            </button>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={setModeMinimized}
+            className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
+            title="Minimaliseren"
+          >
+            _
+          </button>
+          <button 
+            onClick={setModeMedium}
+            className={`${buttonStyle} ${displayMode === 'medium' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+            title="Medium (huidig)"
+          >
+            ⧉
+          </button>
+          <button 
+            onClick={setModeMaximized}
+            className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
+            title="Maximaliseren"
+          >
+            ⧈
+          </button>
+          <button
+            onClick={() => setShowFallbackOptions(!showFallbackOptions)}
+            className={`${buttonStyle} bg-yellow-600 hover:bg-yellow-700`}
+            title="Instellingen"
+          >
+            ⚙️
+          </button>
+          <button 
+            onClick={onClose}
+            className={`${buttonStyle} bg-red-600 hover:bg-red-700`}
+            title="Sluiten"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Settings panel */}
+      {showFallbackOptions && (
+        <div className="bg-gray-800 border-t border-gray-700 p-2">
+          <div className="text-xs text-gray-300 mb-1">
+            Methode: <span className="font-medium text-blue-400">{getMethodDisplayName(currentMethod)}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {fallbackMethods.map((method, index) => (
+              <button
+                key={method}
+                onClick={() => saveUserPreference(index)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  index === currentMethodIndex
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+                disabled={index === currentMethodIndex}
+              >
+                {getMethodDisplayName(method)}
+              </button>
+            ))}
           </div>
         </div>
+      )}
 
-        {/* Fallback Options */}
-        {showFallbackOptions && (
-          <div className="bg-gray-800 border-t border-gray-700 p-2">
-            <div className="text-xs text-gray-300 mb-1">
-              Huidige methode: <span className="font-medium text-blue-400">{getMethodDisplayName(currentMethod)}</span>
-            </div>
-            <div className="text-xs text-gray-400 mb-2">Probeer andere methode:</div>
-            <div className="grid grid-cols-2 gap-1">
-              {fallbackMethods.map((method, index) => (
-                <button
-                  key={method}
-                  onClick={() => saveUserPreference(index)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${
-                    index === currentMethodIndex
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  }`}
-                  disabled={index === currentMethodIndex}
-                >
-                  {getMethodDisplayName(method)}
-                </button>
-              ))}
-            </div>
+      {/* Player content */}
+      <div className="relative" style={{ height: showFallbackOptions ? '220px' : '280px' }}>
+        {isLoading && (
+          <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <div className="text-sm font-medium mb-1">🎵 YouTube wordt geladen...</div>
+            <div className="text-xs opacity-70">{getMethodDisplayName(currentMethod)}</div>
           </div>
         )}
-
-        {/* Player Content */}
-        {!isMinimized && (
-          <div className="relative" style={{ height: '280px' }}>
-            {/* Loading Overlay */}
-            {isLoading && (
-              <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white">
-                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-                <div className="text-sm font-medium mb-1">🎵 YouTube wordt geladen...</div>
-                <div className="text-xs opacity-70 text-center px-4">
-                  {getMethodDisplayName(currentMethod)}
-                </div>
-                <div className="text-xs opacity-50 mt-2">
-                  Playlist: {playlistId}
-                </div>
-              </div>
-            )}
-            
-            {/* Error Overlay */}
-            {showError && (
-              <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white p-4">
-                <div className="text-2xl mb-2">🚫</div>
-                <div className="text-sm font-medium mb-2">YouTube Probleem</div>
-                <div className="text-xs opacity-70 text-center mb-4">
-                  {errorMessage}
-                </div>
-                <button
-                  onClick={() => setShowFallbackOptions(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors"
-                >
-                  🔄 Probeer andere methode
-                </button>
-              </div>
-            )}
-              
-            {/* YouTube Iframe */}
-            <iframe
-              ref={iframeRef}
-              className="w-full h-full border-none bg-black"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="eager"
-              onLoad={handleIframeLoad}
-              onError={handleIframeError}
-              onMouseEnter={() => {
-                // User is interacting with player - likely hearing audio
-                if (!isActuallyPlaying) {
-                  console.log('🎵 ✅ User mouse interaction - assuming audio is playing');
-                  setIsActuallyPlaying(true);
-                  setShowError(false);
-                }
-              }}
-              sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox"
-            />
+        
+        {showError && (
+          <div className="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center text-white p-4">
+            <div className="text-2xl mb-2">🚫</div>
+            <div className="text-sm font-medium mb-2">YouTube Probleem</div>
+            <div className="text-xs opacity-70 text-center mb-4">{errorMessage}</div>
+            <button
+              onClick={() => setShowFallbackOptions(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors"
+            >
+              🔄 Probeer andere methode
+            </button>
           </div>
         )}
+          
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="eager"
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+          onMouseEnter={() => {
+            if (!isActuallyPlaying) {
+              setIsActuallyPlaying(true);
+              setShowError(false);
+            }
+          }}
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox"        />
       </div>
-    </div>  );
+    </div>
+  );
 };
 
 export default FloatingYouTubePlayer;
