@@ -385,6 +385,7 @@ function App() {
               isEnabled={visualizerEnabled}
               visualizerType={visualizerType}
               position="header"
+              currentSource={audioPlayer.currentSource}
             />
           )}
 
@@ -484,12 +485,12 @@ function App() {
           />
         </div>        {/* Fixed Footer with Controls */}
         <div className="sticky bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-50 relative">          {/* Music Visualizer in Footer */}          {visualizerEnabled && visualizerType !== 'none' && visualizerPosition === 'footer' && (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-              <MusicVisualizerSingle
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">              <MusicVisualizerSingle
                 isPlaying={audioPlayer.isPlaying}
                 isEnabled={visualizerEnabled}
                 visualizerType={visualizerType}
                 position="footer"
+                currentSource={audioPlayer.currentSource}
               />
             </div>
           )}

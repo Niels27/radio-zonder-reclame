@@ -117,16 +117,20 @@ const MusicVisualizerSingle = ({
   isPlaying, 
   isEnabled, 
   visualizerType = 'bars',
-  position = 'header'
-}) => {
-  const canvasRef = useRef(null);
+  position = 'header',
+  currentSource = 'radio'
+}) => {  const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const smoothingDataRef = useRef([]);
   const setupAttemptedRef = useRef(false);
-
-  // Setup audio context once when component mounts and audio is playing
+  const animationStartTimeRef = useRef(null); // For fake streaming visualization timing
+  const particlesRef = useRef([]); // For dust particles in fake visualization
+  // Setup audio context once when component mounts and audio is playing (only for radio)
   useEffect(() => {
     if (!isPlaying || !isEnabled || setupAttemptedRef.current) return;
+    
+    // Only attempt audio setup for radio sources
+    if (currentSource !== 'radio') return;
     
     setupAttemptedRef.current = true;
     
@@ -141,7 +145,7 @@ const MusicVisualizerSingle = ({
     };
     
     attemptSetup();
-  }, [isPlaying, isEnabled]);
+  }, [isPlaying, isEnabled, currentSource]);
 
   // Animation loop
   useEffect(() => {
@@ -166,31 +170,39 @@ const MusicVisualizerSingle = ({
     };
 
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    const animate = () => {
+    window.addEventListener('resize', resizeCanvas);    const animate = () => {
       if (!isPlaying || !isEnabled) return;
 
       const width = canvas.width / window.devicePixelRatio;
       const height = canvas.height / window.devicePixelRatio;
       
-      // Get frequency data from global manager
-      const frequencyData = globalAudioManager.getFrequencyData();
+      // Initialize animation start time for fake visualizations
+      if (animationStartTimeRef.current === null) {
+        animationStartTimeRef.current = Date.now();
+      }
       
-      ctx.clearRect(0, 0, width, height);
-
-      if (frequencyData) {
-        switch (visualizerType) {
-          case 'bars':
+      ctx.clearRect(0, 0, width, height);      // Use real audio analysis only for radio, fake data for streaming
+      if (currentSource === 'radio') {
+        // Check if lofi overlay is open (overrides radio visualization)
+        const lofiOverlay = document.getElementById('lofi-overlay');
+        const isLofiOpen = lofiOverlay && document.body.contains(lofiOverlay);
+        
+        if (isLofiOpen) {
+          // FAKE VISUALIZATION for lofi overlay (even when radio is selected)
+          const elapsedTime = (Date.now() - animationStartTimeRef.current) / 1000;
+          renderFakeStreamingVisualizer(ctx, width, height, elapsedTime);
+        } else {
+          // REAL VISUALIZATION for radio streams
+          const frequencyData = globalAudioManager.getFrequencyData();
+          if (frequencyData) {
+            // Always use bars for radio (as requested)
             renderBarsVisualizer(ctx, width, height, frequencyData);
-            break;
-          case 'wavy':
-            renderBarsVisualizer(ctx, width, height, frequencyData);
-            break;
-          case 'electric':
-            renderBarsVisualizer(ctx, width, height, frequencyData);
-            break;
+          }
         }
+      } else {
+        // FAKE VISUALIZATION for streaming services (Spotify, YouTube, Lofi)
+        const elapsedTime = (Date.now() - animationStartTimeRef.current) / 1000;
+        renderFakeStreamingVisualizer(ctx, width, height, elapsedTime);
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -200,11 +212,10 @@ const MusicVisualizerSingle = ({
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+      if (animationRef.current) {        cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, isEnabled, visualizerType]);
+  }, [isPlaying, isEnabled, visualizerType, currentSource]);
 
   // Bars visualizer
   const renderBarsVisualizer = (ctx, width, height, frequencyData) => {
@@ -336,9 +347,140 @@ const MusicVisualizerSingle = ({
       ctx.lineTo(x, y);
       ctx.lineTo(x + 2, centerY);
     }
-    
-    ctx.stroke();
+      ctx.stroke();
   };
+  // Fake streaming visualizer - 3 smooth waves with long-period fake music data + dust particles
+  const renderFakeStreamingVisualizer = (ctx, width, height, elapsedTime) => {
+    const centerY = height / 2;
+    
+    // Initialize particles if needed
+    if (particlesRef.current.length === 0) {
+      const particleCount = Math.floor((width * height) / 8000); // Density based on canvas size
+      for (let i = 0; i < particleCount; i++) {
+        particlesRef.current.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          size: Math.random() * 2 + 0.5, // 0.5 to 2.5px
+          vx: (Math.random() - 0.5) * 20, // Slow horizontal drift
+          vy: (Math.random() - 0.5) * 15, // Slow vertical drift
+          opacity: Math.random() * 0.4 + 0.1, // 0.1 to 0.5 opacity
+          life: Math.random() * 10 + 5 // 5-15 second lifecycle
+        });
+      }
+    }
+    
+    // Create 3 waves with different characteristics for a rich, musical feel
+    const waves = [
+      {
+        // Bass-like wave (slow, deep)
+        color: '#34d399', // green
+        amplitude: height * 0.15,
+        frequency: 0.3, // slow oscillation
+        phase: 0,
+        offset: -height * 0.1,
+        lineWidth: 3
+      },
+      {
+        // Mid-range wave (medium speed, medium amplitude)
+        color: '#60a5fa', // blue  
+        amplitude: height * 0.12,
+        frequency: 0.7,
+        phase: Math.PI / 3, // offset phase for variety
+        offset: 0,
+        lineWidth: 2.5
+      },
+      {
+        // Treble-like wave (faster, lighter)
+        color: '#a78bfa', // purple
+        amplitude: height * 0.08,
+        frequency: 1.2,
+        phase: Math.PI * 2 / 3, // different phase offset
+        offset: height * 0.08,
+        lineWidth: 2
+      }
+    ];
+
+    // Render waves
+    waves.forEach((wave, waveIndex) => {
+      ctx.strokeStyle = wave.color;
+      ctx.lineWidth = wave.lineWidth;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+
+      // Create complex, musical-feeling wave patterns
+      for (let i = 0; i <= 200; i++) {
+        const x = (i / 200) * width;
+        const xNorm = i / 200;
+        
+        // Main wave component
+        const mainWave = Math.sin(elapsedTime * wave.frequency + wave.phase + xNorm * Math.PI * 2);
+        
+        // Add harmonic for complexity (musical richness)
+        const harmonic1 = Math.sin(elapsedTime * wave.frequency * 2.1 + wave.phase + xNorm * Math.PI * 4) * 0.3;
+        const harmonic2 = Math.sin(elapsedTime * wave.frequency * 0.7 + wave.phase + xNorm * Math.PI * 1.5) * 0.5;
+        
+        // Add slow tempo variation (like a song's dynamics)
+        const tempoVariation = Math.sin(elapsedTime * 0.1 + waveIndex) * 0.3 + 0.7; // 0.4 to 1.0 range
+        
+        // Add spatial variation along the width (like frequency response)
+        const spatialVariation = Math.sin(xNorm * Math.PI * 3 + elapsedTime * 0.5) * 0.2 + 0.8;
+        
+        // Combine all components for a rich, musical wave
+        const combinedAmplitude = (mainWave + harmonic1 + harmonic2) * tempoVariation * spatialVariation;
+        const y = centerY + wave.offset + (combinedAmplitude * wave.amplitude);
+        
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      
+      ctx.stroke();
+    });
+    
+    // Update and render dust particles
+    ctx.globalAlpha = 1;
+    particlesRef.current.forEach((particle, index) => {
+      // Update particle position
+      particle.x += particle.vx * 0.016; // ~60fps timing
+      particle.y += particle.vy * 0.016;
+      particle.life -= 0.016;
+      
+      // Wrap around screen edges
+      if (particle.x < -10) particle.x = width + 10;
+      if (particle.x > width + 10) particle.x = -10;
+      if (particle.y < -10) particle.y = height + 10;
+      if (particle.y > height + 10) particle.y = -10;
+      
+      // Respawn particle if life expired
+      if (particle.life <= 0) {
+        particle.x = Math.random() * width;
+        particle.y = Math.random() * height;
+        particle.size = Math.random() * 2 + 0.5;
+        particle.vx = (Math.random() - 0.5) * 20;
+        particle.vy = (Math.random() - 0.5) * 15;
+        particle.opacity = Math.random() * 0.4 + 0.1;
+        particle.life = Math.random() * 10 + 5;
+      }
+      
+      // Draw particle
+      ctx.globalAlpha = particle.opacity;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    ctx.globalAlpha = 1;
+  };  // Reset animation timer when source changes
+  useEffect(() => {
+    animationStartTimeRef.current = null;
+    // Reset setup attempt when switching sources
+    setupAttemptedRef.current = false;
+    // Reset particles when switching visualization modes
+    particlesRef.current = [];
+  }, [currentSource]);
 
   if (!isEnabled || !isPlaying || visualizerType === 'none') {
     return null;
