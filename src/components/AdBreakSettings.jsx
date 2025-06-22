@@ -200,13 +200,17 @@ const AdBreakSettings = ({
     setDaySettings(newSettings);
     saveDaySettings(newSettings); // This will be debounced for slider changes
   };
-
   // Check if current mode is valid
   const isModeValid = () => {
     if (adBreakMode === 'playlist') {
       return playlistUrl && playlistInfo?.isValid;
     }
     return true; // nonstop and lofi don't require configuration
+  };
+
+  // ✅ NEW: Check if radio station is selected for timer
+  const isRadioSelected = () => {
+    return audioPlayer && audioPlayer.currentStation;
   };
   const getModeDescription = () => {
     switch (adBreakMode) {
@@ -404,7 +408,6 @@ const AdBreakSettings = ({
 
   // Track which mode is currently selected for display purposes
   const [selectedManualMode, setSelectedManualMode] = useState(null);
-
   // Helper to get current mode state
   const getModeState = (mode) => {
     switch (mode) {
@@ -419,16 +422,46 @@ const AdBreakSettings = ({
   const setModeState = (mode, newState) => {
     switch (mode) {
       case 'playlist': 
-        setPlaylistModeState(prev => ({ ...prev, ...newState }));
+        setPlaylistModeState(newState);
         break;
       case 'nonstop': 
-        setNonstopModeState(prev => ({ ...prev, ...newState }));
+        setNonstopModeState(newState);
         break;
       case 'lofi': 
-        setLofiModeState(prev => ({ ...prev, ...newState }));
+        setLofiModeState(newState);
         break;
+      default:
+        console.warn(`Unknown mode: ${mode}`);
     }
   };
+
+  // ✅ NEW: Listen for external playlist stops (when overlays are closed directly)
+  useEffect(() => {
+    const handlePlaylistStopped = (type) => {
+      console.log(`🎵 External playlist stop detected: ${type}`);
+      
+      switch (type) {
+        case 'youtube':
+        case 'spotify':
+          setPlaylistModeState({ active: false, loading: false, startTime: null });
+          break;
+        case 'lofi':
+          setLofiModeState({ active: false, loading: false, startTime: null });
+          break;
+        case 'nonstop':
+          setNonstopModeState({ active: false, loading: false, startTime: null });
+          break;
+      }
+    };
+
+    // Set up global callback
+    window.onPlaylistStopped = handlePlaylistStopped;
+    
+    // Cleanup
+    return () => {
+      window.onPlaylistStopped = null;
+    };
+  }, []);
 
   // Check if any mode is active
   const isAnyModeActive = () => {
@@ -906,7 +939,7 @@ const AdBreakSettings = ({
         }}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
         </svg>
       </div>
     </div>
@@ -1028,18 +1061,19 @@ const AdBreakSettings = ({
           <div className="relative">
             <button
               onClick={handleStartTimer}
-              disabled={!isModeValid() || (audioPlayer && audioPlayer.isTransitioning) || isAnyModeActive() || isAnyModeLoading() || isTimerStarting}
+              disabled={!isModeValid() || !isRadioSelected() || (audioPlayer && audioPlayer.isTransitioning) || isAnyModeActive() || isAnyModeLoading() || isTimerStarting}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${
-                (isAnyModeActive() || isAnyModeLoading() || isTimerStarting) 
+                (isAnyModeActive() || isAnyModeLoading() || isTimerStarting || !isRadioSelected()) 
                   ? 'bg-gray-500 cursor-not-allowed text-gray-300'
                   : 'bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
               }`}
+              title={!isRadioSelected() ? 'Start eerst een radio' : !isModeValid() ? 'Configuratie incompleet' : 'Start automatische switching'}
             >
               {isTimerStarting ? 'Starten...' : 'Activeer Switching'}
             </button>
-            {(isAnyModeActive() || isAnyModeLoading() || isTimerStarting) && (
+            {(isAnyModeActive() || isAnyModeLoading() || isTimerStarting || !isRadioSelected()) && (
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                {isTimerStarting ? 'Timer wordt gestart...' : isAnyModeLoading() ? 'Manual mode start bezig...' : 'Manual mode is actief - stop eerst de manual mode'}
+                {!isRadioSelected() ? 'Start eerst een radio' : isTimerStarting ? 'Timer wordt gestart...' : isAnyModeLoading() ? 'Manual mode start bezig...' : 'Manual mode is actief - stop eerst de manual mode'}
               </div>
             )}
           </div>
@@ -1450,7 +1484,7 @@ const AdBreakSettings = ({
                   </div>
                   {nonstopSearchTerm.trim() && (
                     <div className="max-h-60 overflow-y-auto space-y-2">
-                      {getFilteredStations().map((station) => {
+                                           {getFilteredStations().map((station) => {
                         const isAlreadyConfigured = getAllConfiguredNonstopStations().some(s => s.name === station.name);
                         return (<div key={`${station.category}-${station.name}`} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
                           <div>

@@ -5,12 +5,13 @@ import { collection, addDoc, query, where, orderBy, limit, getDocs } from 'fireb
 
 // Local cache for community timings
 let communityTimingsCache = new Map();
-let lastFetchTime = 0;
+let lastFetchTime = new Map(); // Per-station fetch tracking
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MIN_FETCH_INTERVAL = 60 * 1000; // Minimum 1 minute between fetches per station
 
 // ✅ NEW: Logging throttle to reduce excessive console output
 let lastLogTime = 0;
-const LOG_THROTTLE_DURATION = 10 * 1000; // 10 seconds between logs
+const LOG_THROTTLE_DURATION = 30 * 1000; // 30 seconds between logs (increased)
 
 // Helper function to check if we should log
 const shouldLog = (key = 'default') => {
@@ -91,17 +92,30 @@ class CommunityTimings {
       console.warn('Failed to store local timing report:', error);
     }
   }
-
   // Get community timings for a station
   static async getCommunityTimings(stationName) {
     try {
       // Check cache first
       const cacheKey = stationName.toLowerCase();
       const now = Date.now();
+      const stationLastFetch = lastFetchTime.get(cacheKey) || 0;
       
-      if (communityTimingsCache.has(cacheKey) && (now - lastFetchTime) < CACHE_DURATION) {
+      if (communityTimingsCache.has(cacheKey) && (now - stationLastFetch) < CACHE_DURATION) {
+        if (shouldLog(`cache_hit_${stationName}`)) {
+          console.log(`📊 Using cached timings for ${stationName}`);
+        }
         return communityTimingsCache.get(cacheKey);
-      }      // Fetch from Firebase
+      }
+
+      // Rate limit: don't fetch too frequently for the same station
+      if ((now - stationLastFetch) < MIN_FETCH_INTERVAL) {
+        if (shouldLog(`rate_limit_${stationName}`)) {
+          console.log(`⏳ Rate limiting fetch for ${stationName}, using cache or returning null`);
+        }
+        return communityTimingsCache.get(cacheKey) || null;
+      }
+
+      // Fetch from Firebase
       const timings = await this.fetchFromFirebase(stationName);
       
       // Process and validate timings
@@ -109,7 +123,7 @@ class CommunityTimings {
       
       // Cache the result
       communityTimingsCache.set(cacheKey, processedTimings);
-      lastFetchTime = now;
+      lastFetchTime.set(cacheKey, now);
       
       return processedTimings;
 
@@ -117,19 +131,18 @@ class CommunityTimings {
       console.warn('Failed to fetch community timings:', error);
       return null;
     }
-  }  // Fetch timings from Firebase
+  }// Fetch timings from Firebase
   static async fetchFromFirebase(stationName) {
     try {
       if (shouldLog(`fetch_${stationName}`)) {
         console.log(`🔥 Fetching community timings for: ${stationName}`);
       }
       
-      if (isDemoMode()) {
-        // Use demo data
+      if (isDemoMode()) {        // Use demo data
         const result = await demoFirestore.collection('timing_reports')
           .where('station', '==', stationName)
           .orderBy('timestamp', 'desc')
-          .limit(50)
+          .limit(10) // ✅ CRITICAL FIX: Further reduced from 20 to 10 to prevent freeze
           .get();
         
         const data = result.docs.map(doc => doc.data());
@@ -143,14 +156,12 @@ class CommunityTimings {
       if (!db) {
         console.warn('❌ Firebase not available, using local data only');
         return [];
-      }
-
-      const q = query(
+      }      const q = query(
         collection(db, 'timing_reports'),
         where('station', '==', stationName),
         orderBy('timestamp', 'desc'),
-        limit(50)
-      );      const querySnapshot = await getDocs(q);
+        limit(10) // ✅ CRITICAL FIX: Reduced from 50 to 10 to prevent freeze
+      );const querySnapshot = await getDocs(q);
       const data = querySnapshot.docs.map(doc => doc.data());
       if (shouldLog(`production_${stationName}`)) {
         console.log(`🔥 Production: Loaded ${data.length} timing reports for ${stationName}:`, data);
@@ -185,20 +196,67 @@ class CommunityTimings {
       // Fail gracefully - local storage is still available
     }
   }
-
   // Process and validate timings
   static processTimings(rawTimings) {
     if (!Array.isArray(rawTimings) || rawTimings.length === 0) {
       return null;
     }
 
+    // ✅ ENHANCED: Apply feedback adjustments to timing calculations
+    const processedTimings = this.applyFeedbackAdjustments(rawTimings);
+    
     // Group timings by approximate hour (30min and 60min intervals)
-    const groupedTimings = this.groupTimingsByInterval(rawTimings);
+    const groupedTimings = this.groupTimingsByInterval(processedTimings);
     
     // Calculate average timings for each interval
     const averagedTimings = this.calculateAverageTimings(groupedTimings);
     
     return averagedTimings;
+  }
+
+  // ✅ NEW: Apply feedback adjustments to raw timing data
+  static applyFeedbackAdjustments(rawTimings) {
+    const processedTimings = [];
+    const feedbackAdjustments = new Map(); // Track adjustments per station/minute
+    
+    // First pass: collect all feedback adjustments
+    rawTimings.forEach(timing => {
+      if (timing.type === 'feedback' && timing.adjustment) {
+        const key = `${timing.station}_${timing.minute}`;
+        if (!feedbackAdjustments.has(key)) {
+          feedbackAdjustments.set(key, []);
+        }
+        feedbackAdjustments.get(key).push(timing.adjustment);
+      }
+    });
+    
+    // Second pass: apply adjustments to timing reports
+    rawTimings.forEach(timing => {
+      if (timing.type === 'start' || timing.type === 'end') {
+        const key = `${timing.station}_${timing.minute}`;
+        let adjustedMinute = timing.minute;
+        
+        // Apply feedback adjustments if available
+        if (feedbackAdjustments.has(key)) {
+          const adjustments = feedbackAdjustments.get(key);
+          const avgAdjustment = adjustments.reduce((sum, adj) => sum + adj, 0) / adjustments.length;
+          // Convert seconds to minute fraction and apply
+          adjustedMinute = Math.round(timing.minute + (avgAdjustment / 60));
+          // Keep within 0-59 range
+          adjustedMinute = ((adjustedMinute % 60) + 60) % 60;
+          
+          console.log(`📊 Applied feedback adjustment: ${timing.station} minute ${timing.minute} → ${adjustedMinute} (avg adj: ${avgAdjustment}s)`);
+        }
+        
+        processedTimings.push({
+          ...timing,
+          minute: adjustedMinute,
+          originalMinute: timing.minute // Keep original for reference
+        });
+      }
+    });
+    
+    return processedTimings;
   }
 
   // Group timings by 30-minute intervals
@@ -509,37 +567,43 @@ class CommunityTimings {
 
      // reason: `Rapporteren alleen mogelijk rond :00 (${60 - TIMING_WINDOWS.FULL_HOUR.BEFORE}-${TIMING_WINDOWS.FULL_HOUR.AFTER}) en :30 (${30 - TIMING_WINDOWS.HALF_HOUR.BEFORE}-${30 + TIMING_WINDOWS.HALF_HOUR.AFTER})` 
     };
-  }  // ✅ NEW: Get community timing suggestions for ad break triggers
+  }  // ✅ FIXED: Get community timing suggestions with better rate limiting to prevent freezing
   static async getSuggestedAdBreakTiming(stationName, currentHour) {
     try {
+      // ✅ MAJOR FIX: More aggressive rate limiting - only check once per 5 minutes
+      const cacheKey = `suggestions_${stationName.toLowerCase()}_${currentHour}`;
+      const now = Date.now();
+      const lastCheck = lastFetchTime.get(cacheKey) || 0;
+      
+      // ✅ CRITICAL FIX: Increase rate limit to 5 minutes to prevent freezing
+      if ((now - lastCheck) < 300000) { // 5 minutes minimum between suggestion checks (was 1 minute)
+        if (communityTimingsCache.has(cacheKey)) {
+          return communityTimingsCache.get(cacheKey);
+        }
+        return null; // Rate limited, return null
+      }
+
       if (shouldLog(`suggestions_${stationName}_${currentHour}`)) {
         console.log(`🔥 Getting community timing suggestions for ${stationName} at hour ${currentHour}`);
       }
       
-      // Get raw timings instead of processed ones
+      // ✅ OPTIMIZATION: Reduce the amount of data fetched to prevent processing overload
       const rawTimings = await this.fetchFromFirebase(stationName);
       if (!rawTimings || rawTimings.length === 0) {
-        if (shouldLog(`no_timings_${stationName}`)) {
-          console.log(`📊 No community timings found for ${stationName}`);
-        }
+        lastFetchTime.set(cacheKey, now);
+        communityTimingsCache.set(cacheKey, null);
         return null;
       }
 
-      if (shouldLog(`raw_${stationName}_${currentHour}`)) {
-        console.log(`🔥 Raw timings for ${stationName}:`, rawTimings);
-      }
-
-      // Filter by current hour for hour-specific timing
-      const hourSpecificTimings = rawTimings.filter(timing => timing.hour === currentHour);
+      // ✅ OPTIMIZATION: Limit processing to prevent freeze
+      const limitedTimings = rawTimings.slice(0, 10); // Only process first 10 entries
       
-      if (shouldLog(`hour_specific_${stationName}_${currentHour}`)) {
-        console.log(`🔥 Hour-specific timings for ${stationName} at ${currentHour}h:`, hourSpecificTimings);
-      }
+      // Filter by current hour for hour-specific timing
+      const hourSpecificTimings = limitedTimings.filter(timing => timing.hour === currentHour);
       
       if (hourSpecificTimings.length === 0) {
-        if (shouldLog(`no_hour_timings_${stationName}_${currentHour}`)) {
-          console.log(`📊 No hour-specific (${currentHour}h) timings found for ${stationName}`);
-        }
+        lastFetchTime.set(cacheKey, now);
+        communityTimingsCache.set(cacheKey, null);
         return null;
       }
 
@@ -548,6 +612,10 @@ class CommunityTimings {
         halfHour: this.findTimingPairs(hourSpecificTimings, 30),
         fullHour: this.findTimingPairs(hourSpecificTimings, 0)
       };
+
+      // Cache the result for longer
+      lastFetchTime.set(cacheKey, now);
+      communityTimingsCache.set(cacheKey, suggestions);
 
       if (shouldLog(`final_suggestions_${stationName}_${currentHour}`)) {
         console.log(`📊 Community timing suggestions for ${stationName}:`, suggestions);
@@ -632,15 +700,25 @@ class CommunityTimings {
       console.warn('Failed to store feedback locally:', error);
     }
   }
-
   // Sync feedback to Firebase
   static async syncFeedbackToFirebase(feedback) {
     try {
+      // Check if we're in demo mode
+      if (isDemoMode()) {
+        console.log('🔥 Demo: Would sync feedback to Firebase:', feedback);
+        // Simulate successful feedback submission in demo mode
+        return { id: 'demo_feedback_' + Date.now() };
+      }
+
       const db = getFirestoreDB();
-      const feedbackCollection = collection(db, 'community_feedback');
+      if (!db) {
+        throw new Error('Firebase not available - operating in demo mode');
+      }
       
+      const feedbackCollection = collection(db, 'community_feedback');
       const docRef = await addDoc(feedbackCollection, feedback);
       console.log(`🔥 Feedback synced to Firebase: ${docRef.id}`);
+      return docRef;
       
     } catch (error) {
       console.error('Failed to sync feedback to Firebase:', error);
@@ -650,7 +728,7 @@ class CommunityTimings {
 }
 
 // ✅ NEW: React component for floating feedback widget - merged to reduce file count
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 export const CommunityTimingFeedback = ({ 
   isVisible, 
@@ -661,41 +739,113 @@ export const CommunityTimingFeedback = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+    // ✅ FIX: Add ref to track and clear timeouts properly
+  const autoCloseTimeoutRef = useRef(null);
+  const successTimeoutRef = useRef(null);
+  
+  // ✅ FIX: Use refs for state to avoid dependency issues
+  const hasSubmittedRef = useRef(false);
+  const isSubmittingRef = useRef(false);
+
+  // ✅ FIX: Clear all timeouts safely
+  const clearAllTimeouts = useCallback(() => {
+    if (autoCloseTimeoutRef.current) {
+      clearTimeout(autoCloseTimeoutRef.current);
+      autoCloseTimeoutRef.current = null;
+    }
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+  }, []);  // ✅ FIX: Handle close with proper cleanup
+  const handleClose = useCallback(() => {
+    console.log('🔄 Closing feedback popup');
+    clearAllTimeouts();
+    setIsAnimating(false);
+    onClose();
+  }, [onClose, clearAllTimeouts]);
 
   useEffect(() => {
     if (isVisible) {
+      console.log('✅ Feedback popup becoming visible');
       setHasSubmitted(false);
       setIsSubmitting(false);
       setIsAnimating(true);
       
-      // Auto-close after 10 seconds if no interaction
-      const autoCloseTimer = setTimeout(() => {
-        onClose();
-      }, 10000);
-
-      return () => clearTimeout(autoCloseTimer);
+      // ✅ FIX: Reset refs as well
+      hasSubmittedRef.current = false;
+      isSubmittingRef.current = false;
+      
+      // ✅ FIX: Clear any existing timeouts first
+      clearAllTimeouts();
+      
+      // Auto-close after 7 seconds if no interaction (reduced from 10)
+      autoCloseTimeoutRef.current = setTimeout(() => {
+        console.log('🕒 Auto-closing feedback popup after 7 seconds');
+        if (!hasSubmittedRef.current && !isSubmittingRef.current) {
+          handleClose();
+        }
+      }, 7000);
     } else {
+      // ✅ FIX: Only log when actually becoming invisible from visible state (not on every re-render)
+      if (isAnimating) {
+        console.log('❌ Feedback popup becoming invisible');
+      }
       setIsAnimating(false);
+      clearAllTimeouts();
     }
-  }, [isVisible, onClose]);
+
+    // Cleanup on unmount or when visibility changes
+    return () => {
+      clearAllTimeouts();
+    };
+  }, [isVisible, clearAllTimeouts, handleClose]); // ✅ FIX: Remove hasSubmitted and isSubmitting to prevent resets
 
   const handleFeedback = async (rating) => {
-    if (isSubmitting || hasSubmitted) return;
+    if (isSubmitting || hasSubmitted || isSubmittingRef.current || hasSubmittedRef.current) {
+      console.log('🚫 Feedback already submitted or submitting, ignoring click');
+      return;
+    }
     
+    console.log('📝 Processing feedback:', rating);
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
+    
+    // ✅ CRITICAL FIX: Immediately clear auto-close timeout and prevent re-showing
+    clearAllTimeouts();
     
     try {
+      // ✅ ENHANCED: Submit both new feedback format AND timing adjustment
       await CommunityTimings.submitFeedback(stationName, timingType, rating);
-      setHasSubmitted(true);
       
-      // Auto-close after 2 seconds
-      setTimeout(() => {
+      // ✅ NEW: Also submit timing feedback for actual timing calculations
+      const now = new Date();
+      const timingFeedback = rating === 'too_early' ? 'early' : rating === 'too_late' ? 'late' : 'perfect';
+      if (timingFeedback !== 'perfect') {
+        await CommunityTimings.submitTimingFeedback(stationName, timingFeedback, now.getMinutes());
+      }
+      
+      console.log('✅ Feedback submitted successfully');
+      setHasSubmitted(true);
+      hasSubmittedRef.current = true;
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
+      
+      // ✅ CRITICAL FIX: Close immediately after 2 seconds and prevent any future shows
+      successTimeoutRef.current = setTimeout(() => {
+        console.log('✅ Feedback complete - permanently closing popup');
+        // ✅ CRITICAL: Call onClose to notify parent that feedback is complete
         onClose();
       }, 2000);
       
     } catch (error) {
-      console.error('Failed to submit feedback:', error);
+      console.error('❌ Failed to submit feedback:', error);
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
+      // Don't close on error, let user try again or auto-close
+      autoCloseTimeoutRef.current = setTimeout(() => {
+        handleClose();
+      }, 3000);
     }
   };
 
@@ -706,63 +856,53 @@ export const CommunityTimingFeedback = ({
       className={`fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ${
         isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
       }`}
-      style={{ maxWidth: '600px', width: '90vw' }}
+      style={{ maxWidth: '400px', width: 'auto' }}
     >
-      <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-2xl p-4">
-        {hasSubmitted ? (
-          <div className="flex items-center justify-center space-x-2 text-green-400">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+      <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-2xl px-3 py-2">        {hasSubmitted ? (
+          <div className="flex items-center space-x-2 text-green-400">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
             </svg>
-            <span className="text-sm font-medium">Bedankt voor je feedback!</span>
+            <span className="text-xs">Bedankt!</span>
           </div>
         ) : (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-white text-sm font-semibold">Community Timing Feedback</h4>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-white text-xl leading-none"
-                aria-label="Sluiten"
-              >
-                ×
-              </button>
-            </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-white text-xs whitespace-nowrap">Timing:</span>
             
-            <div className="flex justify-center space-x-2">
+            <button
+              onClick={() => handleFeedback('too_early')}
+              disabled={isSubmitting || hasSubmitted}
+              className="px-2 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+            >
+              Te vroeg
+            </button>
+            
+            <button
+              onClick={() => handleFeedback('perfect')}
+              disabled={isSubmitting || hasSubmitted}
+              className="px-2 py-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+            >
+              Perfect
+            </button>
+            
+            <button
+              onClick={() => handleFeedback('too_late')}
+              disabled={isSubmitting || hasSubmitted}
+              className="px-2 py-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+            >
+              Te laat
+            </button>
               <button
-                onClick={() => handleFeedback('too_early')}
-                disabled={isSubmitting}
-                className="px-3 py-2 bg-red-600 hover:bg-red-500 disabled:bg-red-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
-                title="Te vroeg"
-              >
-                Te vroeg
-              </button>
-              
-              <button
-                onClick={() => handleFeedback('perfect')}
-                disabled={isSubmitting}
-                className="px-3 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
-                title="Perfect getimed"
-              >
-                Perfect
-              </button>
-              
-              <button
-                onClick={() => handleFeedback('too_late')}
-                disabled={isSubmitting}
-                className="px-3 py-2 bg-orange-600 hover:bg-orange-500 disabled:bg-orange-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
-                title="Te laat"
-              >
-                Te laat
-              </button>
-            </div>
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm ml-1"
+              aria-label="Sluiten"
+            >
+              ×
+            </button>
           </div>
         )}
       </div>
-      
-      {/* Floating indicator */}
-      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-800 border-b border-r border-gray-600 rotate-45"></div>
     </div>
   );
 };

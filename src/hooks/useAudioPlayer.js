@@ -1140,6 +1140,11 @@ export const useAudioPlayer = (playlistProvider = 'spotify', autoCloseOverlays =
       try {
         pauseSpotify();
         console.log('🛑 Spotify player stopped');
+        
+        // ✅ NEW: Notify external listeners that playlist stopped
+        if (window.onPlaylistStopped && currentSource === 'playlist') {
+          window.onPlaylistStopped('spotify');
+        }
       } catch (error) {
         console.warn('Could not stop Spotify player:', error);
       }
@@ -1566,6 +1571,11 @@ export const useAudioPlayer = (playlistProvider = 'spotify', autoCloseOverlays =
     setIsPlaying(false);
     setCurrentSource(null);
     
+    // ✅ NEW: Notify external listeners that playlist stopped
+    if (window.onPlaylistStopped) {
+      window.onPlaylistStopped('youtube');
+    }
+    
     // ✅ FIX: Resume radio when floating YouTube closes (if we have a paused radio)
     if (isRadioPausedForAdBreak && pausedRadioStation) {
       console.log('🎵 Resuming paused radio after floating YouTube close:', pausedRadioStation.name);
@@ -1579,7 +1589,6 @@ export const useAudioPlayer = (playlistProvider = 'spotify', autoCloseOverlays =
       window.addNotification('🎵 YouTube afspeellijst beëindigd', 'info', 2000);
     }
   }, [isRadioPausedForAdBreak, pausedRadioStation, resumeRadioFromAdBreak]);
-
   // ✅ NEW: Safe floating YouTube close that respects auto-close setting
   const safeCloseFloatingYouTube = useCallback((reason = 'system') => {
     if (!autoCloseOverlays) {
@@ -1590,8 +1599,14 @@ export const useAudioPlayer = (playlistProvider = 'spotify', autoCloseOverlays =
     console.log(`🛑 Auto-close enabled - closing floating YouTube player (${reason})`);
     setShowFloatingYouTube(false);
     setFloatingYouTubePlaylistId(null);
+    
+    // ✅ NEW: Notify external listeners that playlist stopped (only when auto-closing)
+    if (window.onPlaylistStopped && currentSource === 'playlist') {
+      window.onPlaylistStopped('youtube');
+    }
+    
     return true; // Indicate that close was performed
-  }, [autoCloseOverlays]);
+  }, [autoCloseOverlays, currentSource]);
 
   const handleFloatingYouTubeVolumeChange = useCallback((newVolume) => {
     setFloatingYouTubeVolume(newVolume);

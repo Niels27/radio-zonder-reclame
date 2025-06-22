@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer Interval Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        .success { color: #4CAF50; }
+        .warning { color: #FF9800; }
+        .error { color: #f44336; }
+        #log {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .timer-display {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .gold-timer {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #000;
+        }
+        .normal-timer {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Timer Interval Fix Test</h1>
+    
+    <div class="test-section">
+        <h2>Community Timing Cache Test</h2>
+        <p>Testing if the expensive community timing calls are properly cached and rate-limited.</p>
+        <button onclick="testCommunityTimingCache()">Test Community Timing Rate Limiting</button>
+        <div id="cache-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Timer Update Frequency Test</h2>
+        <p>Testing if the timer updates smoothly without excessive logging.</p>
+        <button onclick="startTimerTest()">Start Timer Update Test</button>
+        <button onclick="stopTimerTest()">Stop Test</button>
+        <div id="timer-display" class="timer-display normal-timer">Not Running</div>
+        <div id="timer-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Console Log Monitor</h2>
+        <p>Monitoring console output to check for excessive logging:</p>
+        <button onclick="clearLog()">Clear Log</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let testInterval = null;
+        let logCount = 0;
+        let timerUpdateCount = 0;
+        let communityTimingCallCount = 0;
+        let startTime = 0;
+
+        // Mock community timing functions to test rate limiting
+        window.mockCommunityTimingCache = new Map();
+        window.mockLastFetchTime = new Map();
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#f44336' : type === 'warning' ? '#FF9800' : '#4CAF50';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            logCount++;
+        }
+
+        // Override console.log to capture logging frequency
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            
+            // Track specific types of logs
+            if (message.includes('🔔') || message.includes('Community')) {
+                communityTimingCallCount++;
+            }
+            if (message.includes('timer') || message.includes('🔄')) {
+                timerUpdateCount++;
+            }
+            
+            log(message);
+            originalConsoleLog.apply(console, args);
+        };
+
+        function testCommunityTimingCache() {
+            log('🔧 Testing community timing cache rate limiting...', 'info');
+            const resultsDiv = document.getElementById('cache-results');
+            
+            let callCount = 0;
+            const testStationName = 'Joy Radio';
+            
+            // Simulate rapid calls to community timing
+            const rapidCallTest = setInterval(() => {
+                callCount++;
+                
+                // Mock the caching logic from the actual code
+                const cacheKey = `${testStationName}_${new Date().getHours()}`;
+                const lastCheckKey = `community_timing_last_check_${testStationName}`;
+                const lastCheck = sessionStorage.getItem(lastCheckKey);
+                const now = Date.now();
+                
+                const RATE_LIMIT_INTERVAL = 60000; // 1 minute in real code
+                const TEST_RATE_LIMIT = 2000; // 2 seconds for test
+                
+                if (lastCheck && (now - parseInt(lastCheck)) < TEST_RATE_LIMIT) {
+                    log(`⚡ Cache hit for ${testStationName} (call ${callCount})`, 'info');
+                } else {
+                    log(`🔥 Fresh fetch for ${testStationName} (call ${callCount})`, 'warning');
+                    sessionStorage.setItem(lastCheckKey, now.toString());
+                }
+                
+                if (callCount >= 10) {
+                    clearInterval(rapidCallTest);
+                    resultsDiv.innerHTML = `
+                        <div class="success">✅ Cache test completed!</div>
+                        <div>Total calls made: ${callCount}</div>
+                        <div>Check console for cache hit/miss pattern</div>
+                    `;
+                }
+            }, 100); // Call every 100ms to test rate limiting
+        }
+
+        function startTimerTest() {
+            if (testInterval) {
+                clearInterval(testInterval);
+            }
+            
+            log('🔧 Starting timer update frequency test...', 'info');
+            startTime = Date.now();
+            timerUpdateCount = 0;
+            communityTimingCallCount = 0;
+            
+            let seconds = 60;
+            const timerDisplay = document.getElementById('timer-display');
+            const resultsDiv = document.getElementById('timer-results');
+            
+            // Simulate gold timer (community timing active)
+            let isGoldTimer = Math.random() > 0.5;
+            timerDisplay.className = `timer-display ${isGoldTimer ? 'gold-timer' : 'normal-timer'}`;
+            
+            testInterval = setInterval(() => {
+                seconds--;
+                timerDisplay.textContent = `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
+                
+                // Simulate the logic from the actual timer
+                if (seconds % 10 === 0) { // Every 10 seconds, simulate community timing check
+                    log(`🔄 Timer update: ${seconds}s remaining${isGoldTimer ? ' (GOLD TIMER)' : ''}`, 'info');
+                }
+                
+                if (seconds <= 0) {
+                    clearInterval(testInterval);
+                    const duration = Date.now() - startTime;
+                    resultsDiv.innerHTML = `
+                        <div class="success">✅ Timer test completed!</div>
+                        <div>Duration: ${(duration / 1000).toFixed(1)}s</div>
+                        <div>Timer updates: ${timerUpdateCount}</div>
+                        <div>Community timing calls: ${communityTimingCallCount}</div>
+                        <div>Total logs: ${logCount}</div>
+                        <div class="${timerUpdateCount > 100 ? 'error' : 'success'}">
+                            ${timerUpdateCount > 100 ? '❌ Too many timer updates!' : '✅ Timer update frequency OK'}
+                        </div>
+                    `;
+                    timerDisplay.textContent = 'Test Complete';
+                    timerDisplay.className = 'timer-display normal-timer';
+                }
+            }, 1000);
+        }
+
+        function stopTimerTest() {
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+                log('🛑 Timer test stopped', 'warning');
+                document.getElementById('timer-display').textContent = 'Stopped';
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            logCount = 0;
+            timerUpdateCount = 0;
+            communityTimingCallCount = 0;
+            log('📋 Log cleared', 'info');
+        }
+
+        // Initialize
+        log('🚀 Timer interval fix test page loaded', 'info');
+        log('💡 Use the buttons above to test different aspects of the timer system', 'info');
+    </script>
+</body>
+</html>

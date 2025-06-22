@@ -156,12 +156,13 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         console.log('🎵 Lofi overlay already open and working - reusing existing overlay');
         resolve(currentLofiOverlay);
         return;
-      }
-
-      // ✅ Display mode management
+      }      // ✅ Display mode management
       let displayMode = 'medium'; // minimized, medium, maximized
       let isPlaying = true;
-      let isMuted = false;
+      let isMuted = false;      // Dragging state
+      let isDragging = false;
+      let dragOffset = { x: 0, y: 0 };
+      let position = { x: window.innerWidth - 420, y: window.innerHeight - 400 }; // Default position - RIGHT side above footer for Lofi
 
       // Common button style
       const buttonStyle = "width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; font-weight: bold; transition: all 0.2s; cursor: pointer; border: none; color: white;";
@@ -178,23 +179,75 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       iframe.allow = 'autoplay; encrypted-media';
       iframe.style.cssText = 'border: none; background: black; border-radius: 8px;';
       
-      lofiIframeRef = iframe;
+      lofiIframeRef = iframe;      // Mode switching functions
+      const toggleDisplayMode = () => {
+        if (displayMode === 'minimized') {
+          displayMode = 'medium';
+          // Reset to medium mode default position (right side, above footer)
+          position = { x: window.innerWidth - 420, y: window.innerHeight - 400 };
+        } else if (displayMode === 'medium') {
+          displayMode = 'maximized';
+          // Reset to maximized mode default position (centered)
+          position = { x: (window.innerWidth - 900) / 2, y: (window.innerHeight - 600) / 2 };
+        } else {
+          displayMode = 'minimized';
+          // Reset to minimized mode default position (right side, in footer)
+          position = { x: window.innerWidth - 370, y: window.innerHeight - 65 };
+        }
+        updateDisplay();
+      };// Get display mode icon - Shows what it WILL become when clicked
+      const getDisplayModeIcon = () => {
+        if (displayMode === 'minimized') return '□';      // Will become medium - small square
+        if (displayMode === 'medium') return '■';         // Will become maximized - big square
+        return '_';                                       // Will become minimized - line
+      };
 
-      // Mode switching functions
-      const setModeMinimized = () => {
-        displayMode = 'minimized';
+      // Get display mode title - Shows what it WILL become when clicked
+      const getDisplayModeTitle = () => {
+        if (displayMode === 'minimized') return 'Naar medium weergave';
+        if (displayMode === 'medium') return 'Naar volledig scherm';
+        return 'Naar minimale weergave';
+      };
+
+      // Dragging functionality
+      const handleMouseDown = (e) => {
+        // Only start dragging if clicking on container areas, not buttons or controls
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button') || e.target.closest('input')) {
+          return;
+        }
+        
+        isDragging = true;
+        const rect = overlay.getBoundingClientRect();
+        dragOffset = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+        document.body.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+      };      const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        
+        const newX = e.clientX - dragOffset.x;
+        const newY = e.clientY - dragOffset.y;
+        
+        // Allow completely free movement across the entire screen
+        position = {
+          x: newX,
+          y: newY
+        };
+        
         updateDisplay();
       };
 
-      const setModeMedium = () => {
-        displayMode = 'medium';
-        updateDisplay();
+      const handleMouseUp = () => {
+        isDragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
       };
 
-      const setModeMaximized = () => {
-        displayMode = 'maximized';
-        updateDisplay();
-      };
+      // Add global mouse event listeners for dragging
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
 
       // Control functions
       const togglePlayPause = () => {
@@ -238,11 +291,21 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       const toggleSettings = () => {
         showSettings = !showSettings;
         updateDisplay();
-      };
-
-      // Close function
+      };      // Close function
       const closeOverlay = () => {
         console.log('🎵 Closing Lofi overlay');
+        
+        // ✅ NEW: Notify external listeners that playlist stopped
+        if (window.onPlaylistStopped) {
+          window.onPlaylistStopped('lofi');
+        }
+        
+        // Clean up event listeners
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        
         if (overlay && document.body.contains(overlay)) {
           document.body.removeChild(overlay);
         }
@@ -271,11 +334,10 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
       }
 
       // Main update display function
-      const updateDisplay = () => {
-        if (displayMode === 'minimized') {
-          // MINIMIZED MODE - Footer bar (RIGHT side, footer level) - MATCH YouTube positioning EXACTLY
+      const updateDisplay = () => {        if (displayMode === 'minimized') {
+          // MINIMIZED MODE - Footer bar (can be dragged anywhere)
           overlay.style.cssText = 
-            'position: fixed; bottom: 17px; right: 8px; width: 350px; height: 48px; background: #111827; border-radius: 8px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #374151; z-index: 100; transition: all 0.3s ease; overflow: hidden;';
+            `position: fixed; left: ${position.x}px; top: ${position.y}px; width: 350px; height: 48px; background: #111827; border-radius: 8px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #374151; z-index: 100; transition: none; overflow: hidden; cursor: ${isDragging ? 'grabbing' : 'grab'};`;
 
           overlay.innerHTML = 
             '<!-- Hidden iframe for audio continuity -->' +
@@ -295,11 +357,8 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
                 '<div style="width: 48px; margin: 0 4px;">' +
                   '<input type="range" id="lofi-volume" min="0" max="100" value="' + (isMuted ? 0 : Math.round(currentLofiVolume * 100)) + '" style="width: 100%; height: 4px; background: #6b7280; border-radius: 2px; outline: none; cursor: pointer;" />' +
                 '</div>' +
-              '</div>' +
-              '<div style="display: flex; align-items: center; gap: 4px;">' +
-                '<button id="lofi-min-btn" style="' + buttonStyle + '; background: #3b82f6;" title="Minimaal (huidig)">_</button>' +
-                '<button id="lofi-med-btn" style="' + buttonStyle + '; background: #6b7280;" title="Medium weergave">⧉</button>' +
-                '<button id="lofi-max-btn" style="' + buttonStyle + '; background: #6b7280;" title="Maximaliseren">⧈</button>' +
+              '</div>' +              '<div style="display: flex; align-items: center; gap: 4px;">' +
+                '<button id="lofi-display-btn" style="' + buttonStyle + '; background: #3b82f6;" title="' + getDisplayModeTitle() + '">' + getDisplayModeIcon() + '</button>' +
                 '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
               '</div>' +
             '</div>';
@@ -320,11 +379,8 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
                   '<div style="width: 12px; height: 12px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>' +
                   '<span style="font-size: 18px; font-weight: 600;">🎵 Lofi Girl</span>' +
                 '</div>' +
-                '<div style="display: flex; align-items: center; gap: 8px;">' +
-                  '<button id="lofi-min-btn" style="' + buttonStyle + '; background: #6b7280;" title="Minimaliseren">_</button>' +
-                  '<button id="lofi-med-btn" style="' + buttonStyle + '; background: #6b7280;" title="Medium weergave">⧉</button>' +
-                  '<button id="lofi-max-btn" style="' + buttonStyle + '; background: #3b82f6;" title="Maximaal (huidig)">⧈</button>' +
-                  '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
+                '<div style="display: flex; align-items: center; gap: 8px;">' +                '<button id="lofi-display-btn" style="' + buttonStyle + '; background: #3b82f6;" title="' + getDisplayModeTitle() + '">' + getDisplayModeIcon() + '</button>' +
+                '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
                 '</div>' +
               '</div>' +
               (showSettings ? 
@@ -343,12 +399,10 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
                 '<div style="margin-top: 15px; text-align: center; color: #9ca3af; font-size: 14px;">' +
                   '<span style="font-size: 12px; opacity: 0.7;">🔊 ' + Math.round(currentLofiVolume * 100) + '%</span>' +
                 '</div>') +
-            '</div>';
-
-        } else {
-          // MEDIUM MODE - Default floating player (right side)
+            '</div>';        } else {
+          // MEDIUM MODE - Default floating player (can be dragged anywhere)
           overlay.style.cssText = 
-            'position: fixed; bottom: 80px; right: 20px; width: 384px; height: 320px; background: #111827; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #374151; z-index: 10000; transition: all 0.3s ease; overflow: hidden;';
+            `position: fixed; left: ${position.x}px; top: ${position.y}px; width: 384px; height: 320px; background: #111827; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #374151; z-index: 10000; transition: none; overflow: hidden; cursor: ${isDragging ? 'grabbing' : 'grab'};`;
 
           overlay.innerHTML = 
             '<div style="background: #1f2937; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; color: white;">' +
@@ -357,9 +411,7 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
                 '<span style="font-size: 14px; font-weight: 600;">🎵 Lofi Girl</span>' +
               '</div>' +
               '<div style="display: flex; align-items: center; gap: 4px;">' +
-                '<button id="lofi-min-btn" style="' + buttonStyle + '; background: #6b7280;" title="Minimaliseren">_</button>' +
-                '<button id="lofi-med-btn" style="' + buttonStyle + '; background: #3b82f6;" title="Medium (huidig)">⧉</button>' +
-                '<button id="lofi-max-btn" style="' + buttonStyle + '; background: #6b7280;" title="Maximaliseren">⧈</button>' +
+                '<button id="lofi-display-btn" style="' + buttonStyle + '; background: #3b82f6;" title="' + getDisplayModeTitle() + '">' + getDisplayModeIcon() + '</button>' +
                 '<button id="lofi-settings-btn" style="' + buttonStyle + '; background: #d97706;" title="Instellingen">⚙️</button>' +
                 '<button id="lofi-close-btn" style="' + buttonStyle + '; background: #dc2626;" title="Sluiten">✕</button>' +
               '</div>' +
@@ -380,15 +432,11 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
           iframe.style.width = '100%';
           iframe.style.height = '100%';
           iframeContainer.appendChild(iframe);
-        }
-
-        // Add event listeners
+        }        // Add event listeners
         const playBtn = overlay.querySelector('#lofi-play-btn');
         const muteBtn = overlay.querySelector('#lofi-mute-btn');
         const volumeSlider = overlay.querySelector('#lofi-volume');
-        const minBtn = overlay.querySelector('#lofi-min-btn');
-        const medBtn = overlay.querySelector('#lofi-med-btn');
-        const maxBtn = overlay.querySelector('#lofi-max-btn');
+        const displayBtn = overlay.querySelector('#lofi-display-btn');
         const settingsBtn = overlay.querySelector('#lofi-settings-btn');
         const closeBtn = overlay.querySelector('#lofi-close-btn');
 
@@ -397,26 +445,22 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
         if (volumeSlider) {
           volumeSlider.oninput = (e) => handleVolumeChange(parseInt(e.target.value));
         }
-        if (minBtn) minBtn.onclick = setModeMinimized;
-        if (medBtn) medBtn.onclick = setModeMedium;
-        if (maxBtn) maxBtn.onclick = setModeMaximized;
+        if (displayBtn) displayBtn.onclick = toggleDisplayMode;
         if (settingsBtn) settingsBtn.onclick = toggleSettings;
         if (closeBtn) closeBtn.onclick = closeOverlay;
+        
+        // Add drag events
+        overlay.addEventListener('mousedown', handleMouseDown);
       };
 
       // Initial display
       updateDisplay();
 
       // Add to DOM
-      document.body.appendChild(overlay);
-
-      // Store references
+      document.body.appendChild(overlay);      // Store references
       currentLofiOverlay = overlay;
       window.currentLofiOverlay = overlay;
       window.closeLofiOverlay = closeOverlay;
-      window.setLofiModeMinimized = setModeMinimized;
-      window.setLofiModeMedium = setModeMedium;
-      window.setLofiModeMaximized = setModeMaximized;
 
       console.log('🎵 Lofi overlay created successfully with 3-mode system');
       resolve(overlay);
@@ -431,6 +475,11 @@ export const openLofiYouTubeOverlay = (videoId, duration) => {
 // ✅ NEW: Close the overlay (we have full control)
 export const closeLofiYouTubeOverlay = () => {
   try {
+    // ✅ NEW: Notify external listeners that playlist stopped
+    if (window.onPlaylistStopped) {
+      window.onPlaylistStopped('lofi');
+    }
+    
     if (window.closeLofiOverlay) {
       window.closeLofiOverlay();
     } else if (currentLofiOverlay && document.body.contains(currentLofiOverlay)) {

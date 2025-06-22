@@ -187,68 +187,70 @@ export const demoFirestore = {
 
 // ✅ NEW: Test data generator for Joy Radio community timings
 export const generateJoyRadioTestData = async () => {
-  console.log('🔥 Generating test community timing data for Joy Radio...');
+  console.log('🔥 Generating LIMITED test community timing data for Joy Radio...');
   
   const stationName = 'Joy Radio';
   const today = new Date();
+  const currentHour = today.getHours();
   const reports = [];
   
-  // Generate data for every hour of the day (0-23)
-  for (let hour = 0; hour < 24; hour++) {
-    // Half-hour timings (around :30)
+  // ✅ OPTIMIZATION: Generate data only for current hour and next 2 hours to reduce data volume
+  const hoursToGenerate = [currentHour, (currentHour + 1) % 24, (currentHour + 2) % 24];
+  
+  for (const hour of hoursToGenerate) {
+    // Half-hour timings (around :30) - only 1 pair per hour instead of multiple
     const halfHourStart = new Date(today);
-    halfHourStart.setHours(hour, 25, 0, 0); // 5 min before :30
+    halfHourStart.setHours(hour, 28, 0, 0); // 2 min before :30
     
     const halfHourEnd = new Date(today);
-    halfHourEnd.setHours(hour, 35, 0, 0); // 5 min after :30
+    halfHourEnd.setHours(hour, 33, 0, 0); // 3 min after :30
     
-    // Full-hour timings (around :00)
+    // Full-hour timings (around :00) - only 1 pair per hour
     const fullHourStart = new Date(today);
-    fullHourStart.setHours(hour, 55, 0, 0); // 5 min before :00 (previous hour)
+    fullHourStart.setHours(hour, 57, 0, 0); // 3 min before :00 (previous hour)
     
     const fullHourEnd = new Date(today);
-    fullHourEnd.setHours(hour, 5, 0, 0); // 5 min after :00
+    fullHourEnd.setHours(hour, 4, 0, 0); // 4 min after :00
     
-    // Create reports
+    // Create reports - only 4 reports per hour instead of many
     reports.push(
       {
         station: stationName,
         type: 'start',
         timestamp: halfHourStart.toISOString(),
-        minute: 25,
+        minute: 28,
         hour: hour,
         dayOfWeek: today.getDay(),
-        userAgent: 'Test Data Generator',
+        userAgent: 'Test Data Generator (Limited)',
         version: '1.0'
       },
       {
         station: stationName,
         type: 'end',
         timestamp: halfHourEnd.toISOString(),
-        minute: 35,
+        minute: 33,
         hour: hour,
         dayOfWeek: today.getDay(),
-        userAgent: 'Test Data Generator',
+        userAgent: 'Test Data Generator (Limited)',
         version: '1.0'
       },
       {
         station: stationName,
         type: 'start',
         timestamp: fullHourStart.toISOString(),
-        minute: 55,
-        hour: hour === 0 ? 23 : hour - 1, // Handle hour boundary
+        minute: 57,
+        hour: hour,
         dayOfWeek: today.getDay(),
-        userAgent: 'Test Data Generator',
+        userAgent: 'Test Data Generator (Limited)',
         version: '1.0'
       },
       {
         station: stationName,
         type: 'end',
         timestamp: fullHourEnd.toISOString(),
-        minute: 5,
-        hour: hour,
-        dayOfWeek: today.getDay(),
-        userAgent: 'Test Data Generator',
+        minute: 4,
+        hour: (hour + 1) % 24, // End is in the next hour
+        dayOfWeek: today.getDay(),        userAgent: 'Test Data Generator (Limited)',
         version: '1.0'
       }
     );
@@ -257,10 +259,22 @@ export const generateJoyRadioTestData = async () => {
   try {
     if (isDemoMode()) {
       console.log('🔥 Demo Mode: Simulating Firebase writes for Joy Radio test data');
+      
+      // ✅ OPTIMIZATION: Clear existing test data first to prevent accumulation
+      const existingData = await demoFirestore.collection('timing_reports')
+        .where('station', '==', stationName)
+        .where('userAgent', '==', 'Test Data Generator (Limited)')
+        .get();
+      
+      console.log(`🔥 Clearing ${existingData.docs.length} existing test reports`);
+      for (const doc of existingData.docs) {
+        await demoFirestore.collection('timing_reports').doc(doc.id).delete();
+      }
+      
       for (const report of reports) {
         await demoFirestore.collection('timing_reports').add(report);
       }
-      console.log(`🔥 Demo: Generated ${reports.length} test timing reports for ${stationName}`);
+      console.log(`🔥 Demo: Generated ${reports.length} LIMITED test timing reports for ${stationName} (current hour +2)`);
     } else {
       const db = getFirestoreDB();
       if (!db) {
@@ -275,12 +289,12 @@ export const generateJoyRadioTestData = async () => {
         console.log('🔥 Added test report:', report);
       }
       
-      console.log(`🔥 Production: Generated ${reports.length} test timing reports for ${stationName}`);
+      console.log(`🔥 Production: Generated ${reports.length} LIMITED test timing reports for ${stationName}`);
     }
     
     if (window.addNotification) {
       window.addNotification(
-        `✅ Generated ${reports.length} test timings for ${stationName}`, 
+        `✅ Generated ${reports.length} LIMITED test timings for ${stationName} (current hour +2)`, 
         'success', 
         4000
       );

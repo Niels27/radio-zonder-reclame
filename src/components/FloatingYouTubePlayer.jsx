@@ -21,16 +21,20 @@ const FloatingYouTubePlayer = ({
   const [isActuallyPlaying, setIsActuallyPlaying] = useState(false);
   const [videoCheckAttempts, setVideoCheckAttempts] = useState(0);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [retryCount, setRetryCount] = useState(0);
-    // Volume state
+  const [retryCount, setRetryCount] = useState(0);  // Volume state
   const [localVolume, setLocalVolume] = useState(volume);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
-  
-  // Refs
+    // Dragging state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 20, y: 80 }); // Initial fallback position
+    // Refs
   const iframeRef = useRef(null);
   const videoCheckTimeoutRef = useRef(null);
-  const loadTimeoutRef = useRef(null);  const skipToNextVideoRef = useRef(null);
+  const loadTimeoutRef = useRef(null);
+  const skipToNextVideoRef = useRef(null);
+  const dragRef = useRef(null);
 
   // YouTube fallback methods - manual selection only
   const fallbackMethods = [
@@ -293,103 +297,46 @@ const FloatingYouTubePlayer = ({
     // Reload player with new method
     loadPlayer();
   }, [loadPlayer]);
-
-  // ✅ GENTLE AUTO-START: Simple focus-based autostart
-  const attemptAutostart = useCallback(() => {
-    if (!iframeRef.current) return;
-    
-    console.log('🎵 Attempting gentle autostart...');
-    
-    try {
-      const iframe = iframeRef.current;
-      
-      // Just try to focus the iframe - that's it, no aggressive clicking or reloading
-      if (iframe.focus) {
-        iframe.focus();
-        console.log('🎵 ✅ Focused iframe for autoplay');
+  // ✅ NEW: Toggle display mode (cycles through: minimized -> medium -> maximized)
+  const toggleDisplayMode = useCallback(() => {
+    setDisplayMode(prev => {
+      switch (prev) {
+        case 'minimized': 
+          // Reset to medium mode default position (left side, above footer)
+          setPosition({ x: 20, y: window.innerHeight - 400 });
+          return 'medium';
+        case 'medium': 
+          // Reset to maximized mode default position (centered)
+          setPosition({ x: (window.innerWidth - 900) / 2, y: (window.innerHeight - 600) / 2 });
+          return 'maximized';
+        case 'maximized': 
+          // Reset to minimized mode default position (left side, in footer)
+          setPosition({ x: 20, y: window.innerHeight - 65 });
+          return 'minimized';
+        default: 
+          setPosition({ x: 20, y: window.innerHeight - 400 });
+          return 'medium';
       }
-      
-      console.log('🎵 ✅ Gentle autostart complete - letting YouTube handle the rest');
-      
-    } catch (error) {
-      console.warn('🎵 Could not perform gentle autostart:', error);
-    }
-  }, []);  // ✅ IFRAME LOAD HANDLER: Handle successful iframe loading
-  const handleIframeLoad = useCallback(() => {
-    console.log('🎵 YouTube iframe loaded, method:', currentMethod);
-    
-    // Clear any existing timeout immediately when iframe loads successfully
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-      loadTimeoutRef.current = null;
-      console.log('🎵 ✅ Cleared load timeout on successful iframe load');
-    }
-    
-    // Set loading to false and assume success
-    setIsLoading(false);
-    setIsActuallyPlaying(true);
-    setShowError(false);
-    console.log('🎵 ✅ YouTube iframe loaded successfully - marked as playing');
-    
-    // Save successful method
-    localStorage.setItem('youtube_preferred_method', currentMethod);
-    localStorage.setItem('youtube_preferred_method_index', currentMethodIndex.toString());
-    console.log('🎵 ✅ Auto-saved working method preference:', currentMethod);
-    
-    // Start video availability checking for auto-skip
-    checkVideoAvailability();
-    
-  }, [currentMethod, currentMethodIndex, checkVideoAvailability]);
-
-  // Handle iframe error
-  const handleIframeError = useCallback(() => {
-    console.error('🎵 YouTube iframe error');
-    setIsLoading(false);
-    setShowError(true);
-    setErrorMessage('Iframe loading failed - probeer andere methode');
-  }, []);  // Save user preference and stop automatic cycling
-  const saveUserPreference = useCallback((methodIndex) => {
-    console.log('🎵 User manually selected method:', fallbackMethods[methodIndex]);
-    
-    // Reset retry count to stop automatic cycling
-    setRetryCount(0);
-    setVideoCheckAttempts(0);
-    
-    setCurrentMethodIndex(methodIndex);
-    setCurrentMethod(fallbackMethods[methodIndex]);
-    setShowFallbackOptions(false);
-    
-    // Save user preference
-    localStorage.setItem('youtube_preferred_method', fallbackMethods[methodIndex]);
-    localStorage.setItem('youtube_preferred_method_index', methodIndex.toString());
-    
-    console.log('🎵 Saved YouTube method preference and stopped auto-cycling:', fallbackMethods[methodIndex]);
-    
-    // Reload player with new method
-    loadPlayer();
-  }, [loadPlayer]);
-  // Get status message based on current state
-  const getStatusMessage = () => {
-    if (isLoading) return 'Laden...';
-    if (showError) return 'Fout - Probeer andere methode';
-    return 'Aan het spelen';
-  };
-
-  // Toggle display mode
-  const toggleDisplayMode = () => {
-    if (displayMode === 'minimized') {
-      setDisplayMode('medium');
-    } else if (displayMode === 'medium') {
-      setDisplayMode('maximized');
-    } else {
-      setDisplayMode('minimized');
+    });
+  }, []);// ✅ NEW: Get display mode icon - Shows what it WILL become when clicked
+  const getDisplayModeIcon = () => {
+    switch (displayMode) {
+      case 'minimized': return '□';  // Will become medium - small square
+      case 'medium': return '■';     // Will become maximized - big square
+      case 'maximized': return '_';  // Will become minimized - line
+      default: return '□';
     }
   };
 
-  // Set specific display mode
-  const setModeMinimized = () => setDisplayMode('minimized');
-  const setModeMedium = () => setDisplayMode('medium');
-  const setModeMaximized = () => setDisplayMode('maximized');
+  // ✅ NEW: Get display mode title
+  const getDisplayModeTitle = () => {
+    switch (displayMode) {
+      case 'minimized': return 'Naar medium weergave';
+      case 'medium': return 'Naar volledig scherm';
+      case 'maximized': return 'Naar minimale weergave';
+      default: return 'Wissel weergave';
+    }
+  };
   // Volume control
   const toggleMute = () => {
     setIsMuted(!isMuted);
@@ -406,22 +353,48 @@ const FloatingYouTubePlayer = ({
         } else {
           iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
         }
-      } catch (e) {
-        // CORS limitations
+      } catch (error) {
+        console.warn('🎵 Could not control iframe playback:', error);
       }
     }
   };
+
+  // ✅ NEW: Iframe event handlers
+  const handleIframeLoad = useCallback(() => {
+    console.log('🎵 ✅ YouTube iframe loaded successfully');
+    setIsLoading(false);
+    setShowError(false);
+    setRetryCount(0);
+    
+    // Start video availability check after load
+    setTimeout(() => {
+      checkVideoAvailability();
+    }, 1000);
+  }, [checkVideoAvailability]);
+
+  const handleIframeError = useCallback(() => {
+    console.error('🎵 💥 YouTube iframe failed to load');
+    setIsLoading(false);
+    setShowError(true);
+    setErrorMessage('YouTube speler kon niet worden geladen');
+  }, []);
 
   // Load user preference on mount
   useEffect(() => {
     const savedMethod = localStorage.getItem('youtube_preferred_method');
     if (savedMethod) {
-      const methodIndex = fallbackMethods.indexOf(savedMethod);
-      if (methodIndex !== -1) {
-        setCurrentMethodIndex(methodIndex);
-        setCurrentMethod(savedMethod);
+      const savedIndex = localStorage.getItem('youtube_preferred_method_index');
+      if (savedIndex) {
+        const index = parseInt(savedIndex);
+        if (index >= 0 && index < fallbackMethods.length) {
+          setCurrentMethod(savedMethod);
+          setCurrentMethodIndex(index);
+        }
       }
     }
+    
+    // Set proper default position based on viewport
+    setPosition({ x: 20, y: window.innerHeight - 400 });
   }, []);
 
   // Load player when method or shuffle changes
@@ -480,8 +453,54 @@ const FloatingYouTubePlayer = ({
       clearTimeout(loadTimeoutRef.current);
       loadTimeoutRef.current = null;
       console.log('🎵 ✅ User volume interaction - cleared timeouts');
+    }  };
+
+  // Dragging functionality
+  const handleMouseDown = (e) => {
+    // Only start dragging if clicking on container areas, not buttons or controls
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button') || e.target.closest('input')) {
+      return;
     }
+    
+    setIsDragging(true);
+    const rect = dragRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    
+    // Allow completely free movement across the entire screen
+    setPosition({
+      x: newX,
+      y: newY
+    });
   };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isDragging, dragOffset]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -496,12 +515,19 @@ const FloatingYouTubePlayer = ({
   }, []);  if (!isVisible) return null;
 
   // Common button style
-  const buttonStyle = "w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-all duration-200 cursor-pointer";
-
-  // MINIMIZED MODE - Footer bar (LEFT side, footer level)
+  const buttonStyle = "w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-all duration-200 cursor-pointer";  // MINIMIZED MODE - Footer bar (can be dragged anywhere)
   if (displayMode === 'minimized') {
     return (
-      <div className="fixed bottom-4 left-2 z-[100] w-100 h-12 bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden" style={{marginBottom: '4px'}}>
+      <div 
+        ref={dragRef}
+        className="fixed z-[100] w-100 h-12 bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden" 
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+        onMouseDown={handleMouseDown}
+      >
         {/* Hidden iframe for audio continuity */}
         <iframe
           ref={iframeRef}
@@ -560,29 +586,14 @@ const FloatingYouTubePlayer = ({
               />
             </div>
           </div>
-          
-          {/* Right side - Mode buttons */}
+            {/* Right side - Mode toggle button */}
           <div className="flex items-center gap-1">
             <button 
-              onClick={setModeMinimized}
-              className={`${buttonStyle} ${displayMode === 'minimized' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-700'}`}
-              title="Minimaal (huidig)"
+              onClick={toggleDisplayMode}
+              className={`${buttonStyle} bg-blue-600 hover:bg-blue-700`}
+              title={getDisplayModeTitle()}
             >
-              _
-            </button>
-            <button 
-              onClick={setModeMedium}
-              className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
-              title="Medium weergave"
-            >
-              ⧉
-            </button>
-            <button 
-              onClick={setModeMaximized}
-              className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
-              title="Maximaliseren"
-            >
-              ⧈
+              {getDisplayModeIcon()}
             </button>
             <button
               onClick={() => setShowFallbackOptions(!showFallbackOptions)}
@@ -644,28 +655,13 @@ const FloatingYouTubePlayer = ({
               }`}></div>
               <span className="text-lg font-medium">🎵 YouTube Player</span>
             </div>
-            
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               <button 
-                onClick={setModeMinimized}
-                className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
-                title="Minimaliseren"
+                onClick={toggleDisplayMode}
+                className={`${buttonStyle} bg-blue-600 hover:bg-blue-700`}
+                title={getDisplayModeTitle()}
               >
-                _
-              </button>
-              <button 
-                onClick={setModeMedium}
-                className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
-                title="Medium weergave"
-              >
-                ⧉
-              </button>
-              <button 
-                onClick={setModeMaximized}
-                className={`${buttonStyle} ${displayMode === 'maximized' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-700'}`}
-                title="Maximaal (huidig)"
-              >
-                ⧈
+                {getDisplayModeIcon()}
               </button>
               <button
                 onClick={() => setShowFallbackOptions(!showFallbackOptions)}
@@ -753,11 +749,18 @@ const FloatingYouTubePlayer = ({
         </div>
       </div>
     );
-  }
-
-  // MEDIUM MODE - Default floating player (positioned on left)
+  }  // MEDIUM MODE - Default floating player (can be dragged anywhere)
   return (
-    <div className="fixed bottom-20 left-5 z-[100] w-96 h-80 bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+    <div 
+      ref={dragRef}
+      className="fixed z-[100] w-96 h-80 bg-gray-900 rounded-lg shadow-2xl border border-gray-700 overflow-hidden"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        cursor: isDragging ? 'grabbing' : 'grab'
+      }}
+      onMouseDown={handleMouseDown}
+    >
       {/* Header */}
       <div className="bg-gray-800 px-3 py-2 flex items-center justify-between text-white">
         <div className="flex items-center gap-2 flex-1">
@@ -768,28 +771,13 @@ const FloatingYouTubePlayer = ({
           }`}></div>
           <span className="text-sm font-medium">🎵 YouTube Player</span>
         </div>
-        
-        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
           <button 
-            onClick={setModeMinimized}
-            className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
-            title="Minimaliseren"
+            onClick={toggleDisplayMode}
+            className={`${buttonStyle} bg-blue-600 hover:bg-blue-700`}
+            title={getDisplayModeTitle()}
           >
-            _
-          </button>
-          <button 
-            onClick={setModeMedium}
-            className={`${buttonStyle} ${displayMode === 'medium' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-700'}`}
-            title="Medium (huidig)"
-          >
-            ⧉
-          </button>
-          <button 
-            onClick={setModeMaximized}
-            className={`${buttonStyle} bg-gray-600 hover:bg-gray-700`}
-            title="Maximaliseren"
-          >
-            ⧈
+            {getDisplayModeIcon()}
           </button>
           <button
             onClick={() => setShowFallbackOptions(!showFallbackOptions)}

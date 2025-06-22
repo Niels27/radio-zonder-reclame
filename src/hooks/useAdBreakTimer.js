@@ -85,13 +85,99 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
   const [autoAdDetectionEnabled, setAutoAdDetectionEnabled] = useState(() => {
     // ✅ QUICK FIX: Force music detection to always be disabled
     return false;  });
-
   // Refs for interval management
   const timerIntervalRef = useRef(null);
   const adBreakTimeoutRef = useRef(null);
   const adDetectionIntervalRef = useRef(null);
-  const countdownIntervalRef = useRef(null); // ✅ NEW: Ref for countdown interval
+  const countdownIntervalRef = useRef(null); // ✅ NEW: Ref for countdown interval  // ✅ FIX: Timer cache ref to prevent reset on dependency changes  
+  const timerCacheRef = useRef({
+    cachedNextAdBreakTime: null,
+    lastCommunityTimingCheck: 0
+  });  // ✅ FIX: Add refs to prevent feedback popup loops and ensure single trigger per ad break
+  const feedbackPopupShownRef = useRef(false);
+  const currentAdBreakIdRef = useRef(null);
+  const feedbackAutoCloseTimeoutRef = useRef(null);
+  
+  // ✅ NEW: Enhanced ad break session management
+  const [currentAdBreakSession, setCurrentAdBreakSession] = useState(null);
+  const adBreakSessionRef = useRef(null);
+  const createAdBreakSession = useCallback((source, timing, duration, stationName) => {
+    const session = {
+      id: `${stationName}_${Date.now()}`,
+      source: source, // 'community' or 'manual'
+      timing: timing,
+      duration: duration,
+      stationName: stationName,
+      createdAt: Date.now(),
+      feedbackShown: false
+    };
+    
+    console.log('📋 Creating ad break session:', session);
+    setCurrentAdBreakSession(session);
+    adBreakSessionRef.current = session;
+    
+    // Persist to storage
+    try {
+      sessionStorage.setItem('currentAdBreakSession', JSON.stringify(session));
+    } catch (error) {
+      console.warn('Failed to store ad break session:', error);
+    }
+  }, []);
 
+  // ✅ NEW: Load ad break session from storage on initialization
+  const loadAdBreakSessionFromStorage = useCallback(() => {
+    try {
+      const stored = sessionStorage.getItem('currentAdBreakSession');
+      if (stored) {
+        const session = JSON.parse(stored);
+        console.log('📋 Restored ad break session from storage:', session);
+        setCurrentAdBreakSession(session);
+        adBreakSessionRef.current = session;
+        
+        // ✅ CRITICAL: Restore community timing state if it was community-based
+        if (session.source === 'community') {
+          setCurrentAdBreakUsedCommunityTiming(true);
+          setNextCommunityTiming(session.timing);
+          setFeedbackStationName(session.stationName);
+          console.log('🔔 Restored community timing state from session');
+        }
+        
+        return session;
+      }
+    } catch (error) {
+      console.warn('Failed to load ad break session:', error);
+    }
+    return null;
+  }, []);
+
+  // ✅ NEW: Clear ad break session
+  const clearAdBreakSession = useCallback(() => {
+    console.log('📋 Clearing ad break session');
+    setCurrentAdBreakSession(null);
+    adBreakSessionRef.current = null;
+    try {
+      sessionStorage.removeItem('currentAdBreakSession');
+    } catch (error) {
+      console.warn('Failed to clear ad break session:', error);
+    }
+  }, []);
+
+  // ✅ NEW: Update ad break session
+  const updateAdBreakSession = useCallback((updates) => {
+    const currentSession = currentAdBreakSession || adBreakSessionRef.current;
+    if (currentSession) {
+      const updatedSession = { ...currentSession, ...updates };
+      console.log('📋 Updating ad break session:', updates);
+      setCurrentAdBreakSession(updatedSession);
+      adBreakSessionRef.current = updatedSession;
+      
+      try {
+        sessionStorage.setItem('currentAdBreakSession', JSON.stringify(updatedSession));
+      } catch (error) {
+        console.warn('Failed to update ad break session:', error);
+      }
+    }
+  }, []);
   // Community timing states
   const [useCommunityTimings, setUseCommunityTimings] = useState(() => {
     try {
@@ -110,9 +196,105 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
   const [originalRadioStation, setOriginalRadioStation] = useState(null);
 
   // Debug timing state
-  const [debugTimingState, setDebugTimingState] = useState(null);
+  const [debugTimingState, setDebugTimingState] = useState(null);  // ✅ FIX: Helper function to show feedback popup safely (only once per ad break)
+  const showFeedbackPopupSafely = useCallback((stationName) => {
+    // ✅ CRITICAL FIX: Use station name + ad break session for stable ID instead of timestamp
+    const currentSession = currentAdBreakSession || adBreakSessionRef.current;
+    const adBreakId = currentSession ? 
+      `${stationName}_${currentSession.id}` : 
+      `${stationName}_${Math.floor(Date.now() / 60000)}`; // Round to minute to prevent duplicate IDs
+    
+    // ✅ CRITICAL: Check if feedback was already given for this session
+    if (currentSession && currentSession.feedbackShown) {
+      console.log('🚫 Feedback already given for this ad break session, permanently skipping:', adBreakId);
+      return;
+    }
+    
+    // Prevent multiple triggers for the same ad break
+    if (feedbackPopupShownRef.current || currentAdBreakIdRef.current === adBreakId) {
+      console.log('🚫 Feedback popup already shown for this ad break, skipping:', adBreakId);
+      return;
+    }
+    
+    // ✅ EXTRA CHECK: If feedback popup is already visible, don't show it again
+    if (showFeedbackPopup) {
+      console.log('🚫 Feedback popup already visible, skipping');
+      return;
+    }
+    
+    console.log('✅ Showing feedback popup for ad break:', adBreakId);
+    
+    // Set the tracking flags
+    feedbackPopupShownRef.current = true;
+    currentAdBreakIdRef.current = adBreakId;
+    
+    // Clear any existing timeout
+    if (feedbackAutoCloseTimeoutRef.current) {
+      clearTimeout(feedbackAutoCloseTimeoutRef.current);
+      feedbackAutoCloseTimeoutRef.current = null;
+    }
+    
+    // Set the state to show popup
+    setFeedbackStationName(stationName);
+    setShowFeedbackPopup(true);
+    
+    // Auto-close after 10 seconds (will be overridden by component's own timeout)
+    feedbackAutoCloseTimeoutRef.current = setTimeout(() => {
+      console.log('🕒 Auto-closing feedback popup after timeout');
+      setShowFeedbackPopup(false);
+      feedbackPopupShownRef.current = false;
+      currentAdBreakIdRef.current = null;
+      feedbackAutoCloseTimeoutRef.current = null;    }, 10000);
+  }, [currentAdBreakSession]); // ✅ FIX: Remove showFeedbackPopup from dependencies to prevent loops// ✅ FIX: Helper function to close feedback popup safely
+  const closeFeedbackPopupSafely = useCallback(() => {
+    console.log('✅ Closing feedback popup safely');
+    
+    // ✅ CRITICAL: Mark feedback as shown in session to prevent re-showing
+    updateAdBreakSession({ feedbackShown: true });
+    
+    // Clear timeout
+    if (feedbackAutoCloseTimeoutRef.current) {
+      clearTimeout(feedbackAutoCloseTimeoutRef.current);
+      feedbackAutoCloseTimeoutRef.current = null;
+    }
+    
+    // Reset all tracking flags
+    setShowFeedbackPopup(false);
+    feedbackPopupShownRef.current = false;
+    currentAdBreakIdRef.current = null;
+  }, [updateAdBreakSession]);
 
-  // ✅ NEW: Get next community timing with better logic
+  // ✅ NEW: Enhanced function to check current ad break context
+  const getCurrentAdBreakContext = useCallback(() => {
+    // First check if we have an active session
+    if (currentAdBreakSession || adBreakSessionRef.current) {
+      const session = currentAdBreakSession || adBreakSessionRef.current;
+      console.log('📋 Using active ad break session:', session);
+      return {
+        source: session.source,
+        isCommunity: session.source === 'community',
+        timing: session.timing,
+        duration: session.duration,
+        stationName: session.stationName,
+        feedbackShown: session.feedbackShown
+      };
+    }
+
+    // Fallback: try to restore from storage
+    const restored = loadAdBreakSessionFromStorage();
+    if (restored) {
+      return {
+        source: restored.source,
+        isCommunity: restored.source === 'community',
+        timing: restored.timing,
+        duration: restored.duration,
+        stationName: restored.stationName,
+        feedbackShown: restored.feedbackShown
+      };
+    }
+
+    return null;
+  }, [currentAdBreakSession, loadAdBreakSessionFromStorage]);// ✅ FIXED: Get next community timing with better caching to prevent freezing
   const getNextCommunityTiming = useCallback(async () => {
     if (!useCommunityTimings || !audioPlayer.currentStation?.name) {
       return null;
@@ -120,69 +302,188 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
 
     try {
       const currentTime = new Date();
-      const timing = await CommunityTimings.getNextAdBreakTime(audioPlayer.currentStation.name, currentTime);
       
-      // Only return if it's a real community timing (has start and end times)
-      if (timing && timing.start && timing.end) {
-        const duration = Math.round((timing.end - timing.start) / 1000 / 60); // Convert to minutes
-        return {
-          start: timing.start,
-          end: timing.end,
-          duration: duration,
-          stationName: audioPlayer.currentStation.name,
-          source: 'community'
-        };
+      // ✅ MAJOR FIX: Cache for 5 minutes and only check once per minute to prevent freezing
+      const cacheKey = `next_timing_${audioPlayer.currentStation.name}_${currentTime.getHours()}_${Math.floor(currentTime.getMinutes() / 5)}`;      // Check if we recently calculated this (cache for 5 minutes)
+      const cachedResult = sessionStorage.getItem(cacheKey);
+      if (cachedResult) {
+        const parsed = JSON.parse(cachedResult);
+        if ((Date.now() - parsed.timestamp) < 300000) { // 5 minutes cache (was 2 minutes)
+          // ✅ FIX: Only log cache hits once per station per session to reduce spam
+          const logKey = `cache_logged_${audioPlayer.currentStation.name}`;
+          if (!sessionStorage.getItem(logKey)) {
+            console.log('📋 Using cached community timing for', audioPlayer.currentStation.name);
+            sessionStorage.setItem(logKey, 'true');
+          }
+          return parsed.result;
+        }
+      }
+
+      // ✅ MAJOR FIX: Rate limit community timing checks to max once per minute
+      const lastCheckKey = `last_community_check_${audioPlayer.currentStation.name}`;
+      const lastCheck = sessionStorage.getItem(lastCheckKey);      if (lastCheck && (Date.now() - parseInt(lastCheck)) < 60000) {
+        // Return cached result or null if rate limited
+        if (cachedResult) {
+          const parsed = JSON.parse(cachedResult);
+          return parsed.result;
+        }
+        return null;
       }
       
-      return null;
+      // Record this check time
+      sessionStorage.setItem(lastCheckKey, Date.now().toString());
+      console.log('🔥 Fetching fresh community timing for', audioPlayer.currentStation.name, '(expensive operation)');
+
+      const suggestions = await CommunityTimings.getSuggestedAdBreakTiming(audioPlayer.currentStation.name, currentTime.getHours());
+      
+      if (suggestions) {
+        console.log('🔔 Community timing suggestions loaded for', audioPlayer.currentStation.name);
+      }
+      
+      let result = null;
+      
+      if (suggestions) {
+        // Check for half-hour timing (around :30)
+        const halfHour = suggestions.halfHour;
+        if (halfHour && halfHour.starts !== null && halfHour.ends !== null) {
+          const duration = Math.abs(halfHour.ends - halfHour.starts);
+          result = {
+            startMinute: halfHour.starts,
+            endMinute: halfHour.ends,
+            duration: duration,
+            stationName: audioPlayer.currentStation.name,
+            source: 'community',
+            type: 'halfHour'
+          };
+        }
+        
+        // Check for full-hour timing (around :00)
+        if (!result) {
+          const fullHour = suggestions.fullHour;
+          if (fullHour && fullHour.starts !== null && fullHour.ends !== null) {
+            const duration = Math.abs(fullHour.ends - fullHour.starts);
+            result = {
+              startMinute: fullHour.starts,
+              endMinute: fullHour.ends,
+              duration: duration,
+              stationName: audioPlayer.currentStation.name,
+              source: 'community',
+              type: 'fullHour'
+            };
+          }
+        }
+      }
+      
+      // Cache the result for longer
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        result: result,
+        timestamp: Date.now()
+      }));
+      
+      return result;
     } catch (error) {
       console.warn('Failed to get community timing:', error);
       return null;
     }
-  }, [useCommunityTimings, audioPlayer.currentStation?.name]);  // ✅ ENHANCED: Get next ad break time with community timing support
+  }, [useCommunityTimings, audioPlayer.currentStation?.name]);  // ✅ ULTRA-ROBUST: Get next ad break time with bulletproof community timing support
   const getNextAdBreakTime = useCallback(async () => {
     const now = new Date();
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
 
-    // Check for community timing first
-    const communityTiming = await getNextCommunityTiming();
-    if (communityTiming) {
-      const secondsUntil = Math.round((communityTiming.start - now) / 1000);
-      console.log('🔔 Next ad break (community):', secondsUntil, 'seconds');
-      setNextCommunityTiming(communityTiming); // Store for UI
-      return Math.max(0, secondsUntil); // ✅ FIX: Return seconds, not minutes
+    // ✅ CRITICAL: Check for active ad break session first
+    const activeContext = getCurrentAdBreakContext();
+    if (activeContext && activeContext.isCommunity && activeContext.timing) {
+      console.log('🔄 Using active community ad break session for timer display');
+      
+      // ✅ CRITICAL FIX: If we're in an ad break, don't calculate next timing - show current ad break countdown instead
+      if (isAdBreakActive && currentAdBreakTimeLeft !== null) {
+        console.log('🔔 Currently in community ad break - showing remaining time:', currentAdBreakTimeLeft, 'seconds');
+        return currentAdBreakTimeLeft;
+      }
+      
+      // ✅ FIX: Only calculate next timing if not currently in ad break
+      const targetMinute = activeContext.timing.startMinute || activeContext.timing.minute;
+      let minutesUntil = (targetMinute - currentMinute + 60) % 60;
+      
+      if (minutesUntil === 0) {
+        if (currentSecond <= 30) {
+          return 0; // Start immediately
+        } else {
+          minutesUntil = 60; // Wait for next occurrence
+        }
+      }
+      
+      // ✅ ULTRA-ROBUST: Store community timing for UI consistency
+      setNextCommunityTiming(activeContext.timing);
+      setCurrentAdBreakUsedCommunityTiming(true);
+      
+      console.log(`🔔 Next community ad break (from session): ${minutesUntil} minutes`);
+      return minutesUntil * 60 - currentSecond; // Return in seconds for consistency
     }
 
-    // Clear community timing if none found
+    // ✅ CRITICAL FIX: Always try community timing first and be consistent
+    const communityTiming = await getNextCommunityTiming();
+    if (communityTiming) {
+      // ✅ ULTRA-ROBUST: Store community timing immediately for UI consistency
+      setNextCommunityTiming(communityTiming);
+      
+      const targetMinute = communityTiming.startMinute;
+      let minutesUntil = (targetMinute - currentMinute + 60) % 60;
+      
+      // ✅ SUPER-ROBUST: Handle edge cases for exact timing
+      if (minutesUntil === 0) {
+        if (currentSecond <= 30) {
+          console.log('🔔 Community ad break time reached!');
+          return 0; // Start immediately
+        } else {
+          // We missed this occurrence, wait for next one
+          // For community timings, this could be the next occurrence of the same pattern
+          minutesUntil = 60; // Wait for next hour if it's a full-hour pattern
+        }
+      }
+
+      const totalSecondsUntil = (minutesUntil * 60) - currentSecond;
+      
+      // ✅ ROBUST LOGGING: Only log occasionally to prevent spam
+      if (totalSecondsUntil > 1800 || totalSecondsUntil % 30 === 0 || totalSecondsUntil < 10) {
+        const logKey = `community_timing_${targetMinute}_${Math.floor(totalSecondsUntil/10)*10}`;
+        const lastLogged = sessionStorage.getItem(logKey);
+        if (!lastLogged || (Date.now() - parseInt(lastLogged)) > 30000) {
+          console.log('🔔 Community timing countdown:', Math.floor(totalSecondsUntil/60), 'min', totalSecondsUntil%60, 'sec (target minute:', targetMinute, ')');
+          sessionStorage.setItem(logKey, Date.now().toString());
+        }
+      }
+      
+      return Math.max(0, totalSecondsUntil);
+    }
+
+    // ✅ CRITICAL FIX: Clear community timing state when none available
     setNextCommunityTiming(null);
 
-    // ✅ FIX: Calculate exact seconds until next ad break
+    // ✅ FALLBACK: Calculate exact seconds until next manual ad break
     const timeToAdBreak1Minutes = (adBreakMinute - currentMinute + 60) % 60;
     const timeToAdBreak2Minutes = (adBreakMinute2 - currentMinute + 60) % 60;
     
     let nextAdBreakMinutes = Math.min(timeToAdBreak1Minutes, timeToAdBreak2Minutes);
     
-    // ✅ FIX: Calculate exact seconds remaining
+    // ✅ HANDLE IMMEDIATE TRIGGER: Check if we should start now
     if (nextAdBreakMinutes === 0) {
-      // We're in the ad break minute, check if we should start now
       if (currentSecond <= 30) {
-        console.log('🔔 Ad break time reached!');
+        console.log('🔔 Manual ad break time reached!');
         return 0;
       } else {
-        // Go to the next ad break
+        // We missed this minute, go to next one
         const allBreaks = [timeToAdBreak1Minutes, timeToAdBreak2Minutes].filter(t => t > 0);
         nextAdBreakMinutes = allBreaks.length > 0 ? Math.min(...allBreaks) : 60;
       }
     }
     
-    // Convert to total seconds remaining (minutes * 60 - current seconds in this minute)
+    // ✅ PRECISE CALCULATION: Convert to total seconds remaining
     const totalSecondsRemaining = (nextAdBreakMinutes * 60) - currentSecond;
     
- 
-    
     return Math.max(0, totalSecondsRemaining);
-  }, [getNextCommunityTiming, adBreakMinute, adBreakMinute2]);
+  }, [getNextCommunityTiming, adBreakMinute, adBreakMinute2, getCurrentAdBreakContext]);
 
   // ✅ ENHANCED: Ad break mode descriptions
   const getAdBreakModeDescription = useCallback(() => {
@@ -447,8 +748,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
         throw error;
       }
     }
-  }, [audioPlayer]);
-  // ✅ ENHANCED: Main ad break start function with community timing support
+  }, [audioPlayer]);  // ✅ ENHANCED: Main ad break start function with community timing support
   const startAdBreak = useCallback(async (useManualDuration = false, manualDuration = null) => {
     // ✅ FIX: Prevent multiple ad breaks from starting simultaneously
     if (isAdBreakActive) {
@@ -457,45 +757,64 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     }
     
     try {
-      console.log('🎵 Starting ad break with mode:', adBreakMode);
+      console.log('🎵 Starting ad break with mode:', adBreakMode);      
 
-      // Determine duration
+      // ✅ ULTRA-ROBUST: Determine duration with bulletproof community timing detection
       let duration;
+      let usedCommunityTiming = false;
+      let sessionTiming = null;
+      
       if (useManualDuration && manualDuration) {
         duration = manualDuration;
         console.log('🎵 Using manual duration:', duration, 'minutes');
+        usedCommunityTiming = false;
       } else {
-        // Check for community timing
-        const communityTiming = await getNextCommunityTiming();
-        if (communityTiming) {
-          duration = communityTiming.duration;
-          console.log('🔔 Using community timing duration:', duration, 'minutes');
-          
-          // Set flag for feedback popup
-          setCurrentAdBreakUsedCommunityTiming(true);
-          setFeedbackStationName(audioPlayer.currentStation?.name || '');
-          
-          // Show feedback popup for 10 seconds
-          setShowFeedbackPopup(true);
-          setTimeout(() => {
-            setShowFeedbackPopup(false);
-          }, 10000);
+        // ✅ CRITICAL: Check for active session first, then community timing, then manual fallback
+        const activeContext = getCurrentAdBreakContext();
+        
+        if (activeContext && activeContext.isCommunity) {
+          // Use duration from active community session
+          duration = activeContext.duration;
+          usedCommunityTiming = true;
+          sessionTiming = activeContext.timing;
+          console.log('🔔 Using active community session duration:', duration, 'minutes');
+        } else if (nextCommunityTiming && nextCommunityTiming.duration) {
+          duration = nextCommunityTiming.duration;
+          usedCommunityTiming = true;
+          console.log('🔔 Using ACTIVE community timing duration:', duration, 'minutes from', nextCommunityTiming.stationName);
         } else {
-          // Use configured duration
-          const now = new Date();
-          const currentMinute = now.getMinutes();
-          const timeToAdBreak1 = (adBreakMinute - currentMinute + 60) % 60;
-          const timeToAdBreak2 = (adBreakMinute2 - currentMinute + 60) % 60;
-          
-          if (timeToAdBreak1 <= timeToAdBreak2) {
-            duration = adBreakDuration;
+          // ✅ FALLBACK: Try to get fresh community timing if none is active
+          const communityTiming = await getNextCommunityTiming();
+          if (communityTiming && communityTiming.duration) {
+            duration = communityTiming.duration;
+            usedCommunityTiming = true;
+            console.log('🔔 Using FRESH community timing duration:', duration, 'minutes');
           } else {
-            duration = adBreakDuration2;
-          }
-          console.log('🎵 Using configured duration:', duration, 'minutes');
-          setCurrentAdBreakUsedCommunityTiming(false);
+            // ✅ MANUAL FALLBACK: Use configured duration based on which timing was closer
+            const now = new Date();
+            const currentMinute = now.getMinutes();
+            const timeToAdBreak1 = (adBreakMinute - currentMinute + 60) % 60;
+            const timeToAdBreak2 = (adBreakMinute2 - currentMinute + 60) % 60;
+            
+            if (timeToAdBreak1 <= timeToAdBreak2) {
+              duration = adBreakDuration;
+            } else {
+              duration = adBreakDuration2;
+            }
+            usedCommunityTiming = false;
+            console.log('🎵 Using manual duration (no community timing):', duration, 'minutes');          }
         }
-      }      // Clear any existing countdown interval first
+        
+        // ✅ NEW: Create ad break session for tracking
+        const sessionSource = usedCommunityTiming ? 'community' : 'manual';
+        createAdBreakSession(sessionSource, sessionTiming || nextCommunityTiming, duration, audioPlayer.currentStation?.name);
+        
+        // ✅ ROBUST: Set community timing flags consistently
+        setCurrentAdBreakUsedCommunityTiming(usedCommunityTiming);
+        if (usedCommunityTiming) {
+          showFeedbackPopupSafely(audioPlayer.currentStation?.name || '');
+        }
+      }// Clear any existing countdown interval first
       if (countdownIntervalRef.current) {
         console.log('🚨 Clearing existing countdown interval');
         clearInterval(countdownIntervalRef.current);
@@ -548,7 +867,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
         window.addNotification(`❌ Reclamepauze mislukt: ${error.message}`, 'error', 5000);
       }
     }
-  }, [adBreakMode, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startPlaylistAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, handleAdBreakError, getNextCommunityTiming, audioPlayer]);
+  }, [adBreakMode, adBreakMinute, adBreakMinute2, adBreakDuration, adBreakDuration2, startPlaylistAdBreak, startNonstopAdBreak, startLofiAdBreak, getAdBreakModeDescription, handleAdBreakError, getNextCommunityTiming, audioPlayer, showFeedbackPopupSafely, getCurrentAdBreakContext, createAdBreakSession, currentAdBreakSession, showFeedbackPopup]);
 
   // ✅ NEW: Start ad break with community timing duration
   const startAdBreakWithCommunityDuration = useCallback(async (communityTiming) => {
@@ -564,12 +883,8 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
         setOriginalRadioStation(audioPlayer.currentStation);
         console.log('🎵 Stored original radio station for nonstop mode:', audioPlayer.currentStation.name);
       }
-      
-      // Show feedback popup for 10 seconds
-      setShowFeedbackPopup(true);
-      setTimeout(() => {
-        setShowFeedbackPopup(false);
-      }, 10000);
+        // Show feedback popup for community timing
+      showFeedbackPopupSafely(communityTiming.stationName);
       
       // Use the community timing duration
       await startAdBreak(true, communityTiming.duration);
@@ -578,11 +893,22 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
       console.error('Failed to start ad break with community timing:', error);
       handleAdBreakError();
     }
-  }, [startAdBreak, handleAdBreakError, adBreakMode, audioPlayer]);
-
-  // ✅ ENHANCED: End ad break with proper restoration
+  }, [startAdBreak, handleAdBreakError, adBreakMode, audioPlayer, showFeedbackPopupSafely]);  // ✅ ENHANCED: End ad break with proper restoration
   const endAdBreak = useCallback(() => {
-    console.log('🎵 Ending ad break...');    // Clear timeout and countdown interval
+    console.log('🎵 Ending ad break...');
+
+    // ✅ FIX: Reset feedback popup state when ad break ends
+    closeFeedbackPopupSafely();
+
+    // ✅ CRITICAL: Clear ad break session when ending
+    clearAdBreakSession();
+    
+    // ✅ CRITICAL: Reset community timing state
+    setCurrentAdBreakUsedCommunityTiming(false);
+    setNextCommunityTiming(null);
+    setFeedbackStationName('');
+
+    // Clear timeout and countdown interval
     if (adBreakTimeoutRef.current) {
       clearTimeout(adBreakTimeoutRef.current);
       adBreakTimeoutRef.current = null;
@@ -590,7 +916,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
-    }    // Close overlays if auto-close is enabled
+    }// Close overlays if auto-close is enabled
     if (autoCloseOverlays) {
       // Close lofi overlay if open
       if (isLofiOverlayOpen()) {
@@ -646,7 +972,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     if (window.addNotification) {
       window.addNotification('🎵 Reclamepauze beëindigd', 'success', 2000);
     }
-  }, [audioPlayer, adBreakMode, originalRadioStation, autoCloseOverlays]);
+  }, [audioPlayer, adBreakMode, originalRadioStation, autoCloseOverlays, closeFeedbackPopupSafely, clearAdBreakSession]);
 
   // Manual ad break for testing
   const manualAdBreak = useCallback(() => {
@@ -660,8 +986,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     }, 5000);
     
     startAdBreak();
-  }, [startAdBreak]);
-  // Enhanced timer functionality
+  }, [startAdBreak]);  // Enhanced timer functionality
   const startTimer = useCallback(() => {
     // ✅ FIX: Prevent multiple timers from starting
     if (isTimerRunning) {
@@ -669,7 +994,39 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
       return;
     }
     
-    console.log('⏰ Starting ad break timer');
+    // ✅ NEW: Prevent timer start without radio station
+    if (!audioPlayer.currentStation) {
+      console.warn('🚨 Cannot start timer: No radio station selected');
+      if (window.addNotification) {
+        window.addNotification('⚠️ Selecteer eerst een radiostation voordat je switching activeert', 'warning', 4000);
+      }
+      return;
+    }
+    
+    console.log('⏰ Starting ad break timer for station:', audioPlayer.currentStation.name);
+    
+    // ✅ CRITICAL FIX: Restore ad break session state if we're reactivating during an ad break
+    const restoredSession = loadAdBreakSessionFromStorage();
+    if (restoredSession && isAdBreakActive) {
+      console.log('🔄 Restoring ad break session state on timer reactivation');
+      
+      if (restoredSession.source === 'community') {
+        // ✅ RESTORE COMMUNITY TIMING STATE
+        setCurrentAdBreakUsedCommunityTiming(true);
+        setNextCommunityTiming(restoredSession.timing);
+        setFeedbackStationName(restoredSession.stationName);
+        
+        console.log('🟡 Restored community timing state - timer will be GOLD again!');
+      } else {
+        // ✅ RESTORE MANUAL STATE
+        setCurrentAdBreakUsedCommunityTiming(false);
+        setNextCommunityTiming(null);
+        setFeedbackStationName('');
+        
+        console.log('🔵 Restored manual timing state - timer will be BLUE/GRAY');
+      }
+    }
+    
     setIsTimerRunning(true);
     
     const checkTime = async () => {
@@ -692,7 +1049,7 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     }
     
     timerIntervalRef.current = setInterval(checkTime, 60000);
-  }, [getNextAdBreakTime, startAdBreak, isTimerRunning]);  // ✅ ENHANCED: Stop timer with complete cleanup - USE THIS FOR "Deactiveer switching"
+  }, [getNextAdBreakTime, startAdBreak, isTimerRunning, loadAdBreakSessionFromStorage, isAdBreakActive, audioPlayer.currentStation]);// ✅ ENHANCED: Stop timer with complete cleanup - USE THIS FOR "Deactiveer switching"
   const stopTimer = useCallback(() => {
     console.log('⏰ Stopping ad break timer with COMPLETE cleanup');
     
@@ -704,6 +1061,12 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     setManualTimerOverride(null);
     setIsManualTimerActive(false);
     skipNextTimerUpdateRef.current = false;
+    
+    // ✅ FIX: Reset timer cache to prevent stale data
+    timerCacheRef.current = {
+      cachedNextAdBreakTime: null,
+      lastCommunityTimingCheck: 0
+    };
     
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -757,22 +1120,24 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
       window.addNotification('⏰ Switching volledig gedeactiveerd', 'success', 2000);
     }
   }, [isAdBreakActive, autoCloseOverlays]);
-
   // ✅ ENHANCED: Check ad break time with community timing integration
   const checkAdBreakTime = useCallback(async () => {
     const now = new Date();
     const currentMinute = now.getMinutes();
 
-    // Check for community timing first
+    // Check for community timing first (simplified to prevent excessive calls)
     if (useCommunityTimings && audioPlayer.currentStation?.name) {
       try {
-        const communityTiming = await CommunityTimings.getNextAdBreakTime(audioPlayer.currentStation.name, now);
+        // Use the same function as getNextCommunityTiming for consistency
+        const communityTiming = await getNextCommunityTiming();
         
-        if (communityTiming && communityTiming.start) {
-          const minutesUntilStart = Math.round((communityTiming.start - now) / 1000 / 60);
+        if (communityTiming) {
+          // Check if we're at or near the start minute
+          const minutesDiff = Math.abs(currentMinute - communityTiming.startMinute);
+          const wrappedDiff = Math.abs((currentMinute + 60) % 60 - communityTiming.startMinute);
+          const nearStart = Math.min(minutesDiff, wrappedDiff) <= 1; // Within 1 minute
           
-          // If community timing is within 1 minute, use it
-          if (minutesUntilStart <= 1 && minutesUntilStart >= 0) {
+          if (nearStart) {
             console.log('🔔 Community timing triggered:', communityTiming);
             
             // ✅ NEW: Store original radio station before ad break
@@ -780,14 +1145,9 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
               setOriginalRadioStation(audioPlayer.currentStation);
             }
             
-            // Calculate duration if end time is available
-            const duration = communityTiming.end ? 
-              Math.round((communityTiming.end - communityTiming.start) / 1000 / 60) : 
-              adBreakDuration;
-            
             const timingWithDuration = {
               ...communityTiming,
-              duration: duration,
+              duration: communityTiming.duration || adBreakDuration,
               stationName: audioPlayer.currentStation.name
             };
             
@@ -847,25 +1207,24 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     if (window.addNotification) {
       window.addNotification(`📋 Station ${station.name} in wachtrij voor na reclamepauze`, 'info', 3000);
     }
-  }, []);
-  // Effect for timer management - ✅ FIX: Check more frequently for ad break triggers
+  }, []);  // Effect for timer management - ✅ FIX: Check more frequently for ad break triggers
   useEffect(() => {
     if (isTimerRunning) {
-      const interval = setInterval(checkAdBreakTime, 30000); // ✅ FIX: Check every 30 seconds instead of 60
+      const interval = setInterval(checkAdBreakTime, 60000); // ✅ FIX: Reduced to every 60 seconds to prevent spam
       checkAdBreakTime(); // Check immediately
       
       return () => clearInterval(interval);
     }
-  }, [isTimerRunning, checkAdBreakTime]);  // Effect for next ad break calculation - ✅ FIX: Update every second for real-time countdown
+  }, [isTimerRunning, checkAdBreakTime]);// Effect for next ad break calculation - ✅ ULTRA-ROBUST: Bulletproof timer with consistent timing source
   useEffect(() => {
     if (isTimerRunning) {
+      const COMMUNITY_TIMING_CHECK_INTERVAL = 60000; // Check community timing every 60 seconds
+
       const updateNextAdBreak = async () => {
-        // ✅ FIX: Use manual override if active, but don't decrement it here
+        // ✅ MANUAL OVERRIDE: Use manual override if active
         if (isManualTimerActive && manualTimerOverride !== null) {
-          // Just display the manual override value, don't modify it
           setNextAdBreakIn(manualTimerOverride);
           
-          // Check if we should start ad break
           if (manualTimerOverride <= 0) {
             console.log('🎵 Manual timer reached 0 - starting ad break');
             setIsManualTimerActive(false);
@@ -875,29 +1234,83 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
           return;
         }
         
-        // Skip update if manual change was made
+        // ✅ SKIP LOGIC: Skip update if manual change was made
         if (skipNextTimerUpdateRef.current) {
           skipNextTimerUpdateRef.current = false;
           console.log('⏰ Skipping one timer update due to manual change');
           return;
         }
         
-        const timeUntilNext = await getNextAdBreakTime();
-        setNextAdBreakIn(timeUntilNext);
+        const now = Date.now();
+        const cache = timerCacheRef.current;
         
-        // Check if we should start ad break
-        if (timeUntilNext <= 0) {
+        // ✅ CRITICAL FIX: Always refresh timing calculation to prevent confusion
+        // Don't use stale calculations - recalculate every 10 seconds for accuracy
+        if (now - cache.lastCommunityTimingCheck > 10000 || cache.cachedNextAdBreakTime === null) {
+          // ✅ ROBUST: Get fresh timing calculation - this handles both community and manual
+          cache.cachedNextAdBreakTime = await getNextAdBreakTime();
+          cache.lastCommunityTimingCheck = now;
+        } else {
+          // ✅ LIGHTWEIGHT RECALC: For frequent updates, just recalculate seconds remaining
+          // without making expensive community timing calls
+          
+          // ✅ CRITICAL: Use the SAME logic pattern as getNextAdBreakTime but faster
+          const currentMinute = new Date().getMinutes();
+          const currentSecond = new Date().getSeconds();
+          
+          // ✅ KEY FIX: Check if we still have a valid community timing
+          if (nextCommunityTiming) {
+            // Use community timing calculation (same as getNextAdBreakTime)
+            const targetMinute = nextCommunityTiming.startMinute;
+            let minutesUntil = (targetMinute - currentMinute + 60) % 60;
+            
+            if (minutesUntil === 0 && currentSecond <= 30) {
+              cache.cachedNextAdBreakTime = 0;
+            } else if (minutesUntil === 0) {
+              // Missed this occurrence, set to next one
+              cache.cachedNextAdBreakTime = (60 * 60) - currentSecond; // Next hour
+            } else {
+              const totalSecondsUntil = (minutesUntil * 60) - currentSecond;
+              cache.cachedNextAdBreakTime = Math.max(0, totalSecondsUntil);
+            }
+          } else {
+            // Use manual timing calculation (same as getNextAdBreakTime)
+            const timeToAdBreak1Minutes = (adBreakMinute - currentMinute + 60) % 60;
+            const timeToAdBreak2Minutes = (adBreakMinute2 - currentMinute + 60) % 60;
+            
+            let nextAdBreakMinutes = Math.min(timeToAdBreak1Minutes, timeToAdBreak2Minutes);
+            
+            if (nextAdBreakMinutes === 0) {
+              if (currentSecond <= 30) {
+                cache.cachedNextAdBreakTime = 0;
+              } else {
+                const allBreaks = [timeToAdBreak1Minutes, timeToAdBreak2Minutes].filter(t => t > 0);
+                nextAdBreakMinutes = allBreaks.length > 0 ? Math.min(...allBreaks) : 60;
+                cache.cachedNextAdBreakTime = (nextAdBreakMinutes * 60) - currentSecond;
+              }
+            } else {
+              cache.cachedNextAdBreakTime = (nextAdBreakMinutes * 60) - currentSecond;
+            }
+            
+            cache.cachedNextAdBreakTime = Math.max(0, cache.cachedNextAdBreakTime);
+          }
+        }
+        
+        setNextAdBreakIn(cache.cachedNextAdBreakTime);
+        
+        // ✅ TRIGGER CHECK: Start ad break if time reached
+        if (cache.cachedNextAdBreakTime <= 0) {
           console.log('🎵 Ad break time reached!');
           await startAdBreak();
         }
       };
       
       updateNextAdBreak();
-      const interval = setInterval(updateNextAdBreak, 1000); // ✅ FIX: Update every second for smooth countdown
+      const interval = setInterval(updateNextAdBreak, 1000); // Update every second for smooth countdown
       
       return () => clearInterval(interval);
     }
-  }, [isTimerRunning, getNextAdBreakTime, isManualTimerActive, manualTimerOverride, startAdBreak]);
+  }, [isTimerRunning, isManualTimerActive, manualTimerOverride, getNextAdBreakTime, startAdBreak, adBreakMinute, adBreakMinute2, nextCommunityTiming]);
 
   // ✅ NEW: Separate effect to handle manual timer countdown
   useEffect(() => {
@@ -911,7 +1324,21 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
       
       return () => clearInterval(interval);
     }
-  }, [isManualTimerActive, manualTimerOverride]);
+  }, [isManualTimerActive, manualTimerOverride]);  // ✅ NEW: Restore ad break session on component mount
+  useEffect(() => {
+    const restoredSession = loadAdBreakSessionFromStorage();
+    if (restoredSession) {
+      console.log('🔄 Component mounted - checking for active ad break session');
+      
+      // If we're in an ad break and have a session, restore the state
+      if (isAdBreakActive && restoredSession.source === 'community') {
+        console.log('🟡 Auto-restoring community timing state on mount');
+        setCurrentAdBreakUsedCommunityTiming(true);
+        setNextCommunityTiming(restoredSession.timing);
+        setFeedbackStationName(restoredSession.stationName);
+      }
+    }
+  }, [loadAdBreakSessionFromStorage]); // Run only once on mount
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1096,12 +1523,11 @@ export const useAdBreakTimer = (audioPlayer, playlistProvider = 'youtube', autoC
     setAutoAdDetectionEnabled: () => {
       console.log('🚫 Music detection is temporarily disabled - ignoring enable request');
       // Do nothing - always keep it false
-    },
-    // Community timing states and methods
+    },    // Community timing states and methods
     useCommunityTimings,
     setUseCommunityTimings,
     showFeedbackPopup,
-    setShowFeedbackPopup,
+    setShowFeedbackPopup: closeFeedbackPopupSafely, // ✅ FIX: Use safe close function
     feedbackStationName,
     setFeedbackStationName,
     currentAdBreakUsedCommunityTiming, // Track if current ad break used community timing
