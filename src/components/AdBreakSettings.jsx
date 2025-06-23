@@ -119,10 +119,11 @@ const AdBreakSettings = ({
   }); const [isTestingDetection, setIsTestingDetection] = useState(false);
   const [detectionStatus, setDetectionStatus] = useState('idle'); // idle, listening, processing, error, music, no-music
   const [detectionResult, setDetectionResult] = useState(null);
-  const detectorRef = useRef(null);
-  // Tooltip visibility states
+  const detectorRef = useRef(null);  // Tooltip visibility states
   const [showAdDetectionTooltip, setShowAdDetectionTooltip] = useState(false);
   const [showPrerollTooltip, setShowPrerollTooltip] = useState(false);
+  const [showVisualizerTooltip, setShowVisualizerTooltip] = useState(false);
+  const [showAutoCloseTooltip, setShowAutoCloseTooltip] = useState(false);
   // Overlay states
   const [showNonstopSettings, setShowNonstopSettings] = useState(false);
   const [showLofiSettings, setShowLofiSettings] = useState(false);
@@ -436,10 +437,23 @@ const AdBreakSettings = ({
   };
 
   // ✅ NEW: Listen for external playlist stops (when overlays are closed directly)
-  useEffect(() => {
-    const handlePlaylistStopped = (type) => {
+  useEffect(() => {    const handlePlaylistStopped = (type) => {
       console.log(`🎵 External playlist stop detected: ${type}`);
       
+      // ✅ NEW: Handle ad break scenarios when overlays are manually closed
+      if (isAdBreakActive && adBreakMode === 'lofi' && type === 'lofi') {
+        console.log('🎵 Lofi overlay manually closed during ad break - resuming radio');
+        // Resume the radio since the lofi overlay was closed during an ad break
+        if (audioPlayer?.resumeRadioFromAdBreak) {
+          audioPlayer.resumeRadioFromAdBreak();
+        }
+        // Stop the timer since the ad break content was manually stopped
+        if (onStopTimer) {
+          onStopTimer();
+        }
+      }
+      
+      // Reset manual mode states
       switch (type) {
         case 'youtube':
         case 'spotify':
@@ -1211,7 +1225,21 @@ const AdBreakSettings = ({
                           <div className="flex items-center gap-1 flex-1">
                             <span className="text-sm text-gray-300">
                               Visualizer
-                            </span>                     {/*   <button
+                            </span>
+                            <div className="relative">
+                              <button
+                                onMouseEnter={() => setShowVisualizerTooltip(true)}
+                                onMouseLeave={() => setShowVisualizerTooltip(false)}
+                                className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
+                              >
+                                i
+                              </button>
+                              {showVisualizerTooltip && (
+                                <div className="absolute left-6 top-0 z-50 w-72 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
+                                  Toon muziek visualizer in header/footer voor radio audio. Gebruikt alternatieve visualizer voor playlist audio.
+                                </div>
+                              )}
+                            </div>{/*   <button
                               onClick={() => setShowVisualizerSettings(true)}
                               className="w-4 h-4 rounded-full bg-gray-600 hover:bg-gray-500 text-gray-300 text-xs flex items-center justify-center transition-colors ml-1 visualizer-gear"
                             >
@@ -1233,14 +1261,27 @@ const AdBreakSettings = ({
                           </button>
                         </div>
                       </div>
-                      
-                      {/* 4. Auto-close overlays Toggle */}
+                        {/* 4. Auto-close overlays Toggle */}
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 flex-1">
                             <span className="text-sm text-gray-300">
                               Spelers automatisch sluiten
                             </span>
+                            <div className="relative">
+                              <button
+                                onMouseEnter={() => setShowAutoCloseTooltip(true)}
+                                onMouseLeave={() => setShowAutoCloseTooltip(false)}
+                                className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
+                              >
+                                i
+                              </button>
+                              {showAutoCloseTooltip && (
+                                <div className="absolute left-6 top-0 z-50 w-72 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
+                                  Deze optie uit zetten maakt het mogelijk meerdere spelers (radio, youtube, spotify) tegelijk af te spelen.
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <button
                             onClick={() => onAutoCloseOverlaysChange(!autoCloseOverlays)}

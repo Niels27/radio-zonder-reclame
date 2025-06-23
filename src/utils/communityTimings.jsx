@@ -596,10 +596,13 @@ class CommunityTimings {
       }
 
       // ✅ OPTIMIZATION: Limit processing to prevent freeze
-      const limitedTimings = rawTimings.slice(0, 10); // Only process first 10 entries
+      const limitedTimings = rawTimings.slice(0, 20); // Increased from 10 to 20 for better detection
       
-      // Filter by current hour for hour-specific timing
-      const hourSpecificTimings = limitedTimings.filter(timing => timing.hour === currentHour);
+      // ✅ CRITICAL FIX: Look at both current hour and next hour for better immediate detection
+      const nextHour = (currentHour + 1) % 24;
+      const hourSpecificTimings = limitedTimings.filter(timing => 
+        timing.hour === currentHour || timing.hour === nextHour
+      );
       
       if (hourSpecificTimings.length === 0) {
         lastFetchTime.set(cacheKey, now);
@@ -627,10 +630,10 @@ class CommunityTimings {
       return null;
     }
   }
-
   // ✅ NEW: Find start/end timing pairs around target minute
   static findTimingPairs(timings, targetMinute) {
-    const tolerance = targetMinute === 30 ? 8 : 15; // Different tolerance for half-hour vs full-hour
+    // ✅ CRITICAL FIX: Wider tolerance for better immediate detection
+    const tolerance = targetMinute === 30 ? 12 : 20; // Increased tolerance (was 8 and 15)
     
     const nearbyTimings = timings.filter(timing => {
       const diff = Math.abs(timing.minute - targetMinute);
