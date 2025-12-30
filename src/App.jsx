@@ -1,408 +1,186 @@
+// App.jsx - Main application component (REWRITTEN with new architecture)
+// Orchestrates the application using new StateManager and hooks
+
 import React, { useEffect, useState } from 'react';
 import RadioGrid from './components/RadioGrid';
 import AudioPlayer from './components/AudioPlayer';
 import AdBreakSettings from './components/AdBreakSettings';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationSystem from './components/NotificationSystem';
-import FloatingYouTubePlayer from './components/FloatingYouTubePlayer';
-
+import ResizableYouTubePlayer from './components/overlays/ResizableYouTubePlayer';
 import DeveloperDashboard from './components/DeveloperDashboard';
-import PlaylistProviderSelector from './components/PlaylistProviderSelector';
-import { CommunityTimingFeedback } from './utils/communityTimings.jsx';
 import MusicVisualizerSingle from './components/MusicVisualizerSingle';
-import VisualizerSettings from './components/VisualizerSettings';
-import { useAudioPlayer } from './hooks/useAudioPlayer';
-import { useAdBreakTimer } from './hooks/useAdBreakTimer';
-import { validatePlaylistUrl } from './utils/youtubeUtils';
-import { validateSpotifyPlaylist, isSpotifyAuthenticated } from './utils/spotifyUtils';
 import LoadingIndicator from './components/LoadingIndicator';
-import TimeRangeSlider from './components/TimeRangeSlider';
+
+import { useAppState, useActions } from './core/StateManager';
+import { useAudio } from './hooks/useAudio';
+import { useAdBreak } from './hooks/useAdBreak';
+import { useFavorites } from './hooks/useFavorites';
 
 function App() {
-  const [playlistProvider, setPlaylistProvider] = useState('spotify');
-  
-  // Auto-close overlays setting (default ON) - moved up before audioPlayer
-  const [autoCloseOverlays, setAutoCloseOverlays] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('auto_close_overlays') || 'true');
-    } catch {
-      return true;
-    }
-  });
-  
-  const audioPlayer = useAudioPlayer(playlistProvider, autoCloseOverlays);
-  const adBreakTimer = useAdBreakTimer(audioPlayer, playlistProvider, autoCloseOverlays);
-  const [playlistInfo, setPlaylistInfo] = useState(null);
-  const [isValidatingPlaylist, setIsValidatingPlaylist] = useState(false);
-  const [isPlaylistInputHovered, setIsPlaylistInputHovered] = useState(false); const [showDeveloperDashboard, setShowDeveloperDashboard] = useState(false);
-  const [activeStartHour, setActiveStartHour] = useState(7);
-  const [activeEndHour, setActiveEndHour] = useState(22);  // Single visualizer instance management
-  const [visualizerEnabled, setVisualizerEnabled] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('visualizer_enabled') || 'true');
-    } catch {
-      return true;    }
-  });
-  
-  const [visualizerType, setVisualizerType] = useState(() => {
-    try {
-      return localStorage.getItem('visualizer_type') || 'bars';
-    } catch {
-      return 'bars';
-    }
-  });
-  
-  const [visualizerBlur, setVisualizerBlur] = useState(() => {
-    try {
-      return parseFloat(localStorage.getItem('visualizer_blur') || '2');
-    } catch {
-      return 2;
-    }
-  });
-  
-  const [showVisualizerSettings, setShowVisualizerSettings] = useState(false);
-  
-  // Scroll-based visualizer placement state
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const state = useAppState();
+  const actions = useActions();
+
+  // Core hooks
+  const audio = useAudio();
+  const adBreak = useAdBreak(audio.audioManager, audio.getInterruptionHandler());
+  const favorites = useFavorites();
+
+  // Local UI state
   const [visualizerPosition, setVisualizerPosition] = useState('header');
-  
-  // --- Remove state for time range enabled and selected days ---
-  // Load last played station on mount
-  useEffect(() => {
-    const lastStation = localStorage.getItem('lastPlayedStation');
-    if (lastStation) {
-      try {
-        const stationData = JSON.parse(lastStation);
-        // Don't auto-play, just set as current station for UI
-        // User needs to click play manually
-        if (window.showNotification) {
-          //window.showNotification(`Laatst afgespeeld: ${stationData.name}`, 'info', 3000);
-        }
-      } catch (error) {
-        console.error('Failed to load last played station:', error);
-      }
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+
+  // YouTube players state (can have multiple)
+  const [youtubePlayers, setYoutubePlayers] = useState([]);
+
+  /**
+   * Handle station selection from grid
+   */
+  const handleStationSelect = (station) => {
+    console.log('📻 App: Station selected', station.name);
+
+    // User manually selected station - this interrupts any automated action
+    audio.playRadio(station);
+
+    // Show notification
+    if (window.addNotification) {
+      window.addNotification(`Nu aan het spelen: ${station.name}`, 'success', 2000);
     }
-      // Initialize CSS custom property for visualizer blur
-    document.documentElement.style.setProperty('--visualizer-blur', `${visualizerBlur}px`);
-  }, [visualizerBlur]);
+  };
 
-  // Clear error after 5 seconds and show notification
+  /**
+   * Open a YouTube player (automatic or manual)
+   */
+  const openYouTubePlayer = (config) => {
+    const { playlistId, videoId, title, isAutomatic = false, autoCloseSeconds = null } = config;
+
+    const newPlayer = {
+      id: Date.now(),
+      playlistId,
+      videoId,
+      title: title || 'YouTube Player',
+      isAutomatic,
+      autoCloseSeconds,
+      volume: Math.round(state.volume * 100)
+    };
+
+    setYoutubePlayers(prev => [...prev, newPlayer]);
+    console.log('▶️ App: Opened YouTube player', newPlayer);
+  };
+
+  /**
+   * Close a YouTube player
+   */
+  const closeYouTubePlayer = (playerId) => {
+    setYoutubePlayers(prev => prev.filter(p => p.id !== playerId));
+    console.log('✕ App: Closed YouTube player', playerId);
+  };
+
+  /**
+   * Handle YouTube volume change
+   */
+  const handleYouTubeVolumeChange = (playerId, volume) => {
+    setYoutubePlayers(prev => prev.map(p =>
+      p.id === playerId ? { ...p, volume } : p
+    ));
+  };
+
+  // Auto-play last station on mount
   useEffect(() => {
-    if (audioPlayer.error) {
-      // ✅ FIX: Don't show error notifications for empty src attribute errors
-      const isEmptySrcError = audioPlayer.error.includes('Empty src attribute') ||
-        audioPlayer.error.includes('MEDIA_ELEMENT_ERROR') ||
-        audioPlayer.error.includes('Code: 4');
-
-      if (!isEmptySrcError && window.showNotification) {
-        window.showNotification(audioPlayer.error, 'error', 5000);
+    try {
+      const lastStation = localStorage.getItem('lastPlayedStation');
+      if (lastStation) {
+        const station = JSON.parse(lastStation);
+        console.log('📻 App: Found last played station', station.name);
+        // Don't auto-play, just show in UI
       }
+    } catch (error) {
+      console.error('Failed to load last station', error);
+    }
+  }, []);
 
+  // Clear errors after 5 seconds
+  useEffect(() => {
+    if (state.error) {
       const timer = setTimeout(() => {
-        audioPlayer.setError(null);
+        actions.setError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [audioPlayer.error, audioPlayer.setError]);
-
-  // Show notifications for ad break events
-  useEffect(() => {
-    if (adBreakTimer.isAdBreakActive && window.showNotification) {
-      window.showNotification('Reclamepauze gestart - schakel naar afspeellijst', 'info', 3000);
-    }
-  }, [adBreakTimer.isAdBreakActive]);  // Keep global ad break state in sync
-  useEffect(() => {
-    window.isAdBreakActive = adBreakTimer.isAdBreakActive;
-    window.queueStationSwitch = adBreakTimer.queueStationSwitch;
-    window.isTimerRunning = adBreakTimer.isTimerRunning;
-    window.playlistUrl = adBreakTimer.playlistUrl;
-    window.playlistShuffle = adBreakTimer.playlistShuffle;
-    window.shouldPlayPlaylistDuringAdBreak = adBreakTimer.shouldPlayPlaylistDuringAdBreak;    // Better audioPlayer exposure with provider separation
-    window.audioPlayer = {
-      ...audioPlayer,
-      initializeSpotifyPlayer: audioPlayer.manualInitializeSpotifyPlayer,
-      // Add provider-specific ready states
-      isSpotifyReady: audioPlayer.spotifyPlayerReady,
-      isYouTubeReady: !!audioPlayer.youtubePlayerRef?.current,
-      currentProvider: playlistProvider,
-      // ✅ NEW: Expose audio elements for visualizer
-      audioElement: audioPlayer.audioRef?.current,
-      youtubeElement: audioPlayer.youtubePlayerRef?.current,
-      spotifyElement: audioPlayer.spotifyPlayerRef?.current
-    };
-
-    // ✅ FIX: Expose Spotify authentication check
-    window.isSpotifyAuthenticated = isSpotifyAuthenticated;
-
-    // Force UI updates when Spotify becomes ready
-    if (audioPlayer.spotifyPlayerReady) {
-      // Trigger any UI components that might be waiting
-      window.dispatchEvent(new CustomEvent('spotifyReady', {
-        detail: { ready: true, provider: playlistProvider }
-      }));
-    }
-
-    //  console.log('🔄 Global state updated - Spotify ready:', audioPlayer.spotifyPlayerReady, 'Provider:', playlistProvider);
-  }, [
-    adBreakTimer.isAdBreakActive,
-    adBreakTimer.queueStationSwitch,
-    adBreakTimer.isTimerRunning,
-    adBreakTimer.playlistUrl,
-    adBreakTimer.playlistShuffle,
-    adBreakTimer.shouldPlayPlaylistDuringAdBreak,
-    audioPlayer,
-    audioPlayer.spotifyPlayerReady,
-    playlistProvider // Add provider to dependencies
-  ]);  const handleStationSelect = (station) => {
-    // ✅ RULE: Playing any regular radio station should stop manual modes
-    // But we need to differentiate between:
-    // 1. Regular radio stations from grid -> stop manual modes 
-    // 2. Nonstop stations played as part of nonstop mode -> don't interfere
-    
-    // Check if this is a nonstop station being played from nonstop mode
-    const isNonstopModeRotation = window.isInNonstopMode && station.category === 'realnonstop';
-      if (!isNonstopModeRotation && window.stopAllManualModes) {
-      console.log('🛑 Regular radio station selected from grid - stopping all manual modes');
-      window.stopAllManualModes();
-    }
-      // ✅ FIX: Only close floating YouTube player if auto-close is enabled
-    if (audioPlayer.showFloatingYouTube) {
-      const wasClosed = audioPlayer.safeCloseFloatingYouTube('radio station selected');
-      if (wasClosed) {
-        console.log('🛑 Closed floating YouTube player for radio station (auto-close enabled)');
-      } else {
-        console.log('🔧 Auto-close disabled - keeping floating YouTube player open while playing radio');
-      }
-    }
-    
-    // If ad break is active, the playRadio function will automatically queue it
-    audioPlayer.playRadio(station);
-
-    // Only show success notification if not queueing
-    if (!adBreakTimer.isAdBreakActive && window.addNotification) {
-      window.addNotification(`Nu aan het spelen: ${station.name}`, 'success', 2000);
-    }
-
-    // REMOVE THIS AUTO-START LOGIC - User must manually activate timer
-    // if (!adBreakTimer.isTimerRunning && adBreakTimer.playlistUrl) {
-    //   adBreakTimer.startTimer();
-    //   if (window.addNotification) {
-    //     window.addNotification('Reclamepauze timer gestart', 'info', 2000);
-    //   }
-    // }
-  };
-  // Validate playlist URL when it changes
-  useEffect(() => {
-    const validatePlaylist = async () => {
-      if (!adBreakTimer.playlistUrl) {
-        setPlaylistInfo(null);
-        return;
-      }
-
-      setIsValidatingPlaylist(true);
-      try {
-        let info;
-
-        // Determine if this is a Spotify or YouTube playlist
-        if (playlistProvider === 'spotify') {
-          // For Spotify, the playlistUrl is actually the playlist ID
-          info = await validateSpotifyPlaylist(adBreakTimer.playlistUrl);
-          // Convert Spotify format to match the expected format
-          if (info.isValid) {
-            info = {
-              ...info,
-              title: info.name,
-              thumbnail: info.imageUrl,
-              videoCount: info.trackCount
-            };
-          }
-        } else {
-          // YouTube playlist validation
-          info = await validatePlaylistUrl(adBreakTimer.playlistUrl);
-        }
-
-        setPlaylistInfo(info);
-      } catch (error) {
-        setPlaylistInfo(null);
-        console.error('Playlist validation failed:', error);
-      } finally {
-        setIsValidatingPlaylist(false);
-      }
-    };
-
-    const timeoutId = setTimeout(validatePlaylist, 500); // Debounce validation
-    return () => clearTimeout(timeoutId);
-  }, [adBreakTimer.playlistUrl, playlistProvider]);
-
-  // Auto play/pause based on time window and selected days
-  useEffect(() => {
-    const checkActiveTime = () => {
-      const now = new Date();
-      const dayIdx = (now.getDay() + 6) % 7; // 0=Monday, 6=Sunday
-      const hour = now.getHours();
-      // Get per-day settings from localStorage
-      let daySettings = [];
-      try {
-        const saved = localStorage.getItem('adbreak_day_settings');
-        if (saved) daySettings = JSON.parse(saved);
-      } catch { }
-      if (!Array.isArray(daySettings) || daySettings.length !== 7) return;
-      const today = daySettings[dayIdx];
-      if (!today || !today.enabled) return; // Do nothing if not enabled for today
-      // Only play if within range
-      if (today.startHour < today.endHour) {
-        if (hour >= today.startHour && hour < today.endHour) {
-          if (!audioPlayer.isPlaying && audioPlayer.currentStation) {
-            audioPlayer.resumeAudio();
-          }
-        } else {
-          if (audioPlayer.isPlaying) {
-            audioPlayer.pauseAudio();
-          }
-        }
-      } else { // overnight (e.g. 22-7)
-        if (hour >= today.startHour || hour < today.endHour) {
-          if (!audioPlayer.isPlaying && audioPlayer.currentStation) {
-            audioPlayer.resumeAudio();
-          }
-        } else {
-          if (audioPlayer.isPlaying) {
-            audioPlayer.pauseAudio();
-          }
-        }
-      }
-    };
-    const interval = setInterval(checkActiveTime, 30000); // check every 30s
-    checkActiveTime();
-    return () => clearInterval(interval);
-  }, [audioPlayer.isPlaying, audioPlayer.currentStation]);
-
-  // Add this after your other useEffects
-  useEffect(() => {
-    // Global error handler to suppress CloudPlaybackClientError spam
-    const originalError = window.console.error;
-    window.console.error = (...args) => {
-      const message = args.join(' ');
-
-      // Suppress CloudPlaybackClientError 404s from Spotify SDK
-      if (message.includes('CloudPlaybackClientError') && message.includes('404')) {
-        console.warn('🎵 Suppressed CloudPlaybackClientError 404 (normal Spotify operation)');
-        return;
-      }
-
-      // Allow all other errors through
-      originalError.apply(console, args);
-    };
-
-    // Cleanup on unmount
-    return () => {
-      window.console.error = originalError;
-    };
-  }, []);
-
-  // Add transition timeout enforcement
-  useEffect(() => {
-    let transitionTimeoutId;
-
-    if (audioPlayer.isTransitioning) {
-      // Force reset transition state after 30 seconds
-      transitionTimeoutId = setTimeout(() => {
-        console.warn('🚨 Forcing reset of stuck transition state');
-        audioPlayer.setIsTransitioning(false);
-        audioPlayer.setIsLoading(false);
-
-        if (window.addNotification) {
-          window.addNotification('⚠️ Reset na vastgelopen overgang', 'warning', 3000);
-        }
-      }, 30000);
-    }
-
-    return () => {
-      if (transitionTimeoutId) {
-        clearTimeout(transitionTimeoutId);
-      }
-    };
-  }, [audioPlayer.isTransitioning]);  // Save visualizer settings to localStorage
-  useEffect(() => {
-    localStorage.setItem('visualizer_enabled', JSON.stringify(visualizerEnabled));
-  }, [visualizerEnabled]);
-  useEffect(() => {
-    localStorage.setItem('visualizer_type', visualizerType);
-  }, [visualizerType]);
-  
-  // Save auto-close overlays setting to localStorage
-  useEffect(() => {
-    localStorage.setItem('auto_close_overlays', JSON.stringify(autoCloseOverlays));
-  }, [autoCloseOverlays]);
+  }, [state.error, actions]);
 
   // Scroll detection for visualizer placement
   useEffect(() => {
     const handleScroll = () => {
       const headerElement = document.querySelector('.banner-container');
       if (!headerElement) return;
-      
+
       const headerRect = headerElement.getBoundingClientRect();
-      const headerHeight = headerRect.height;
-      const scrollThreshold = headerHeight * 0.8; // When 80% of header is scrolled out
-      
+      const scrollThreshold = headerRect.height * 0.8;
       const isCurrentlyVisible = headerRect.bottom > scrollThreshold;
-      
-      // Only update if visibility changed to prevent unnecessary re-renders
+
       if (isCurrentlyVisible !== isHeaderVisible) {
         setIsHeaderVisible(isCurrentlyVisible);
-        
-        // Update visualizer position based on header visibility
-        if (visualizerEnabled && visualizerType !== 'none') {
+        if (state.showVisualizer) {
           setVisualizerPosition(isCurrentlyVisible ? 'header' : 'footer');
         }
       }
     };
-    
-    // Add scroll listener
+
     window.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Initial check
     handleScroll();
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };  }, [isHeaderVisible, visualizerEnabled, visualizerType]);
-  
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHeaderVisible, state.showVisualizer]);
+
+  // Update CSS variable for visualizer blur
+  useEffect(() => {
+    document.documentElement.style.setProperty('--visualizer-blur', `${state.visualizerBlur}px`);
+  }, [state.visualizerBlur]);
+
+  // Expose global functions for backward compatibility
+  useEffect(() => {
+    window.openYouTubePlayer = openYouTubePlayer;
+    window.addNotification = (message, type, duration) => {
+      if (window.showNotification) {
+        window.showNotification(message, type, duration);
+      }
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">        {/* Enhanced Header Section with Wave Animation */}
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col">
+
+        {/* Enhanced Header Section with Wave Animation */}
         <div className="h-[140px] flex items-center justify-center border-b border-gray-700 relative banner-container">
           {/* Animated Background */}
           <div className="banner-background"></div>
 
-          {/* Wave Animation Overlays - handled by CSS pseudo-elements */}
-
           {/* Shimmer Effect */}
-          <div className="banner-shimmer"></div>          {/* Music Visualizer in Header */}          {visualizerEnabled && visualizerType !== 'none' && visualizerPosition === 'header' && (
+          <div className="banner-shimmer"></div>
+
+          {/* Music Visualizer in Header */}
+          {state.showVisualizer && state.visualizerType !== 'none' && visualizerPosition === 'header' && (
             <MusicVisualizerSingle
-              isPlaying={audioPlayer.isPlaying}
-              isEnabled={visualizerEnabled}
-              visualizerType={visualizerType}
+              isPlaying={state.isPlaying}
+              isEnabled={state.showVisualizer}
+              visualizerType={state.visualizerType}
               position="header"
-              currentSource={audioPlayer.currentSource}
+              currentSource={state.audioSource}
             />
           )}
 
-          {/* Hidden Developer Access - Triple click the top-right corner */}
+          {/* Hidden Developer Access - Triple click */}
           <div
             className="absolute top-5 right-10 w-5 h-5 cursor-pointer z-10"
             onClick={(e) => {
-              if (e.detail === 3) { // Triple click
+              if (e.detail === 3) {
                 const password = prompt('Enter developer password:');
                 if (password === 'xd') {
-                  setShowDeveloperDashboard(true);
+                  actions.toggleDeveloperDashboard(true);
                   if (window.addNotification) {
                     window.addNotification('🛠️ Developer Dashboard geopend', 'success', 2000);
-                  }
-                } else if (password !== null) {
-                  if (window.addNotification) {
-                    window.addNotification('❌ Incorrect password', 'error', 2000);
                   }
                 }
               }
@@ -417,216 +195,158 @@ function App() {
             <h2 className="text-2xl md:text-2xl font-semibold text-gray-300">
               Automatische reclamepauze wisseling
             </h2>
-            <p className="text-gray-400 mt-2 text-lg">
-            </p>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col pb-32"> {/* Add bottom padding for fixed footer */}          {/* Playlist Provider Selection Section - Only show for playlist mode */}
+        <div className="flex-1 flex flex-col pb-32">
 
+          {/* Ad Break Settings */}
+          <div className="bg-gray-800 border-b border-gray-700">
+            <ErrorBoundary>
+              <AdBreakSettings
+                // Ad break timer settings
+                adBreakMinute={adBreak.adBreakMinute}
+                adBreakMinute2={adBreak.adBreakMinute2}
+                adBreakDuration={adBreak.adBreakDuration}
+                adBreakDuration2={adBreak.adBreakDuration2}
+                isTimerRunning={adBreak.isTimerRunning}
+                onMinuteChange={adBreak.setAdBreakMinute}
+                onMinute2Change={adBreak.setAdBreakMinute2}
+                onDurationChange={adBreak.setAdBreakDuration}
+                onDuration2Change={adBreak.setAdBreakDuration2}
+                onStartTimer={adBreak.startTimer}
+                onStopTimer={adBreak.stopTimer}
+                onManualAdBreak={adBreak.manualAdBreak}
 
-          {/* Ad Break Settings - Moved back here */}
-          <div className="bg-gray-800 border-b border-gray-700">       <ErrorBoundary>
-            <AdBreakSettings
-              adBreakMinute={adBreakTimer.adBreakMinute}
-              adBreakMinute2={adBreakTimer.adBreakMinute2}
-              adBreakDuration={adBreakTimer.adBreakDuration}
-              adBreakDuration2={adBreakTimer.adBreakDuration2}
-              isTimerRunning={adBreakTimer.isTimerRunning}
-              onMinuteChange={adBreakTimer.setAdBreakMinute}
-              onMinute2Change={adBreakTimer.setAdBreakMinute2}
-              onDurationChange={adBreakTimer.setAdBreakDuration}
-              onDuration2Change={adBreakTimer.setAdBreakDuration2}
-              onStartTimer={adBreakTimer.startTimer}
-              onStopTimer={adBreakTimer.stopTimer}
-              onManualAdBreak={adBreakTimer.manualAdBreak}
-              isAdBreakActive={adBreakTimer.isAdBreakActive}
-              isManualTestActive={adBreakTimer.isManualTestActive}
-              playlistUrl={adBreakTimer.playlistUrl}
-              playlistInfo={playlistInfo}
-              nextAdBreakIn={adBreakTimer.nextAdBreakIn}
-              currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft} audioPlayer={audioPlayer}
-              adBreakMode={adBreakTimer.adBreakMode}
-              onAdBreakModeChange={adBreakTimer.setAdBreakMode}
-              isManualTestInProgress={adBreakTimer.isManualTestInProgress}
-              autoAdDetectionEnabled={adBreakTimer.autoAdDetectionEnabled}
-              onAutoAdDetectionChange={adBreakTimer.setAutoAdDetectionEnabled}
-              useCommunityTimings={adBreakTimer.useCommunityTimings}
-              onUseCommunityTimingsChange={adBreakTimer.setUseCommunityTimings}
-              // ✅ NEW: Add playlist provider controls
-              playlistProvider={playlistProvider}
-              onProviderChange={setPlaylistProvider}
-              onPlaylistUrlChange={adBreakTimer.setPlaylistUrl}
-              playlistShuffle={adBreakTimer.playlistShuffle} onShuffleChange={adBreakTimer.setPlaylistShuffle} isValidatingPlaylist={isValidatingPlaylist}
-              isPlaylistInputHovered={isPlaylistInputHovered}
-              setIsPlaylistInputHovered={setIsPlaylistInputHovered}              // ✅ NEW: Add visualizer props
-              visualizerEnabled={visualizerEnabled}
-              onVisualizerToggle={setVisualizerEnabled}
-              visualizerType={visualizerType}
-              onVisualizerTypeChange={setVisualizerType}              visualizerBlur={visualizerBlur}
-              onVisualizerBlurChange={setVisualizerBlur}
-              // ✅ NEW: Auto-close overlays setting
-              autoCloseOverlays={autoCloseOverlays}
-              onAutoCloseOverlaysChange={setAutoCloseOverlays}
-              // ✅ NEW: Simple nonstop cycling button state
-              setIsNonstopModeManuallyActive={adBreakTimer.setIsNonstopModeManuallyActive}
-            />
-          </ErrorBoundary>
+                // Ad break state
+                isAdBreakActive={adBreak.isAdBreakActive}
+                nextAdBreakIn={adBreak.nextAdBreakIn}
+                currentAdBreakTimeLeft={adBreak.adBreakTimeLeft}
+                adBreakMode={adBreak.adBreakMode}
+                onAdBreakModeChange={adBreak.setAdBreakMode}
 
+                // Playlist settings
+                playlistProvider={state.playlistProvider}
+                onProviderChange={actions.setPlaylistProvider}
+                playlistUrl={state.playlistUrl}
+                onPlaylistUrlChange={actions.setPlaylistUrl}
+                playlistShuffle={state.playlistShuffle}
+                onShuffleChange={actions.setPlaylistShuffle}
+
+                // Visualizer settings
+                visualizerEnabled={state.showVisualizer}
+                onVisualizerToggle={actions.toggleVisualizer}
+                visualizerType={state.visualizerType}
+                onVisualizerTypeChange={actions.setVisualizerType}
+                visualizerBlur={state.visualizerBlur}
+                onVisualizerBlurChange={actions.setVisualizerBlur}
+
+                // Other settings
+                autoCloseOverlays={state.autoCloseOverlays}
+                onAutoCloseOverlaysChange={actions.setAutoCloseOverlays}
+                fadeAudioStreams={state.fadeAudioStreams}
+                onFadeAudioStreamsChange={actions.setFadeAudioStreams}
+
+                // Audio player reference
+                audioPlayer={audio}
+              />
+            </ErrorBoundary>
           </div>
-   
+
           {/* Radio Grid */}
           <RadioGrid
             onStationSelect={handleStationSelect}
-            currentStation={audioPlayer.currentStation}
-            isLoading={audioPlayer.isLoading}
-            isPlaying={audioPlayer.isPlaying}
+            currentStation={state.currentStation}
+            isLoading={state.isLoading}
+            isPlaying={state.isPlaying}
+            favorites={favorites.favorites}
+            onToggleFavorite={favorites.toggleFavorite}
           />
-        </div>        {/* Fixed Footer with Controls */}
-        <div className="sticky bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-50 relative">          {/* Music Visualizer in Footer */}          {visualizerEnabled && visualizerType !== 'none' && visualizerPosition === 'footer' && (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">              <MusicVisualizerSingle
-                isPlaying={audioPlayer.isPlaying}
-                isEnabled={visualizerEnabled}
-                visualizerType={visualizerType}
+        </div>
+
+        {/* Fixed Footer with Controls */}
+        <div className="sticky bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-50 relative">
+
+          {/* Music Visualizer in Footer */}
+          {state.showVisualizer && state.visualizerType !== 'none' && visualizerPosition === 'footer' && (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+              <MusicVisualizerSingle
+                isPlaying={state.isPlaying}
+                isEnabled={state.showVisualizer}
+                visualizerType={state.visualizerType}
                 position="footer"
-                currentSource={audioPlayer.currentSource}
+                currentSource={state.audioSource}
               />
             </div>
           )}
-          
+
           {/* Audio Player */}
-          <div className="relative z-10">            <AudioPlayer
-            currentStation={audioPlayer.currentStation}
-            isPlaying={audioPlayer.isPlaying}
-            volume={audioPlayer.volume}
-            onTogglePlayPause={audioPlayer.togglePlayPause}
-            onVolumeChange={audioPlayer.setVolume}
-            isAdBreakActive={adBreakTimer.isAdBreakActive}
-            nextAdBreakIn={adBreakTimer.nextAdBreakIn}
-            currentSource={audioPlayer.currentSource}
-            error={audioPlayer.error}
-            playlistShuffle={adBreakTimer.playlistShuffle}            onToggleShuffle={(enabled) => {
-              adBreakTimer.setPlaylistShuffle(enabled);
-              // ✅ FIX: Apply shuffle immediately when toggled
-              if (audioPlayer.currentSource === 'playlist') {
-                audioPlayer.toggleShuffle(enabled);
-              }
-              if (window.addNotification) {
-                window.addNotification(`Shuffle ${enabled ? 'ingeschakeld' : 'uitgeschakeld'}`, 'info', 2000);
-              }
-            }} onNextTrack={() => {
-              if (audioPlayer.currentPlaylistProvider === 'spotify' && audioPlayer.spotifyPlayerRef?.current) {
-                try {
-                  // ✅ FIX: Use the audioPlayer's nextTrack method which respects shuffle
-                  audioPlayer.nextTrack();
-                  if (window.addNotification) {
-                    window.addNotification('Volgende nummer (Spotify)', 'info', 1500);
-                  }
-                } catch (error) {
-                  console.error('Could not skip to next Spotify track:', error);
-                }
-              } else if (audioPlayer.currentPlaylistProvider === 'youtube' && audioPlayer.youtubePlayerRef?.current) {
-                try {
-                  // ✅ FIX: Use the audioPlayer's nextTrack method which respects shuffle
-                  audioPlayer.nextTrack();
-                  if (window.addNotification) {
-                    window.addNotification('Volgende nummer (YouTube)', 'info', 1500);
-                  }
-                } catch (error) {
-                  console.error('Could not skip to next YouTube track:', error);
-                }
-              }}} playlistInfo={playlistInfo}
-            // Queue system disabled for reliability
-            currentAdBreakTimeLeft={adBreakTimer.currentAdBreakTimeLeft}
-            onCancelAdBreakTimer={adBreakTimer.cancelAdBreakTimer}            adBreakMode={adBreakTimer.adBreakMode}            onRotateNonstopStation={() => {
-              // Allow rotation during manual nonstop mode OR ad break nonstop mode
-              if (adBreakTimer.adBreakMode === 'nonstop' && 
-                  (adBreakTimer.isNonstopModeManuallyActive || adBreakTimer.isAdBreakActive)) {
-                adBreakTimer.rotateToNextNonstopStation();
-              }
-            }}
-            useCommunityTimings={adBreakTimer.useCommunityTimings}
-            currentAdBreakUsedCommunityTiming={adBreakTimer.currentAdBreakUsedCommunityTiming}
-            nextCommunityTiming={adBreakTimer.nextCommunityTiming}            // ✅ NEW: Add paused radio state props for "on hold" indicator
-            isRadioPausedForAdBreak={audioPlayer.isRadioPausedForAdBreak}
-            pausedRadioStation={audioPlayer.pausedRadioStation}
-            // ✅ NEW: Add manual test state for nonstop rotation button
-            isManualTestActive={adBreakTimer.isManualTestActive}
-            // ✅ NEW: Simple state for nonstop cycling button
-            isNonstopModeManuallyActive={adBreakTimer.isNonstopModeManuallyActive}
-            // ✅ NEW: Manual timer control functions
-            onJumpToSwitchNow={adBreakTimer.jumpToSwitchNow}
-            onSkipCurrentSwitch={adBreakTimer.skipCurrentSwitch}
-            onAddOneMinute={adBreakTimer.addOneMinute}
-          />
+          <div className="relative z-10">
+            <AudioPlayer
+              currentStation={state.currentStation}
+              isPlaying={state.isPlaying}
+              volume={state.volume}
+              onTogglePlayPause={audio.togglePlayPause}
+              onVolumeChange={audio.setVolume}
+
+              isAdBreakActive={adBreak.isAdBreakActive}
+              nextAdBreakIn={adBreak.nextAdBreakIn}
+              currentAdBreakTimeLeft={adBreak.adBreakTimeLeft}
+              adBreakMode={adBreak.adBreakMode}
+
+              currentSource={state.audioSource}
+              error={state.error}
+
+              playlistShuffle={state.playlistShuffle}
+              onToggleShuffle={audio.setShuffle}
+              onNextTrack={audio.nextTrack}
+
+              onCancelAdBreak={adBreak.cancelAdBreak}
+            />
           </div>
         </div>
 
-        {/* User Guide */}
-
-      
+        {/* Notification System */}
         <NotificationSystem />
 
-        {/* Loading Status - Non-intrusive bottom-right indicator */}
-        {(audioPlayer.isTransitioning || audioPlayer.isLoading) && !audioPlayer.error && (
+        {/* Loading Status */}
+        {(state.isTransitioning || state.isLoading) && !state.error && (
           <div className="fixed bottom-20 right-4 bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-lg z-40 max-w-xs">
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 flex-shrink-0"></div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  {audioPlayer.isTransitioning ? 'Audio wisselen...' : 'Verbinding maken...'}
+                  {state.isTransitioning ? 'Audio wisselen...' : 'Verbinding maken...'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">
-                  {audioPlayer.isTransitioning
-                    ? 'Overgang wordt voorbereid'
-                    : audioPlayer.currentStation
-                      ? audioPlayer.currentStation.name
-                      : 'Bezig met laden...'
-                  }
+                  {state.currentStation?.name || 'Bezig met laden...'}
                 </p>
-                {audioPlayer.connectionTimeout && (
-                  <p className="text-xs text-orange-400 mt-1">
-                    {audioPlayer.connectionTimeout}
-                  </p>
-                )}
               </div>
-              <button
-                onClick={() => {
-                  console.log('🛑 User clicked abort button');
-                  audioPlayer.abortConnection();
-                  if (window.addNotification) {
-                    window.addNotification('⏹️ Alles gestopt', 'info', 2000);
-                  }
-                }}
-                className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-gray-200 text-xs rounded transition-colors border border-gray-500 flex-shrink-0"
-                title="Stop laden"
-              >
-                ✕
-              </button>
             </div>
           </div>
-        )}        {/* Developer Dashboard */}
-        {showDeveloperDashboard && (
-          <DeveloperDashboard onClose={() => setShowDeveloperDashboard(false)} />
-        )}        {/* Community Timing Feedback Popup */}
-        <CommunityTimingFeedback
-          isVisible={adBreakTimer.showFeedbackPopup}
-          onClose={() => adBreakTimer.setShowFeedbackPopup(false)}
-          stationName={adBreakTimer.feedbackStationName}
-          timingType="auto-switch"
-        />
+        )}
 
-        {/* ✅ NEW: Floating YouTube Player */}
-        <FloatingYouTubePlayer
-          isVisible={audioPlayer.showFloatingYouTube}
-          playlistId={audioPlayer.floatingYouTubePlaylistId}
-          onClose={audioPlayer.handleFloatingYouTubeClose}
-          volume={audioPlayer.floatingYouTubeVolume}
-          onVolumeChange={audioPlayer.handleFloatingYouTubeVolumeChange}
-          isShuffled={audioPlayer.floatingYouTubeShuffle}
-          onShuffleChange={audioPlayer.handleFloatingYouTubeShuffleChange}
-        />
+        {/* Developer Dashboard */}
+        {state.showDeveloperDashboard && (
+          <DeveloperDashboard onClose={() => actions.toggleDeveloperDashboard(false)} />
+        )}
+
+        {/* YouTube Players (can have multiple) */}
+        {youtubePlayers.map(player => (
+          <ResizableYouTubePlayer
+            key={player.id}
+            isVisible={true}
+            playlistId={player.playlistId}
+            videoId={player.videoId}
+            title={player.title}
+            volume={player.volume}
+            onVolumeChange={(vol) => handleYouTubeVolumeChange(player.id, vol)}
+            onClose={() => closeYouTubePlayer(player.id)}
+            isAutomatic={player.isAutomatic}
+            autoCloseSeconds={player.autoCloseSeconds}
+          />
+        ))}
       </div>
     </ErrorBoundary>
   );

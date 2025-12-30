@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross-Fade System Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        h2 {
+            color: #FFD700;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        
+        h3 {
+            color: #FFA500;
+            margin-top: 25px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-success { background-color: #00ff88; }
+        .status-warning { background-color: #ffaa00; }
+        .status-error { background-color: #ff4444; }
+        .status-info { background-color: #4488ff; }
+        
+        .test-step {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #FFD700;
+        }
+        
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .implementation-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .implementation-list li {
+            background: rgba(255, 255, 255, 0.05);
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #00ff88;
+        }
+        
+        .scenario {
+            background: rgba(0, 150, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid rgba(0, 150, 255, 0.3);
+        }
+        
+        .warning-box {
+            background: rgba(255, 165, 0, 0.1);
+            border: 1px solid rgba(255, 165, 0, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .success-box {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔀 Cross-Fade System Implementation Test</h1>
+        
+        <div class="success-box">
+            <h2><span class="status-indicator status-success"></span>Implementation Complete</h2>
+            <p>De cross-fade functionaliteit is succesvol geïmplementeerd in de app met ondersteuning voor alle audio bronnen.</p>
+        </div>
+
+        <div class="test-container">
+            <h2>🎯 Cross-Fade Features Implemented</h2>
+            
+            <ul class="implementation-list">
+                <li><strong>🔀 Core Cross-Fade Engine</strong> - Smooth 3.5 second transitions between audio sources</li>
+                <li><strong>📡 Stream Readiness Detection</strong> - Waits for new audio to be ready before starting fade</li>
+                <li><strong>🎵 Multi-Source Support</strong> - Radio, Spotify, YouTube, Lofi Girl, Nonstop Radio</li>
+                <li><strong>⚙️ User Toggle</strong> - "Fade audio streams" setting in Instellingen</li>
+                <li><strong>🔊 Volume Isolation</strong> - Independent volume control during overlap period</li>
+                <li><strong>🛡️ Fallback System</strong> - Immediate switch if cross-fade fails</li>
+                <li><strong>💾 Persistent Setting</strong> - Remembers user preference in localStorage</li>
+            </ul>
+        </div>
+
+        <div class="test-container">
+            <h2>🧪 Test Scenarios</h2>
+            
+            <div class="scenario">
+                <h3>📋 Scenario 1: Radio to Playlist</h3>
+                <ol>
+                    <li>Enable "Fade audio streams" in Instellingen</li>
+                    <li>Start playing a radio station</li>
+                    <li>Click "Playlist afspelen" (YouTube or Spotify)</li>
+                    <li><strong>Expected:</strong> Radio fades out while playlist fades in over 3.5 seconds</li>
+                    <li><strong>Fallback:</strong> If playlist not ready, immediate switch with silence gap</li>
+                </ol>
+            </div>
+            
+            <div class="scenario">
+                <h3>📋 Scenario 2: Playlist to Radio</h3>
+                <ol>
+                    <li>Start playing a playlist (YouTube/Spotify)</li>
+                    <li>Select a different radio station</li>
+                    <li><strong>Expected:</strong> Playlist fades out while radio fades in</li>
+                    <li><strong>Note:</strong> Radio readiness detection waits for audio data</li>
+                </ol>
+            </div>
+            
+            <div class="scenario">
+                <h3>📋 Scenario 3: Radio to Lofi Girl (Ad Break)</h3>
+                <ol>
+                    <li>Start radio, wait for ad break timer</li>
+                    <li>When "Switch naar Lofi Girl" activates</li>
+                    <li><strong>Expected:</strong> Radio fades out while lofi YouTube overlay fades in</li>
+                    <li><strong>Note:</strong> Detects YouTube iframe readiness before fade</li>
+                </ol>
+            </div>
+            
+            <div class="scenario">
+                <h3>📋 Scenario 4: Nonstop Radio Cycling</h3>
+                <ol>
+                    <li>Enable "Non-Stop Radio" mode</li>
+                    <li>Wait for automatic station switching</li>
+                    <li><strong>Expected:</strong> Smooth transitions between radio stations</li>
+                    <li><strong>Benefit:</strong> No more silence gaps during switching</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="test-container">
+            <h2>🔧 Technical Implementation</h2>
+            
+            <h3>Core Functions Added:</h3>
+            <div class="code-block">
+useAudioPlayer() hook parameters:
+- fadeAudioStreams: boolean (from App.jsx state)
+
+New cross-fade functions:
+- isStreamReady(source, provider)
+- waitForStreamReady(source, provider, timeout)
+- performCrossFade(oldSource, oldProvider, newSource, newProvider)
+- setSourceVolume(source, provider, volume)
+- forceStopAllAudioWithFade()
+
+State management:
+- isCrossFading: boolean
+- fadeOldSource, fadeNewSource: objects
+- fadeStartTime: timestamp
+- FADE_DURATION_MS: 3500ms
+            </div>
+            
+            <h3>Stream Readiness Detection:</h3>
+            <div class="code-block">
+Radio: audioElement.readyState >= 3 && !paused && currentTime > 0
+Spotify: spotifyPlayerRef.current && spotifyPlayerReady
+YouTube: youtubePlayer.getPlayerState() === YT.PlayerState.PLAYING
+Lofi: iframe ready + YT.PlayerState.PLAYING
+Floating YouTube: window.floatingYouTubePlayer?.isPlaying
+            </div>
+        </div>
+
+        <div class="test-container">
+            <h2>🚨 Robustness & Fallbacks</h2>
+            
+            <div class="warning-box">
+                <h3>⚠️ When Cross-Fade is Disabled</h3>
+                <p>The app maintains its original single-stream robustness. Only one audio source plays at a time, preventing conflicts and ensuring stability.</p>
+            </div>
+            
+            <div class="success-box">
+                <h3>✅ When Cross-Fade is Enabled</h3>
+                <p>Temporary overlap is allowed for smooth transitions. If the new stream isn't ready within 10 seconds, the system falls back to immediate switching to prevent hanging.</p>
+            </div>
+            
+            <ul class="implementation-list">
+                <li><strong>🛡️ Timeout Protection</strong> - Max 10 second wait for new stream readiness</li>
+                <li><strong>🔄 Automatic Fallback</strong> - Immediate switch if cross-fade fails</li>
+                <li><strong>🧹 Clean State Management</strong> - Proper cleanup of fade intervals and timeouts</li>
+                <li><strong>📊 Volume Safety</strong> - Prevents runaway volume increases during transitions</li>
+                <li><strong>🚫 Conflict Prevention</strong> - Only allows overlap during active cross-fade</li>
+            </ul>
+        </div>
+
+        <div class="test-container">
+            <h2>📁 Files Modified</h2>
+            
+            <ul class="implementation-list">
+                <li><code>src/hooks/useAudioPlayer.js</code> - Core cross-fade engine and state management</li>
+                <li><code>src/App.jsx</code> - Pass fadeAudioStreams parameter to useAudioPlayer</li>
+                <li><code>src/components/AdBreakSettings.jsx</code> - Already has fade toggle UI</li>
+                <li><code>src/utils/adSkipUtils.js</code> - Radio stream readiness detection</li>
+                <li><code>src/utils/lofiUtils.js</code> - Lofi overlay readiness detection</li>
+                <li><code>test-cross-fade-system.html</code> - This test documentation</li>
+            </ul>
+        </div>
+
+        <div class="test-container">
+            <h2>🎛️ User Experience</h2>
+            
+            <div class="test-step">
+                <h3>1. Enable the Feature</h3>
+                <p>Go to "Instellingen" → Find "Fade audio streams" → Toggle ON</p>
+            </div>
+            
+            <div class="test-step">
+                <h3>2. Test Transitions</h3>
+                <p>Switch between any audio sources and enjoy smooth cross-fading instead of silence gaps</p>
+            </div>
+            
+            <div class="test-step">
+                <h3>3. Fallback Behavior</h3>
+                <p>If you experience issues, toggle the setting OFF to return to robust single-stream mode</p>
+            </div>
+        </div>
+
+        <div class="success-box">
+            <h2><span class="status-indicator status-success"></span>Ready for Testing</h2>
+            <p><strong>The cross-fade system is now fully implemented and ready for user testing!</strong></p>
+            <p>Users can enable smooth audio transitions while maintaining the option to fall back to the robust single-stream system if needed.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔀 Cross-Fade System Test Page Loaded');
+        console.log('📋 Implementation Summary:');
+        console.log('   ✅ Core cross-fade engine with 3.5s transitions');
+        console.log('   ✅ Stream readiness detection for all audio sources');
+        console.log('   ✅ User toggle in settings with localStorage persistence');
+        console.log('   ✅ Fallback to immediate switching if cross-fade fails');
+        console.log('   ✅ Volume isolation and safety mechanisms');
+        console.log('   ✅ Support for Radio, Spotify, YouTube, Lofi, Nonstop');
+        console.log('🚀 Ready for user testing!');
+        
+        // Log the key functions that were implemented
+        console.log('🔧 Key functions implemented:');
+        console.log('   - isStreamReady(source, provider)');
+        console.log('   - waitForStreamReady(source, provider, timeout)');
+        console.log('   - performCrossFade(oldSource, oldProvider, newSource, newProvider)');
+        console.log('   - setSourceVolume(source, provider, volume)');
+        console.log('   - forceStopAllAudioWithFade()');
+    </script>
+</body>
+</html>

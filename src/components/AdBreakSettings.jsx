@@ -72,8 +72,6 @@ const AdBreakSettings = ({
   isManualTestInProgress,
   autoAdDetectionEnabled,
   onAutoAdDetectionChange,
-  useCommunityTimings,
-  onUseCommunityTimingsChange,
   // ✅ NEW: Additional props for playlist controls
   playlistProvider,
   onProviderChange,
@@ -84,10 +82,12 @@ const AdBreakSettings = ({
   onVisualizerToggle,  visualizerType,
   onVisualizerTypeChange,
   visualizerBlur,
-  onVisualizerBlurChange,
-  // ✅ NEW: Auto-close overlays setting
+  onVisualizerBlurChange,  // ✅ NEW: Auto-close overlays setting
   autoCloseOverlays,
   onAutoCloseOverlaysChange,
+  // ✅ NEW: Fade audio streams setting  
+  fadeAudioStreams,
+  onFadeAudioStreamsChange,
   // ✅ NEW: Simple nonstop cycling button state
   setIsNonstopModeManuallyActive
 
@@ -120,10 +120,10 @@ const AdBreakSettings = ({
   const [detectionStatus, setDetectionStatus] = useState('idle'); // idle, listening, processing, error, music, no-music
   const [detectionResult, setDetectionResult] = useState(null);
   const detectorRef = useRef(null);  // Tooltip visibility states
-  const [showAdDetectionTooltip, setShowAdDetectionTooltip] = useState(false);
   const [showPrerollTooltip, setShowPrerollTooltip] = useState(false);
   const [showVisualizerTooltip, setShowVisualizerTooltip] = useState(false);
   const [showAutoCloseTooltip, setShowAutoCloseTooltip] = useState(false);
+  const [showFadeTooltip, setShowFadeTooltip] = useState(false);
   // Overlay states
   const [showNonstopSettings, setShowNonstopSettings] = useState(false);
   const [showLofiSettings, setShowLofiSettings] = useState(false);
@@ -1184,42 +1184,7 @@ const AdBreakSettings = ({
                           </button>
                         </div>                  </div>
 
-                      {/* 2. Community vs Own Timings */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1 flex-1">
-                            <span className="text-sm text-gray-300">
-                              {useCommunityTimings ? 'Community timings' : 'Community timings'}
-                            </span>
-                            <div className="relative">
-                              <button
-                                onMouseEnter={() => setShowAdDetectionTooltip(true)}
-                                onMouseLeave={() => setShowAdDetectionTooltip(false)}
-                                className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
-                              >
-                                i
-                              </button>
-                              {showAdDetectionTooltip && (
-                                <div className="absolute left-6 top-0 z-50 w-72 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
-                                  {useCommunityTimings
-                                    ? 'Gebruik community-gerapporteerde reclametijden van andere gebruikers.'
-                                    : 'Gebruik community-gerapporteerde reclametijden van andere gebruikers.'
-                                  }
-                                </div>
-                              )}
-                            </div>
-                          </div>                      <button
-                            onClick={() => onUseCommunityTimingsChange(!useCommunityTimings)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${useCommunityTimings
-                              ? 'bg-blue-600'
-                              : 'bg-gray-600'
-                              }`}
-                          >                        <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useCommunityTimings ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                            />
-                          </button>                    </div>
-                      </div>                 {/*  3. Visualizer Toggle */}
+                 {/*  Visualizer Toggle */}
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 flex-1">
@@ -1260,8 +1225,7 @@ const AdBreakSettings = ({
                                 }`}                            />
                           </button>
                         </div>
-                      </div>
-                        {/* 4. Auto-close overlays Toggle */}
+                      </div>                      {/* 4. Auto-close overlays Toggle */}
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 flex-1">
@@ -1292,6 +1256,43 @@ const AdBreakSettings = ({
                           >
                             <span
                               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoCloseOverlays ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 5. Fade audio streams Toggle */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 flex-1">
+                            <span className="text-sm text-gray-300">
+                              Fade audio streams
+                            </span>
+                            <div className="relative">
+                              <button
+                                onMouseEnter={() => setShowFadeTooltip(true)}
+                                onMouseLeave={() => setShowFadeTooltip(false)}
+                                className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
+                              >
+                                i
+                              </button>
+                              {showFadeTooltip && (
+                                <div className="absolute left-6 top-0 z-50 w-72 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
+                                  Schakel vloeiende overgangen in tussen audio streams door meerdere streams tegelijk af te spelen en ze in/uit te faden. Zorgt voor naadloze overgangen zonder stilte.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => onFadeAudioStreamsChange(!fadeAudioStreams)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${fadeAudioStreams
+                              ? 'bg-purple-600'
+                              : 'bg-gray-600'
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${fadeAudioStreams ? 'translate-x-6' : 'translate-x-1'
                                 }`}
                             />
                           </button>

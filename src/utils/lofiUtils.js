@@ -549,3 +549,68 @@ if (typeof window !== 'undefined') {
     closeLofiYouTubeOverlay
   };
 }
+
+// ✅ NEW: Cross-fade readiness detection for lofi overlay
+export const waitForLofiOverlayReady = async (timeoutMs = 8000) => {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    
+    const checkReady = () => {
+      // Check if overlay is open and iframe is playing
+      const isOverlayOpen = currentLofiOverlay && document.body.contains(currentLofiOverlay);
+      const isIframeReady = lofiIframeRef && 
+                           window.YT && 
+                           window.YT.PlayerState &&
+                           lofiIframeRef.getPlayerState &&
+                           lofiIframeRef.getPlayerState() === window.YT.PlayerState.PLAYING;
+      
+      if (isOverlayOpen && isIframeReady) {
+        console.log('✅ Lofi overlay ready for cross-fade');
+        resolve(true);
+        return;
+      }
+      
+      if (Date.now() - startTime > timeoutMs) {
+        console.warn('⏰ Timeout waiting for lofi overlay readiness');
+        resolve(false);
+        return;
+      }
+      
+      setTimeout(checkReady, 200);
+    };
+    
+    checkReady();
+  });
+};
+
+// ✅ NEW: Check if lofi overlay is currently playing audio
+export const isLofiOverlayPlaying = () => {
+  try {
+    return currentLofiOverlay && 
+           document.body.contains(currentLofiOverlay) &&
+           lofiIframeRef &&
+           window.YT &&
+           window.YT.PlayerState &&
+           lofiIframeRef.getPlayerState &&
+           lofiIframeRef.getPlayerState() === window.YT.PlayerState.PLAYING;
+  } catch (error) {
+    console.warn('Error checking lofi overlay play state:', error);
+    return false;
+  }
+};
+
+// ✅ NEW: Set lofi overlay volume for cross-fade
+export const setLofiOverlayVolume = (volume) => {
+  try {
+    if (lofiIframeRef && lofiIframeRef.setVolume) {
+      const youtubeVolume = Math.round(Math.max(0, Math.min(100, volume * 100)));
+      lofiIframeRef.setVolume(youtubeVolume);
+      console.log(`🔊 Lofi overlay volume set to ${youtubeVolume}%`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.warn('Error setting lofi overlay volume:', error);
+    return false;
+  }
+};

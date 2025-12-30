@@ -666,6 +666,76 @@ export class AdSkipUtils {
     }
   }
 
+  // ✅ NEW: Cross-fade readiness detection for radio streams
+  static async waitForRadioStreamReady(audioElement, timeoutMs = 8000) {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      
+      const checkReady = () => {
+        if (!audioElement) {
+          resolve(false);
+          return;
+        }
+        
+        // Check if stream is ready to play with audio data
+        const isReady = audioElement.readyState >= 3 && // HAVE_FUTURE_DATA or better
+                       !audioElement.paused &&
+                       audioElement.currentTime > 0 &&
+                       audioElement.duration > 0;
+        
+        if (isReady) {
+          console.log('✅ Radio stream ready for cross-fade');
+          resolve(true);
+          return;
+        }
+        
+        if (Date.now() - startTime > timeoutMs) {
+          console.warn('⏰ Timeout waiting for radio stream readiness');
+          resolve(false);
+          return;
+        }
+        
+        setTimeout(checkReady, 100);
+      };
+      
+      checkReady();
+    });
+  }
+
+  // ✅ NEW: Enhanced volume restoration for cross-fade compatibility
+  static async gradualVolumeRestoreWithCallback(audioElement, targetVolume, duration = 800, onComplete = null) {
+    if (!audioElement || targetVolume <= 0) return;
+
+    const steps = 25;
+    const stepDuration = duration / steps;
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+    for (let i = 1; i <= steps; i++) {
+      const progress = i / steps;
+      const easedProgress = easeOutCubic(progress);
+      const currentVolume = targetVolume * easedProgress;
+
+      try {
+        audioElement.volume = Math.min(currentVolume, 1);
+        await new Promise(resolve => setTimeout(resolve, stepDuration));
+      } catch (error) {
+        console.warn(`Volume restore step ${i} failed:`, error);
+        break;
+      }
+    }
+
+    try {
+      audioElement.volume = Math.min(targetVolume, 1);
+      console.log(`🔊 Volume restored to ${Math.round(audioElement.volume * 100)}%`);
+      
+      if (onComplete) {
+        onComplete();
+      }
+    } catch (error) {
+      console.error('❌ Final volume restore failed:', error);
+    }
+  }
+
   // ✅ ENHANCED: Check if pre-roll skip should be offered with auto-skip consideration
   static shouldOfferPrerollSkip(url, stationName) {
     // Don't offer skip for known ad-free streams with very high scores

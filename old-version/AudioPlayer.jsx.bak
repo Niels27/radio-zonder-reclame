@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReportStationButton from './ReportStationButton';
+import CommunityTimings from '../utils/communityTimings.jsx';
 
 // components/AudioPlayer.jsx - Enhanced smooth volume control
 const AudioPlayer = ({
@@ -40,6 +41,16 @@ const AudioPlayer = ({
   const volumeTimeoutRef = useRef(null);
   const volumeSliderRef = useRef(null);
   const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
+  // Community timing report states
+  const [showReportBubble, setShowReportBubble] = useState(false);
+  const [reportCooldown, setReportCooldown] = useState(null);
+  const [lastReportType, setLastReportType] = useState(null);
+  const bubbleTimeoutRef = useRef(null);
+
+  // ✅ NEW: Check report button availability
+  const [canReportStart, setCanReportStart] = useState(true);
+  const [canReportEnd, setCanReportEnd] = useState(true);
+  const [reportStatus, setReportStatus] = useState('');
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -257,7 +268,29 @@ const AudioPlayer = ({
   useEffect(() => {
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies
+  }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies  // ✅ NEW: Check if user can report (update every minute)
+  useEffect(() => {
+    const updateReportStatus = () => {
+      if (!currentStation?.name) return;
+
+      const startCheck = CommunityTimings.canUserReport(currentStation.name, 'start');
+      const endCheck = CommunityTimings.canUserReport(currentStation.name, 'end');
+
+      setCanReportStart(startCheck.canReport);
+      setCanReportEnd(endCheck.canReport);
+      
+      if (!startCheck.canReport && !endCheck.canReport) {
+        setReportStatus(startCheck.reason);
+      } else {
+        setReportStatus('');
+      }
+    };
+
+    updateReportStatus();
+    const interval = setInterval(updateReportStatus, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [currentStation?.name]);
 
   // ✅ CLEANUP: Remove event listeners on unmount
   useEffect(() => {
@@ -272,6 +305,10 @@ const AudioPlayer = ({
 
       if (volumeTimeoutRef.current) {
         clearTimeout(volumeTimeoutRef.current);
+      }
+
+      if (bubbleTimeoutRef.current) {
+        clearTimeout(bubbleTimeoutRef.current);
       }
     };
   }, []); // ✅ FIX: Empty dependency array for cleanup only
@@ -334,9 +371,67 @@ const AudioPlayer = ({
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };  // ✅ NEW: Handle reporting ad break timing with type and cooldown
+  const handleReportAdBreak = async (type = 'start') => {
+    if (!currentStation?.name) return;
+
+    // Check if user can report
+    const canReport = CommunityTimings.canUserReport(currentStation.name, type);
+    if (!canReport.canReport) {
+      if (window.addNotification) {
+        window.addNotification(canReport.reason, 'warning', 4000);
+      }
+      return;
+    }
+
+    try {
+      await CommunityTimings.reportAdBreak(currentStation.name, type);
+
+      // Hide bubble and show thank you message
+      setShowReportBubble(false);
+      setReportCooldown('Bedankt voor je bijdrage!');
+      setLastReportType(type);
+
+      // Clear thank you message after 3 seconds
+      setTimeout(() => {
+        setReportCooldown(null);
+        setLastReportType(null);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Failed to report ad break:', error);
+      if (window.addNotification) {
+        window.addNotification('Kon melding niet versturen', 'error', 3000);
+      }
+    }
   };
 
-  return (
+  // Handle mouse enter/leave for report bubble
+  const handleReportMouseEnter = () => {
+    if (reportCooldown) return; // Don't show bubble during cooldown/thank you
+
+    if (bubbleTimeoutRef.current) {
+      clearTimeout(bubbleTimeoutRef.current);
+    }
+
+    setShowReportBubble(true);
+  };
+
+  const handleReportMouseLeave = () => {
+    bubbleTimeoutRef.current = setTimeout(() => {
+      setShowReportBubble(false);
+    }, 150); // Small delay to allow moving to bubble
+  };
+
+  const handleBubbleMouseEnter = () => {
+    if (bubbleTimeoutRef.current) {
+      clearTimeout(bubbleTimeoutRef.current);
+    }
+  };
+
+  const handleBubbleMouseLeave = () => {
+    setShowReportBubble(false);
+  };  return (
     <div className="bg-transparent p-4 relative z-10">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between">
@@ -408,6 +503,61 @@ const AudioPlayer = ({
                         </svg>
                         <span>Radio wacht: {safePausedRadioStation?.name || 'Onbekend'}</span>
                       </span>
+                    )}{/* Community Timing Report Button - Single button with hover bubble */}
+                    {currentSource === 'radio' && currentStation && (
+                      <div className="relative">
+                        <button
+                          onMouseEnter={handleReportMouseEnter}
+                          onMouseLeave={handleReportMouseLeave}
+                          className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors flex items-center gap-1"
+                          title="Rapporteer reclametiming"
+                        >
+                          <span>❗</span>
+                          <span>{reportCooldown || 'Meld reclame'}</span>
+                        </button>                        {/* Hover Bubble with Begin/Einde options */}
+                        {showReportBubble && !reportCooldown && (
+                          <div
+                            className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg p-2 z-50 whitespace-nowrap"
+                            onMouseEnter={handleBubbleMouseEnter}
+                            onMouseLeave={handleBubbleMouseLeave}
+                          >
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleReportAdBreak('start')}
+                                disabled={!canReportStart}
+                                className={`px-2 py-1 text-white text-xs rounded transition-colors ${
+                                  canReportStart 
+                                    ? 'bg-red-600 hover:bg-red-500' 
+                                    : 'bg-gray-600 cursor-not-allowed opacity-50'
+                                }`}
+                                title={!canReportStart ? reportStatus : 'Rapporteer begin van reclame'}
+                              >
+                                Begin
+                              </button>
+                              <button
+                                onClick={() => handleReportAdBreak('end')}
+                                disabled={!canReportEnd}
+                                className={`px-2 py-1 text-white text-xs rounded transition-colors ${
+                                  canReportEnd 
+                                    ? 'bg-green-600 hover:bg-green-500' 
+                                    : 'bg-gray-600 cursor-not-allowed opacity-50'
+                                }`}
+                                title={!canReportEnd ? reportStatus : 'Rapporteer einde van reclame'}
+                              >
+                                Einde
+                              </button>
+                            </div>
+                            {/* Show timing restriction message if buttons are disabled */}
+                            {(!canReportStart || !canReportEnd) && reportStatus && (
+                              <div className="mt-1 text-gray-400 text-xs max-w-48">
+                                {reportStatus}
+                              </div>
+                            )}
+                            {/* Arrow pointing down */}
+                            <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800"></div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>                  {/* Queue system disabled for reliability */}
                 </div>
