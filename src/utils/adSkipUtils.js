@@ -533,37 +533,35 @@ export class AdSkipUtils {
 
       // ✅ CRITICAL: Ensure audio stays muted during entire process
       audioElement.volume = 0;
-        // ✅ ULTRA FAST: Minimal waiting - just check basic readiness
+        // ✅ INSTANT: Skip as fast as possible with minimal checks
       const waitForMinimalReadiness = () => {
         return new Promise((resolve) => {
           let checkCount = 0;
-          const maxChecks = 6; // Only 1.2 seconds max (6 * 200ms) - even faster!
+          const maxChecks = 3; // Only 0.3 seconds max (3 * 100ms) - INSTANT!
 
           const checkReadiness = () => {
             checkCount++;
-            
-            // Very minimal requirements for faster execution
-            const isMinimallyReady = audioElement.readyState >= 1 && // HAVE_METADATA or better
-              !audioElement.paused &&
-              audioElement.currentTime >= 0; // Any time is fine
 
-            console.log(`🎵 Quick readiness check ${checkCount}/${maxChecks}: ` +
+            // Very minimal requirements - just needs to be loaded
+            const isMinimallyReady = audioElement.readyState >= 1 && // HAVE_METADATA
+              !audioElement.paused;
+
+            console.log(`⚡ Instant readiness check ${checkCount}/${maxChecks}: ` +
               `readyState=${audioElement.readyState}, ` +
-              `currentTime=${audioElement.currentTime.toFixed(3)}s, ` +
               `paused=${audioElement.paused}`);
 
             if (isMinimallyReady || checkCount >= maxChecks) {
               if (isMinimallyReady) {
-                console.log('✅ Audio minimally ready, proceeding with ULTRA FAST skip');
+                console.log('✅ Audio ready, proceeding with INSTANT skip');
               } else {
-                console.log('⚠️ Proceeding with skip anyway (timeout - ultra fast)');
+                console.log('⚠️ Proceeding with skip anyway (instant mode)');
               }
               resolve();
               return;
             }
 
-            // Continue checking every 200ms
-            setTimeout(checkReadiness, 200);
+            // Continue checking every 100ms (faster)
+            setTimeout(checkReadiness, 100);
           };
 
           checkReadiness();
@@ -584,32 +582,18 @@ export class AdSkipUtils {
       console.log(`⏭️ Performing LIGHTNING FAST skip: ${currentTime.toFixed(3)}s → ${targetTime.toFixed(3)}s`);
 
       // Perform the skip immediately
-      audioElement.currentTime = targetTime;      // ✅ MINIMAL VERIFICATION: Quick check if skip worked
-      await new Promise(resolve => {
-        let settleChecks = 0;
-        const maxSettleChecks = 2; // Only 2 quick checks for speed
-        
-        const checkSkipSettled = () => {
-          settleChecks++;
-          const newTime = audioElement.currentTime;
-          
-          // More lenient - accept if we're close or max checks reached
-          if (Math.abs(newTime - targetTime) < 3.0 || settleChecks >= maxSettleChecks) {
-            console.log(`✅ Skip settled at ${newTime.toFixed(3)}s (target: ${targetTime.toFixed(3)}s)`);
-            resolve();
-          } else {
-            setTimeout(checkSkipSettled, 100);
-          }
-        };
-        
-        setTimeout(checkSkipSettled, 100); // Start checking even faster
-      });
+      audioElement.currentTime = targetTime;      // ✅ INSTANT VERIFICATION: Skip verification for speed
+      // Just give it a tiny moment to settle
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const newTime = audioElement.currentTime;
+      console.log(`✅ Skip completed at ${newTime.toFixed(3)}s (target: ${targetTime.toFixed(3)}s)`);
 
       // ✅ ENSURE STILL MUTED: Keep muted until restoration
       audioElement.volume = 0;
       console.log('🔇 Audio kept muted during skip verification');      // ✅ SMOOTH VOLUME RESTORATION: Only restore AFTER skip is complete
       console.log('🔊 Starting volume restoration AFTER successful skip...');
-      await this.gradualVolumeRestore(audioElement, originalVolume, 600); // Even faster restoration
+      await this.gradualVolumeRestore(audioElement, originalVolume, 400); // Super fast restoration (400ms)
 
       console.log(`🔇 ULTRA FAST silent pre-roll skip completed! Volume restored to ${Math.round(originalVolume * 100)}%`);
 

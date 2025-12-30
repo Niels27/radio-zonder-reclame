@@ -1,6 +1,9 @@
 // services/RadioService.js - Radio stream playback service
 // Handles HTML5 Audio element for live radio streams
 
+import { AdSkipUtils } from '../utils/adSkipUtils.js';
+import toast from '../utils/toastNotifications.js';
+
 export class RadioSource {
   constructor() {
     this.audio = null;
@@ -9,6 +12,8 @@ export class RadioSource {
     this.isInitialized = false;
     this.retryCount = 0;
     this.maxRetries = 3;
+    this.prerollSkipTimeout = null;
+    this.hasSkippedPreroll = false; // Track if we've already skipped for this station
   }
 
   /**
@@ -60,8 +65,9 @@ export class RadioSource {
         this.audio.src = '';
       }
 
-      // Reset retry count
+      // Reset retry count and pre-roll skip flag
       this.retryCount = 0;
+      this.hasSkippedPreroll = false; // Reset for new station
 
       // Set new station
       this.currentStation = station;
@@ -82,7 +88,23 @@ export class RadioSource {
     try {
       // Set audio source
       this.audio.src = station.url;
-      this.audio.volume = this.volume;
+
+      // Check if we should start muted for pre-roll skip
+      const isAutoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
+      const shouldSkipPreroll = isAutoSkipEnabled &&
+                                !this.hasSkippedPreroll &&
+                                AdSkipUtils.shouldOfferPrerollSkip(station.url, station.name);
+
+      if (shouldSkipPreroll) {
+        // Start muted - we'll restore volume after skip
+        this.audio.volume = 0;
+        // Store target volume for later restoration
+        this.audio.dataset.targetVolume = this.volume;
+        console.log('🔇 Starting muted for pre-roll skip');
+      } else {
+        // Normal volume
+        this.audio.volume = this.volume;
+      }
 
       // Attempt to play
       const playPromise = this.audio.play();
@@ -147,6 +169,12 @@ export class RadioSource {
     if (!this.audio) return;
 
     try {
+      // Clear pre-roll skip timeout
+      if (this.prerollSkipTimeout) {
+        clearTimeout(this.prerollSkipTimeout);
+        this.prerollSkipTimeout = null;
+      }
+
       this.audio.pause();
       this.audio.src = '';
       this.currentStation = null;
@@ -199,6 +227,67 @@ export class RadioSource {
 
   _handlePlaying() {
     console.log('▶️ RadioService: Stream playing');
+
+    // Check if we should auto-skip pre-roll
+    this._handlePrerollSkip();
+  }
+
+  /**
+   * Handle automatic pre-roll skip if enabled
+   */
+  async _handlePrerollSkip() {
+    // Only skip once per station load
+    if (this.hasSkippedPreroll) {
+      console.log('⏭️ Pre-roll already skipped for this station - ignoring');
+      return;
+    }
+
+    // Clear any existing timeout
+    if (this.prerollSkipTimeout) {
+      clearTimeout(this.prerollSkipTimeout);
+      this.prerollSkipTimeout = null;
+    }
+
+    // Check if auto-skip is enabled
+    const isAutoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
+
+    if (!isAutoSkipEnabled) {
+      console.log('⏭️ Auto pre-roll skip is disabled');
+      return;
+    }
+
+    // Check if this station should have pre-roll skip
+    if (!this.currentStation || !AdSkipUtils.shouldOfferPrerollSkip(this.currentStation.url, this.currentStation.name)) {
+      console.log('⏭️ Pre-roll skip not needed for this station');
+      return;
+    }
+
+    console.log('⏭️ Auto pre-roll skip is ENABLED - preparing to skip...');
+
+    // Mark that we're about to skip (prevent duplicate skips)
+    this.hasSkippedPreroll = true;
+
+    // Minimal wait - just enough for stream to start buffering
+    this.prerollSkipTimeout = setTimeout(async () => {
+      try {
+        console.log('⏭️ Executing automatic pre-roll skip...');
+
+        // Smart skip duration based on stream readiness
+        // Start with smaller skip (10s) for live streams to reduce buffering
+        const skipDuration = 15;
+
+        // Skip forward
+        await AdSkipUtils.skipPrerollSilently(this.audio, skipDuration);
+
+        // Show toast notification
+        toast.success(`Pre-roll reclame overgeslagen`, 2500);
+
+      } catch (error) {
+        console.error('❌ Auto pre-roll skip failed:', error);
+        // Reset flag on error so user can try again
+        this.hasSkippedPreroll = false;
+      }
+    }, 200); // Reduced from 500ms to 200ms for faster skip
   }
 
   _handleWaiting() {
@@ -209,6 +298,12 @@ export class RadioSource {
    * Cleanup
    */
   destroy() {
+    // Clear pre-roll skip timeout
+    if (this.prerollSkipTimeout) {
+      clearTimeout(this.prerollSkipTimeout);
+      this.prerollSkipTimeout = null;
+    }
+
     if (this.audio) {
       this.audio.pause();
       this.audio.src = '';

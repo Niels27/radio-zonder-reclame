@@ -1,5 +1,0 @@
-[33mdfa4d4f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Add .nojekyll file and revert YouTube utils to working state - fixes build issues
-[33m2d58c13[m Fix CSP policy and white screen issues - remove problematic security headers
-[33m68c4e6e[m Enhance HTTPS support and security for Spotify authentication
-[33mc0c55f5[m Fix syntax errors and enhance YouTube bypass functionality
-[33md77da63[m spotify log in working, https working

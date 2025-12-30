@@ -8,7 +8,7 @@ import VisualizerSettings from './VisualizerSettings';
 import { setupTestDetection, cleanupTestDetection } from '../utils/musicDetection.js';
 import { allRadioStations } from '../data/allRadioStations.js';
 import { refreshNonstopStations, getRandomNonstopStation } from '../utils/nonstopUtils.js';
-import { getFirebaseDemoMode } from '../utils/firebase.js';
+// Firebase removed
 
 const defaultDaySettings = () => ({
   enabled: false,

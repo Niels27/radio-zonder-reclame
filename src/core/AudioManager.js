@@ -120,11 +120,18 @@ class AudioManager {
       this.isTransitioning = true;
       this._setState('transitioning');
 
-      // CROSSFADE: If fade is enabled and we have a current source
-      if (this.fadeEnabled && this.currentSource) {
+      // CROSSFADE: Only if fade enabled, we have a current source, AND switching to DIFFERENT source type
+      // IMPORTANT: Don't crossfade radio→radio because it breaks Web Audio API connection (visualizer)
+      const shouldCrossfade = this.fadeEnabled && this.currentSource && this.currentSource !== sourceType;
+
+      if (shouldCrossfade) {
+        console.log(`🔀 AudioManager: Crossfading ${this.currentSource} → ${sourceType}`);
         await this._crossfade(sourceType, config);
       } else {
-        // NO FADE: Immediate stop
+        // NO FADE: Immediate stop (same source type or no fade)
+        if (this.currentSource === sourceType) {
+          console.log(`⚡ AudioManager: Same source type (${sourceType}), skipping crossfade to prevent Web Audio API conflict`);
+        }
         console.log('🛑 AudioManager: FORCING STOP OF ALL AUDIO SOURCES');
         await this.stopAll();
 
