@@ -76,16 +76,15 @@ const AdBreakSettings = ({
   playlistProvider,
   onProviderChange,
   onPlaylistUrlChange,
+  onPlaylistInfoChange,
   playlistShuffle, onShuffleChange, isValidatingPlaylist,
   isPlaylistInputHovered,  setIsPlaylistInputHovered,  // ✅ NEW: Visualizer props
   visualizerEnabled,
   onVisualizerToggle,  visualizerType,
   onVisualizerTypeChange,
   visualizerBlur,
-  onVisualizerBlurChange,  // ✅ NEW: Auto-close overlays setting
-  autoCloseOverlays,
-  onAutoCloseOverlaysChange,
-  // ✅ NEW: Fade audio streams setting  
+  onVisualizerBlurChange,
+  // ✅ NEW: Fade audio streams setting
   fadeAudioStreams,
   onFadeAudioStreamsChange,
   // ✅ NEW: Simple nonstop cycling button state
@@ -122,7 +121,6 @@ const AdBreakSettings = ({
   const detectorRef = useRef(null);  // Tooltip visibility states
   const [showPrerollTooltip, setShowPrerollTooltip] = useState(false);
   const [showVisualizerTooltip, setShowVisualizerTooltip] = useState(false);
-  const [showAutoCloseTooltip, setShowAutoCloseTooltip] = useState(false);
   const [showFadeTooltip, setShowFadeTooltip] = useState(false);
   // Overlay states
   const [showNonstopSettings, setShowNonstopSettings] = useState(false);
@@ -520,9 +518,9 @@ const AdBreakSettings = ({
     console.log('🛑 Stopping active manual modes:', activeModes);
       // Stop all active modes simultaneously
     const stopPromises = activeModes.map(mode => stopSpecificMode(mode));
-    await Promise.all(stopPromises);    // ✅ NEW: Also force stop all audio sources - respect auto-close setting
+    await Promise.all(stopPromises);    // Force stop all audio sources
     if (audioPlayer && audioPlayer.forceStopAllAudio) {
-      audioPlayer.forceStopAllAudio('manual modes stopped', autoCloseOverlays);
+      audioPlayer.forceStopAllAudio('manual modes stopped', false);
     }
     
     console.log('✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule');
@@ -588,9 +586,9 @@ const AdBreakSettings = ({
       
       // Set loading state immediately for this specific mode
       setModeState(mode, { loading: true });
-        // ✅ CRITICAL: Stop any audio sources first - respect auto-close setting
+        // Stop any audio sources first
       if (audioPlayer?.forceStopAllAudio) {
-        audioPlayer.forceStopAllAudio(`starting ${mode} mode`, autoCloseOverlays);
+        audioPlayer.forceStopAllAudio(`starting ${mode} mode`, false);
         await new Promise(resolve => setTimeout(resolve, 400));
       }
 
@@ -619,7 +617,7 @@ const AdBreakSettings = ({
 
       if (window.addNotification) {
         const modeText = getModeDisplayName(mode);
-        window.addNotification(`🎵 ${modeText} Test Gestart (Geïsoleerd)`, 'success', 2000);
+        window.addNotification(`🎵 ${modeText} Test Gestart`, 'success', 2000);
       }
     } catch (error) {
       console.error(`Failed to start ${mode} mode:`, error);
@@ -649,30 +647,12 @@ const AdBreakSettings = ({
         if (setIsNonstopModeManuallyActive) {
           setIsNonstopModeManuallyActive(false);
         }
-      }      // ✅ CRITICAL: Stop all audio sources completely - respect auto-close setting
+      }      // Stop all audio sources completely
       if (audioPlayer?.forceStopAllAudio) {
-        audioPlayer.forceStopAllAudio(`stopping ${mode} mode`, autoCloseOverlays);
+        audioPlayer.forceStopAllAudio(`stopping ${mode} mode`, false);
       }
-        // ✅ NEW: Only close overlays if auto-close is enabled
-      if (autoCloseOverlays) {
-        // ✅ NEW: Use safe close method for floating YouTube player
-        if (mode === 'playlist' && audioPlayer?.safeCloseFloatingYouTube) {
-          audioPlayer.safeCloseFloatingYouTube('playlist mode stopped');
-        }
 
-        // Special cleanup for lofi mode
-        if (mode === 'lofi') {
-          try {
-            const { closeLofiYouTubeOverlay } = await import('../utils/lofiUtils.js');
-            console.log('🛑 Closing lofi overlay for lofi stop (auto-close enabled)');
-            closeLofiYouTubeOverlay();
-          } catch (error) {
-            console.warn('Could not close lofi overlay:', error);
-          }
-        }
-      } else {
-        console.log(`🔧 Auto-close disabled - leaving ${mode} overlays open`);
-      }
+      // Note: Players are no longer auto-closed - users can keep them open if they want
 
       // Reset state for this specific mode
       setModeState(mode, { active: false, loading: false, startTime: null });
@@ -1010,9 +990,10 @@ const AdBreakSettings = ({
         onPlaylistUrlChange={onPlaylistUrlChange}
         playlistInfo={playlistInfo}
         onPlaylistInfoChange={(info) => {
-          // Since we don't have direct access to setPlaylistInfo, 
-          // we need to pass this through props or handle it differently
           console.log('Playlist info changed:', info);
+          if (onPlaylistInfoChange) {
+            onPlaylistInfoChange(info);
+          }
         }}
         isValidating={isValidatingPlaylist}
         onValidatingChange={(validating) => {
@@ -1225,44 +1206,9 @@ const AdBreakSettings = ({
                                 }`}                            />
                           </button>
                         </div>
-                      </div>                      {/* 4. Auto-close overlays Toggle */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1 flex-1">
-                            <span className="text-sm text-gray-300">
-                              Spelers automatisch sluiten
-                            </span>
-                            <div className="relative">
-                              <button
-                                onMouseEnter={() => setShowAutoCloseTooltip(true)}
-                                onMouseLeave={() => setShowAutoCloseTooltip(false)}
-                                className="w-4 h-4 rounded-full bg-blue-600 text-gray-300 text-xs flex items-center justify-center hover:bg-blue-400 transition-colors"
-                              >
-                                i
-                              </button>
-                              {showAutoCloseTooltip && (
-                                <div className="absolute left-6 top-0 z-50 w-72 p-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg text-xs text-gray-300">
-                                  Deze optie uit zetten maakt het mogelijk meerdere spelers (radio, youtube, spotify) tegelijk af te spelen.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => onAutoCloseOverlaysChange(!autoCloseOverlays)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoCloseOverlays
-                              ? 'bg-orange-600'
-                              : 'bg-gray-600'
-                              }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoCloseOverlays ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                            />
-                          </button>
-                        </div>
                       </div>
 
-                      {/* 5. Fade audio streams Toggle */}
+                      {/* 4. Fade audio streams Toggle */}
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 flex-1">

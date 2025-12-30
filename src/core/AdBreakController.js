@@ -59,7 +59,15 @@ export class AdBreakController {
       }
 
       if (!success) {
-        throw new Error(`Failed to start ${mode} mode`);
+        console.error(`❌ AdBreakController: Failed to start ${mode} mode - cancelling ad break`);
+        this._cleanup();
+
+        // Show user-friendly notification
+        if (window.addNotification) {
+          window.addNotification(`❌ Kon ${mode} niet starten - probeer het opnieuw`, 'error', 4000);
+        }
+
+        return false;
       }
 
       // Schedule automatic end
@@ -73,7 +81,13 @@ export class AdBreakController {
     } catch (error) {
       console.error('❌ AdBreakController: Failed to start ad break', error);
       this._cleanup();
-      throw error;
+
+      // Show user-friendly notification
+      if (window.addNotification) {
+        window.addNotification(`❌ Fout bij starten reclamepauze: ${error.message}`, 'error', 4000);
+      }
+
+      return false;
     }
   }
 
@@ -91,6 +105,14 @@ export class AdBreakController {
     try {
       // Clear timers
       this._cleanup();
+
+      // Close any open YouTube overlays
+      if (window.closeAllYouTubePlayers) {
+        window.closeAllYouTubePlayers();
+      }
+
+      // Small delay to let YouTube stop cleanly before starting radio
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Restore saved station if available
       if (this.savedStation) {
@@ -123,6 +145,12 @@ export class AdBreakController {
   cancel() {
     console.log('🚫 AdBreakController: Canceling ad break');
     this._cleanup();
+
+    // Close any open YouTube overlays
+    if (window.closeAllYouTubePlayers) {
+      window.closeAllYouTubePlayers();
+    }
+
     this.isActive = false;
     this.savedStation = null;
     this.actions.endAdBreak();
@@ -168,6 +196,16 @@ export class AdBreakController {
 
     console.log(`🎵 AdBreakController: Starting ${provider} playlist ${playlistId}`);
 
+    // Open YouTube overlay for YouTube playlists
+    if (provider === 'youtube' && window.openYouTubePlayer) {
+      window.openYouTubePlayer({
+        playlistId,
+        title: 'YouTube Playlist',
+        isAutomatic: true,
+        autoCloseSeconds: null
+      });
+    }
+
     return await this.audioManager.play(provider, {
       playlist: playlistId,
       shuffle: shuffle
@@ -202,6 +240,16 @@ export class AdBreakController {
     }
 
     console.log(`🎵 AdBreakController: Starting lofi stream ${videoId}`);
+
+    // Open YouTube overlay
+    if (window.openYouTubePlayer) {
+      window.openYouTubePlayer({
+        videoId,
+        title: 'Lofi Girl',
+        isAutomatic: true,
+        autoCloseSeconds: null
+      });
+    }
 
     return await this.audioManager.play('youtube', {
       video: videoId

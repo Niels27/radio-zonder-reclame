@@ -25,11 +25,39 @@ const ResizableYouTubePlayer = ({
   const [timeRemaining, setTimeRemaining] = useState(autoCloseSeconds);
   const [timerCancelled, setTimerCancelled] = useState(false);
 
+  // YouTube fallback methods
+  const [showSettings, setShowSettings] = useState(false);
+  const [currentMethod, setCurrentMethod] = useState(() => {
+    return parseInt(localStorage.getItem('youtube_embed_method') || '0');
+  });
+
   const playerRef = useRef(null);
   const containerRef = useRef(null);
 
   // YouTube player instance
   const [player, setPlayer] = useState(null);
+
+  // YouTube fallback methods - 6 different embed approaches
+  const fallbackMethods = [
+    'full_player',      // Full YouTube player (default)
+    'nocookie_embed',   // YouTube no-cookie embed
+    'regular_embed',    // Regular YouTube embed
+    'youtube_music',    // YouTube Music
+    'direct_playlist',  // Direct playlist link
+    'mobile_embed'      // Mobile YouTube
+  ];
+
+  const getMethodDisplayName = (method) => {
+    const names = {
+      'full_player': 'Standaard',
+      'nocookie_embed': 'Privacy',
+      'regular_embed': 'Basis',
+      'youtube_music': 'Music',
+      'direct_playlist': 'Direct',
+      'mobile_embed': 'Mobiel'
+    };
+    return names[method] || method;
+  };
 
   // Load YouTube iframe API
   useEffect(() => {
@@ -40,6 +68,45 @@ const ResizableYouTubePlayer = ({
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
     }
   }, []);
+
+  // Get embed URL based on selected method
+  const getEmbedUrl = () => {
+    const method = fallbackMethods[currentMethod];
+    const id = videoId || playlistId;
+
+    switch (method) {
+      case 'nocookie_embed':
+        return playlistId
+          ? `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&autoplay=1&controls=1&modestbranding=1&rel=0`
+          : `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0`;
+
+      case 'regular_embed':
+        return playlistId
+          ? `https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&controls=1&modestbranding=1&rel=0`
+          : `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0`;
+
+      case 'youtube_music':
+        return playlistId
+          ? `https://music.youtube.com/embed/playlist?list=${playlistId}&autoplay=1`
+          : `https://music.youtube.com/embed/${videoId}?autoplay=1`;
+
+      case 'direct_playlist':
+        return playlistId
+          ? `https://www.youtube.com/embed?listType=playlist&list=${playlistId}&autoplay=1&controls=1`
+          : `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1`;
+
+      case 'mobile_embed':
+        return playlistId
+          ? `https://m.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&controls=1`
+          : `https://m.youtube.com/embed/${videoId}?autoplay=1&controls=1`;
+
+      case 'full_player':
+      default:
+        return playlistId
+          ? `https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&controls=1&modestbranding=1&rel=0&enablejsapi=1`
+          : `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0&enablejsapi=1`;
+    }
+  };
 
   // Initialize YouTube player when visible
   useEffect(() => {
@@ -70,7 +137,7 @@ const ResizableYouTubePlayer = ({
         setPlayer(null);
       }
     };
-  }, [isVisible]);
+  }, [isVisible, currentMethod]);
 
   // Update volume when changed
   useEffect(() => {
@@ -202,15 +269,57 @@ const ResizableYouTubePlayer = ({
           )}
         </div>
 
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="ml-2 text-gray-400 hover:text-white transition-colors text-lg font-bold px-2"
-          title="Sluiten"
-        >
-          ✕
-        </button>
+        {/* Settings and Close buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="text-gray-400 hover:text-white transition-colors text-lg px-2"
+            title="Instellingen"
+          >
+            ⚙️
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors text-lg font-bold px-2"
+            title="Sluiten"
+          >
+            ✕
+          </button>
+        </div>
       </div>
+
+      {/* Settings dropdown */}
+      {showSettings && (
+        <div className="absolute top-12 right-3 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-xl z-10">
+          <div className="text-xs text-gray-300 mb-2">
+            Methode: <span className="font-medium text-blue-400">{getMethodDisplayName(fallbackMethods[currentMethod])}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {fallbackMethods.map((method, index) => (
+              <button
+                key={method}
+                onClick={() => {
+                  setCurrentMethod(index);
+                  localStorage.setItem('youtube_embed_method', index.toString());
+                  setShowSettings(false);
+                  // Reload player with new method
+                  if (player) {
+                    player.destroy();
+                    setPlayer(null);
+                  }
+                }}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  index === currentMethod
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+              >
+                {getMethodDisplayName(method)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* YouTube player */}
       <div className="w-full h-[calc(100%-40px)] bg-black">

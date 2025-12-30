@@ -519,29 +519,33 @@ const AudioPlayer = ({
                   </div>
                   
                   {/* ✅ NEW: Timer Control Buttons for normal countdown */}
-                  {onJumpToSwitchNow && onSkipCurrentSwitch && onAddOneMinute && (
+                  {onJumpToSwitchNow && (
                     <div className="flex items-center space-x-1">
                       <button
                         onClick={onJumpToSwitchNow}
                         className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
                         title="Direct naar reclamepauze"
                       >
-                        Nu switchen
+                        Switch nu
                       </button>
-                      <button
-                        onClick={onSkipCurrentSwitch}
-                        className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
-                        title="Deze pauze overslaan"
-                      >
-                        Skip switch
-                      </button>
-                      <button
-                        onClick={onAddOneMinute}
-                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                        title="1 minuut langer wachten"
-                      >
-                         +1 min
-                      </button>
+                      {onSkipCurrentSwitch && (
+                        <button
+                          onClick={onSkipCurrentSwitch}
+                          className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
+                          title="Deze pauze overslaan"
+                        >
+                          Skip switch
+                        </button>
+                      )}
+                      {onAddOneMinute && (
+                        <button
+                          onClick={onAddOneMinute}
+                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          title="1 minuut langer wachten"
+                        >
+                          +1 min
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

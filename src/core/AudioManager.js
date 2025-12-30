@@ -271,7 +271,7 @@ class AudioManager {
 
     // Only log if volume changed by at least 1%
     if (oldPercentage !== newPercentage) {
-      console.log(`🔊 AudioManager: Volume set to ${newPercentage}%`);
+     // console.log(`🔊 AudioManager: Volume set to ${newPercentage}%`);
     }
   }
 

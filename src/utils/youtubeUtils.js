@@ -122,7 +122,7 @@ export const extractPlaylistId = (url) => {
 // Simple validation - just check if we can extract ID
 export const validatePlaylistUrl = async (url) => {
   const playlistId = extractPlaylistId(url);
-  
+
   if (!playlistId) {
     return {
       isValid: false,
@@ -133,13 +133,25 @@ export const validatePlaylistUrl = async (url) => {
       videoCount: null
     };
   }
-  
+
+  // Try to find the playlist name from predefined playlists
+  let playlistName = 'YouTube Playlist';
+  try {
+    const { youtubePlaylists } = await import('./predefinedPlaylists.js');
+    const found = youtubePlaylists.find(p => p.url.includes(playlistId));
+    if (found) {
+      playlistName = found.name;
+    }
+  } catch (error) {
+    console.log('Could not load predefined playlists:', error);
+  }
+
   return {
     isValid: true,
     playlistId,
     error: null,
-    thumbnail: `https://img.youtube.com/vi/${playlistId}/mqdefault.jpg`,
-    title: `YouTube Playlist`,
+    thumbnail: null, // Can't get reliable thumbnail without YouTube Data API
+    title: playlistName,
     videoCount: null
   };
 };

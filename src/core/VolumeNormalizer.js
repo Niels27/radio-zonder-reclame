@@ -113,7 +113,7 @@ export class VolumeNormalizer {
 
     // Only log if volume changed by at least 1%
     if (oldPercentage !== newPercentage) {
-      console.log(`🔊 VolumeNormalizer: Volume set to ${newPercentage}%`);
+    //  console.log(`🔊 VolumeNormalizer: Volume set to ${newPercentage}%`);
     }
   }
 

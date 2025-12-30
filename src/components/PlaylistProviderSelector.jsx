@@ -535,9 +535,34 @@ useEffect(() => {
                   </div>
                 )}
               </div>
+
+              {/* Permanent playlist info display - only show if we have a real name */}
+              {playlistInfo?.isValid && playlistInfo.title && playlistInfo.title !== 'YouTube Playlist' && (
+                <div className="flex items-center space-x-2 bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 min-w-0">
+                  {playlistInfo.thumbnail && (
+                    <img
+                      src={playlistInfo.thumbnail}
+                      alt={playlistInfo.title}
+                      className="w-10 h-10 rounded object-cover flex-shrink-0"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-medium text-sm truncate">
+                      {playlistInfo.title}
+                    </div>
+                    {playlistInfo.videoCount && (
+                      <div className="text-gray-400 text-xs">
+                        {playlistInfo.videoCount} video's
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={handleRandomPlaylist}
-                className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center justify-center"
+                className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
                 title="Willekeurige afspeellijst"
               >
                 🎲

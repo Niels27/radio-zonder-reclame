@@ -1,7 +1,7 @@
 // App.jsx - Main application component (REWRITTEN with new architecture)
 // Orchestrates the application using new StateManager and hooks
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import RadioGrid from './components/RadioGrid';
 import AudioPlayer from './components/AudioPlayer';
 import AdBreakSettings from './components/AdBreakSettings';
@@ -51,7 +51,7 @@ function App() {
   /**
    * Open a YouTube player (automatic or manual)
    */
-  const openYouTubePlayer = (config) => {
+  const openYouTubePlayer = useCallback((config) => {
     const { playlistId, videoId, title, isAutomatic = false, autoCloseSeconds = null } = config;
 
     const newPlayer = {
@@ -66,15 +66,23 @@ function App() {
 
     setYoutubePlayers(prev => [...prev, newPlayer]);
     console.log('▶️ App: Opened YouTube player', newPlayer);
-  };
+  }, [state.volume]);
 
   /**
    * Close a YouTube player
    */
-  const closeYouTubePlayer = (playerId) => {
+  const closeYouTubePlayer = useCallback((playerId) => {
     setYoutubePlayers(prev => prev.filter(p => p.id !== playerId));
     console.log('✕ App: Closed YouTube player', playerId);
-  };
+  }, []);
+
+  /**
+   * Close all YouTube players
+   */
+  const closeAllYouTubePlayers = useCallback(() => {
+    setYoutubePlayers([]);
+    console.log('✕ App: Closed all YouTube players');
+  }, []);
 
   /**
    * Handle YouTube volume change
@@ -141,12 +149,13 @@ function App() {
   // Expose global functions for backward compatibility
   useEffect(() => {
     window.openYouTubePlayer = openYouTubePlayer;
+    window.closeAllYouTubePlayers = closeAllYouTubePlayers;
     window.addNotification = (message, type, duration) => {
       if (window.showNotification) {
         window.showNotification(message, type, duration);
       }
     };
-  }, []);
+  }, [openYouTubePlayer, closeAllYouTubePlayers]);
 
   return (
     <ErrorBoundary>
@@ -231,6 +240,8 @@ function App() {
                 onProviderChange={actions.setPlaylistProvider}
                 playlistUrl={state.playlistUrl}
                 onPlaylistUrlChange={actions.setPlaylistUrl}
+                playlistInfo={state.playlistInfo}
+                onPlaylistInfoChange={actions.setPlaylistInfo}
                 playlistShuffle={state.playlistShuffle}
                 onShuffleChange={actions.setPlaylistShuffle}
 
@@ -243,8 +254,6 @@ function App() {
                 onVisualizerBlurChange={actions.setVisualizerBlur}
 
                 // Other settings
-                autoCloseOverlays={state.autoCloseOverlays}
-                onAutoCloseOverlaysChange={actions.setAutoCloseOverlays}
                 fadeAudioStreams={state.fadeAudioStreams}
                 onFadeAudioStreamsChange={actions.setFadeAudioStreams}
 
@@ -303,6 +312,7 @@ function App() {
               onNextTrack={audio.nextTrack}
 
               onCancelAdBreak={adBreak.cancelAdBreak}
+              onJumpToSwitchNow={adBreak.skipToZero}
             />
           </div>
         </div>

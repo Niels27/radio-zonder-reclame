@@ -58,6 +58,11 @@ export class RadioSource {
 
     console.log(`🎵 RadioService: Playing ${station.name}`);
 
+    // Show loading status
+    if (toast) {
+      toast.info('Radio aan het laden...', 2000);
+    }
+
     try {
       // Stop current stream
       if (this.audio.src) {
@@ -72,11 +77,29 @@ export class RadioSource {
       // Set new station
       this.currentStation = station;
 
-      // Try to load and play
-      return await this._tryPlayStation(station);
+      // Try to load and play with 20 second timeout
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout na 20 seconden')), 20000)
+      );
+
+      const playPromise = this._tryPlayStation(station);
+
+      return await Promise.race([playPromise, timeoutPromise]);
 
     } catch (error) {
       console.error('❌ RadioService: Play failed', error);
+
+      // Show error after all attempts failed
+      if (toast) {
+        if (error.message === 'Timeout na 20 seconden') {
+          toast.error('Geen werkende radiostream gevonden - verbinding timeout', 4000);
+        } else if (this.retryCount >= this.maxRetries) {
+          toast.error('Geen werkende radiostream gevonden - alle streams geprobeerd', 4000);
+        } else {
+          toast.error('Verbindingsfout - kan radio niet laden', 4000);
+        }
+      }
+
       throw error;
     }
   }
@@ -124,6 +147,11 @@ export class RadioSource {
       if (station.fallbackUrl && this.retryCount < this.maxRetries) {
         this.retryCount++;
         console.log(`🔄 RadioService: Trying fallback URL (attempt ${this.retryCount})`);
+
+        // Show retry message
+        if (toast) {
+          toast.info('Andere stream aan het proberen...', 2000);
+        }
 
         const fallbackStation = { ...station, url: station.fallbackUrl };
         return await this._tryPlayStation(fallbackStation);
@@ -274,7 +302,7 @@ export class RadioSource {
 
         // Smart skip duration based on stream readiness
         // Start with smaller skip (10s) for live streams to reduce buffering
-        const skipDuration = 15;
+        const skipDuration = 17;
 
         // Skip forward
         await AdSkipUtils.skipPrerollSilently(this.audio, skipDuration);

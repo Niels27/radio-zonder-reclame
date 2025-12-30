@@ -55,154 +55,6 @@ export function useAdBreak(audioManager, interruptionHandler) {
   }, [state.adBreakMinute, state.adBreakMinute2]);
 
   /**
-   * Start the ad break timer
-   */
-  const startTimer = useCallback(() => {
-    if (state.isTimerRunning) {
-      console.warn('⚠️ useAdBreak: Timer already running');
-      return;
-    }
-
-    if (!state.currentStation) {
-      console.warn('⚠️ useAdBreak: No station selected');
-      if (window.addNotification) {
-        window.addNotification('Selecteer eerst een radiostation', 'warning', 3000);
-      }
-      return;
-    }
-
-    console.log('⏰ useAdBreak: Starting timer');
-    actions.startTimer();
-
-    // Update countdown every second
-    const updateCountdown = () => {
-      const timeUntilNext = calculateNextAdBreak();
-      actions.setNextAdBreakIn(timeUntilNext);
-
-      // Trigger ad break if time reached
-      if (timeUntilNext === 0 && state.isTimerRunning && !state.isAdBreakActive) {
-        startAdBreak();
-      }
-    };
-
-    updateCountdown();
-    timerIntervalRef.current = setInterval(updateCountdown, 1000);
-
-    if (window.addNotification) {
-      window.addNotification('⏰ Automatisch wisselen geactiveerd', 'success', 2000);
-    }
-  }, [state.isTimerRunning, state.currentStation, state.isAdBreakActive, calculateNextAdBreak, actions]);
-
-  /**
-   * Stop the timer completely
-   */
-  const stopTimer = useCallback(() => {
-    console.log('⏰ useAdBreak: Stopping timer');
-
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
-    actions.stopTimer();
-    actions.setNextAdBreakIn(null);
-    actions.setAdBreakTimeLeft(null);
-
-    // If ad break is active, end it
-    if (state.isAdBreakActive && adBreakControllerRef.current) {
-      adBreakControllerRef.current.cancel();
-    }
-
-    if (window.addNotification) {
-      window.addNotification('⏰ Automatisch wisselen gedeactiveerd', 'success', 2000);
-    }
-  }, [state.isAdBreakActive, actions]);
-
-  /**
-   * Start an ad break
-   */
-  const startAdBreak = useCallback(async () => {
-    if (!adBreakControllerRef.current) {
-      console.error('❌ useAdBreak: Controller not initialized');
-      return;
-    }
-
-    if (state.isAdBreakActive) {
-      console.warn('⚠️ useAdBreak: Ad break already active');
-      return;
-    }
-
-    try {
-      // Register action with interruption handler
-      if (interruptionHandler) {
-        interruptionHandler.registerAction('ad_break', {
-          mode: state.adBreakMode,
-          duration: getDuration()
-        });
-      }
-
-      console.log(`🎵 useAdBreak: Starting ${state.adBreakMode} ad break`);
-
-      // Get duration (which break was closer?)
-      const duration = getDuration();
-
-      // Get configuration based on mode
-      const config = await getAdBreakConfig();
-
-      // Start the ad break
-      await adBreakControllerRef.current.start(state.adBreakMode, duration, config);
-
-      if (window.addNotification) {
-        window.addNotification(`🎵 Reclamepauze gestart (${getModeLabel()})`, 'info', 3000);
-      }
-
-    } catch (error) {
-      console.error('❌ useAdBreak: Failed to start ad break', error);
-      if (window.addNotification) {
-        window.addNotification(`❌ Fout: ${error.message}`, 'error', 3000);
-      }
-    }
-  }, [state.isAdBreakActive, state.adBreakMode, interruptionHandler]);
-
-  /**
-   * End the current ad break
-   */
-  const endAdBreak = useCallback(async () => {
-    if (!adBreakControllerRef.current) return;
-
-    try {
-      await adBreakControllerRef.current.end();
-
-      if (window.addNotification) {
-        window.addNotification('🎵 Terug naar radio', 'success', 2000);
-      }
-    } catch (error) {
-      console.error('❌ useAdBreak: Failed to end ad break', error);
-    }
-  }, []);
-
-  /**
-   * Manual ad break test
-   */
-  const manualAdBreak = useCallback(async () => {
-    console.log('🎵 useAdBreak: Manual test triggered');
-
-    // Register as manual action
-    if (interruptionHandler) {
-      interruptionHandler.registerAction('manual_ad_break', {
-        mode: state.adBreakMode
-      });
-    }
-
-    await startAdBreak();
-  }, [startAdBreak, state.adBreakMode, interruptionHandler]);
-
-  /**
    * Get duration based on which break is closer
    */
   const getDuration = useCallback(() => {
@@ -266,6 +118,164 @@ export function useAdBreak(audioManager, interruptionHandler) {
   }, [state.adBreakMode]);
 
   /**
+   * Start an ad break
+   */
+  const startAdBreak = useCallback(async () => {
+    if (!adBreakControllerRef.current) {
+      console.error('❌ useAdBreak: Controller not initialized');
+      return;
+    }
+
+    if (state.isAdBreakActive) {
+      console.warn('⚠️ useAdBreak: Ad break already active');
+      return;
+    }
+
+    try {
+      // Register action with interruption handler
+      if (interruptionHandler) {
+        interruptionHandler.registerAction('ad_break', {
+          mode: state.adBreakMode,
+          duration: getDuration()
+        });
+      }
+
+      console.log(`🎵 useAdBreak: Starting ${state.adBreakMode} ad break`);
+
+      // Get duration (which break was closer?)
+      const duration = getDuration();
+
+      // Get configuration based on mode
+      const config = await getAdBreakConfig();
+
+      // Start the ad break
+      await adBreakControllerRef.current.start(state.adBreakMode, duration, config);
+
+      if (window.addNotification) {
+        window.addNotification(`🎵 Reclamepauze gestart (${getModeLabel()})`, 'info', 3000);
+      }
+
+    } catch (error) {
+      console.error('❌ useAdBreak: Failed to start ad break', error);
+      if (window.addNotification) {
+        window.addNotification(`❌ Fout: ${error.message}`, 'error', 3000);
+      }
+    }
+  }, [state.isAdBreakActive, state.adBreakMode, interruptionHandler, getDuration, getAdBreakConfig, getModeLabel]);
+
+  /**
+   * Start the ad break timer
+   */
+  const startTimer = useCallback(() => {
+    if (state.isTimerRunning) {
+      console.warn('⚠️ useAdBreak: Timer already running');
+      return;
+    }
+
+    if (!state.currentStation) {
+      console.warn('⚠️ useAdBreak: No station selected');
+      if (window.addNotification) {
+        window.addNotification('Selecteer eerst een radiostation', 'warning', 3000);
+      }
+      return;
+    }
+
+    console.log('⏰ useAdBreak: Starting timer');
+    actions.startTimer();
+
+    // Update countdown every second
+    const updateCountdown = () => {
+      const timeUntilNext = calculateNextAdBreak();
+     // console.log(`⏱️ Timer update: ${timeUntilNext}s until next break`);
+      actions.setNextAdBreakIn(timeUntilNext);
+
+      // Trigger ad break if time reached
+      if (timeUntilNext === 0) {
+        console.log('🚨 TIMER HIT ZERO! Triggering ad break...');
+
+        // Clear interval to prevent duplicate triggers
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+
+        // Trigger ad break
+        startAdBreak();
+      }
+    };
+
+    updateCountdown();
+    timerIntervalRef.current = setInterval(updateCountdown, 1000);
+
+    if (window.addNotification) {
+      window.addNotification('⏰ Automatisch wisselen geactiveerd', 'success', 2000);
+    }
+  }, [state.isTimerRunning, state.currentStation, state.isAdBreakActive, calculateNextAdBreak, actions, startAdBreak]);
+
+  /**
+   * Stop the timer completely
+   */
+  const stopTimer = useCallback(() => {
+    console.log('⏰ useAdBreak: Stopping timer');
+
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
+    actions.stopTimer();
+    actions.setNextAdBreakIn(null);
+    actions.setAdBreakTimeLeft(null);
+
+    // If ad break is active, end it
+    if (state.isAdBreakActive && adBreakControllerRef.current) {
+      adBreakControllerRef.current.cancel();
+    }
+
+    if (window.addNotification) {
+      window.addNotification('⏰ Automatisch wisselen gedeactiveerd', 'success', 2000);
+    }
+  }, [state.isAdBreakActive, actions]);
+
+  /**
+   * End the current ad break
+   */
+  const endAdBreak = useCallback(async () => {
+    if (!adBreakControllerRef.current) return;
+
+    try {
+      await adBreakControllerRef.current.end();
+
+      if (window.addNotification) {
+        window.addNotification('🎵 Terug naar radio', 'success', 2000);
+      }
+    } catch (error) {
+      console.error('❌ useAdBreak: Failed to end ad break', error);
+    }
+  }, []);
+
+  /**
+   * Manual ad break test
+   */
+  const manualAdBreak = useCallback(async () => {
+    console.log('🎵 useAdBreak: Manual test triggered');
+
+    // Register as manual action
+    if (interruptionHandler) {
+      interruptionHandler.registerAction('manual_ad_break', {
+        mode: state.adBreakMode
+      });
+    }
+
+    await startAdBreak();
+  }, [startAdBreak, state.adBreakMode, interruptionHandler]);
+
+  /**
    * Extend current ad break
    */
   const extendAdBreak = useCallback((minutes) => {
@@ -293,6 +303,29 @@ export function useAdBreak(audioManager, interruptionHandler) {
       window.addNotification('🚫 Reclamepauze geannuleerd', 'info', 2000);
     }
   }, []);
+
+  /**
+   * Skip timer to zero (trigger ad break immediately)
+   */
+  const skipToZero = useCallback(() => {
+    if (!state.isTimerRunning) {
+      console.warn('⚠️ useAdBreak: Timer not running');
+      return;
+    }
+
+    if (state.isAdBreakActive) {
+      console.warn('⚠️ useAdBreak: Ad break already active');
+      return;
+    }
+
+    console.log('⏭️ useAdBreak: Skipping to zero - triggering ad break now');
+
+    // Set countdown to 0
+    actions.setNextAdBreakIn(0);
+
+    // Immediately trigger ad break
+    startAdBreak();
+  }, [state.isTimerRunning, state.isAdBreakActive, actions, startAdBreak]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -343,6 +376,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
     manualAdBreak,
     extendAdBreak,
     cancelAdBreak,
+    skipToZero,
 
     // Setters
     setAdBreakMode: actions.setAdBreakMode,

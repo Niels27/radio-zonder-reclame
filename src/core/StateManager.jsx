@@ -38,7 +38,6 @@ const initialState = {
   showDeveloperDashboard: false,
 
   // Settings
-  autoCloseOverlays: true,
   fadeAudioStreams: false,
   useCommunityTimings: true,
   adBreakMinute: 29,
@@ -88,7 +87,6 @@ const ActionTypes = {
   TOGGLE_DEVELOPER_DASHBOARD: 'TOGGLE_DEVELOPER_DASHBOARD',
 
   // Settings actions
-  SET_AUTO_CLOSE_OVERLAYS: 'SET_AUTO_CLOSE_OVERLAYS',
   SET_FADE_AUDIO_STREAMS: 'SET_FADE_AUDIO_STREAMS',
   SET_USE_COMMUNITY_TIMINGS: 'SET_USE_COMMUNITY_TIMINGS',
   SET_AD_BREAK_SETTINGS: 'SET_AD_BREAK_SETTINGS',
@@ -191,9 +189,6 @@ function appReducer(state, action) {
       return { ...state, showDeveloperDashboard: action.payload };
 
     // Settings actions
-    case ActionTypes.SET_AUTO_CLOSE_OVERLAYS:
-      return { ...state, autoCloseOverlays: action.payload };
-
     case ActionTypes.SET_FADE_AUDIO_STREAMS:
       return { ...state, fadeAudioStreams: action.payload };
 
@@ -242,7 +237,6 @@ export function StateProvider({ children }) {
     showVisualizer: JSON.parse(localStorage.getItem('visualizer_enabled') || 'true'),
     visualizerType: localStorage.getItem('visualizer_type') || 'bars',
     visualizerBlur: parseFloat(localStorage.getItem('visualizer_blur') || '2'),
-    autoCloseOverlays: JSON.parse(localStorage.getItem('auto_close_overlays') || 'true'),
     fadeAudioStreams: JSON.parse(localStorage.getItem('fade_audio_streams') || 'false'),
     useCommunityTimings: JSON.parse(localStorage.getItem('use_community_timings') || 'true'),
     playlistProvider: localStorage.getItem('playlist_provider') || 'spotify',
@@ -271,10 +265,6 @@ export function StateProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('visualizer_blur', state.visualizerBlur.toString());
   }, [state.visualizerBlur]);
-
-  useEffect(() => {
-    localStorage.setItem('auto_close_overlays', JSON.stringify(state.autoCloseOverlays));
-  }, [state.autoCloseOverlays]);
 
   useEffect(() => {
     localStorage.setItem('fade_audio_streams', JSON.stringify(state.fadeAudioStreams));
@@ -441,10 +431,6 @@ export function useActions() {
     }, [dispatch]),
 
     // Settings actions
-    setAutoCloseOverlays: useCallback((enabled) => {
-      dispatch({ type: ActionTypes.SET_AUTO_CLOSE_OVERLAYS, payload: enabled });
-    }, [dispatch]),
-
     setFadeAudioStreams: useCallback((enabled) => {
       dispatch({ type: ActionTypes.SET_FADE_AUDIO_STREAMS, payload: enabled });
     }, [dispatch]),
