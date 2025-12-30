@@ -28,7 +28,8 @@ const ResizableYouTubePlayer = ({
   // YouTube fallback methods
   const [showSettings, setShowSettings] = useState(false);
   const [currentMethod, setCurrentMethod] = useState(() => {
-    return parseInt(localStorage.getItem('youtube_embed_method') || '0');
+    // Default to youtube_music (index 3) instead of full_player (index 0)
+    return parseInt(localStorage.getItem('youtube_embed_method') || '3');
   });
 
   const playerRef = useRef(null);
@@ -108,27 +109,67 @@ const ResizableYouTubePlayer = ({
     }
   };
 
-  // Initialize YouTube player when visible
+  // Initialize YouTube player when visible or method changes
   useEffect(() => {
-    if (isVisible && window.YT && playerRef.current && !player) {
-      const newPlayer = new window.YT.Player(playerRef.current, {
+    if (!isVisible) return;
+
+    // Clean up existing player/iframe first
+    if (player) {
+      console.log('🔄 Destroying existing player for reload');
+      player.destroy();
+      setPlayer(null);
+    }
+
+    if (playerRef.current) {
+      // Clear any existing content
+      playerRef.current.innerHTML = '';
+    }
+
+    const method = fallbackMethods[currentMethod];
+    console.log(`✅ Loading player with method: ${method}`);
+
+    // For full_player method, use YouTube IFrame API
+    if (method === 'full_player' && window.YT) {
+      const playerConfig = {
         height: '100%',
         width: '100%',
-        videoId: videoId,
         playerVars: {
           autoplay: 1,
           controls: 1,
           modestbranding: 1,
-          rel: 0,
-          ...(playlistId ? { list: playlistId, listType: 'playlist' } : {})
+          rel: 0
         },
         events: {
           onReady: (event) => {
             event.target.setVolume(volume);
           }
         }
-      });
+      };
+
+      if (playlistId) {
+        playerConfig.playerVars.list = playlistId;
+        playerConfig.playerVars.listType = 'playlist';
+      } else if (videoId) {
+        playerConfig.videoId = videoId;
+      } else {
+        console.error('❌ ResizableYouTubePlayer: Neither videoId nor playlistId provided');
+        return;
+      }
+
+      const newPlayer = new window.YT.Player(playerRef.current, playerConfig);
       setPlayer(newPlayer);
+    } else {
+      // For all other methods, use direct iframe embed
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'width: 100%; height: 100%; border: none;';
+      iframe.allow = 'autoplay; encrypted-media';
+      iframe.src = getEmbedUrl();
+
+      if (playerRef.current) {
+        playerRef.current.appendChild(iframe);
+      }
+
+      console.log(`✅ Created iframe with URL: ${iframe.src}`);
     }
 
     return () => {
@@ -137,7 +178,7 @@ const ResizableYouTubePlayer = ({
         setPlayer(null);
       }
     };
-  }, [isVisible, currentMethod]);
+  }, [isVisible, currentMethod, playlistId, videoId, volume]);
 
   // Update volume when changed
   useEffect(() => {
@@ -299,14 +340,11 @@ const ResizableYouTubePlayer = ({
               <button
                 key={method}
                 onClick={() => {
+                  console.log(`⚙️ Switching to method: ${method}`);
                   setCurrentMethod(index);
                   localStorage.setItem('youtube_embed_method', index.toString());
                   setShowSettings(false);
-                  // Reload player with new method
-                  if (player) {
-                    player.destroy();
-                    setPlayer(null);
-                  }
+                  // Player will auto-reload via useEffect watching currentMethod
                 }}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   index === currentMethod

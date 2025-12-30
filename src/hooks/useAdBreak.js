@@ -356,6 +356,14 @@ export function useAdBreak(audioManager, interruptionHandler) {
     localStorage.setItem('adbreak_duration2', state.adBreakDuration2.toString());
   }, [state.adBreakDuration2]);
 
+  /**
+   * Get saved station (the radio station we'll return to after ad break)
+   */
+  const getSavedStation = useCallback(() => {
+    if (!adBreakControllerRef.current) return null;
+    return adBreakControllerRef.current.getSavedStation();
+  }, []);
+
   return {
     // State
     isTimerRunning: state.isTimerRunning,
@@ -367,6 +375,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
     adBreakMinute2: state.adBreakMinute2,
     adBreakDuration: state.adBreakDuration,
     adBreakDuration2: state.adBreakDuration2,
+    savedStation: getSavedStation(), // ✅ NEW: Expose saved station
 
     // Actions
     startTimer,

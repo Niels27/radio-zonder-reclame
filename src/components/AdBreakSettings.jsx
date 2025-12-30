@@ -652,7 +652,11 @@ const AdBreakSettings = ({
         audioPlayer.forceStopAllAudio(`stopping ${mode} mode`, false);
       }
 
-      // Note: Players are no longer auto-closed - users can keep them open if they want
+      // Close YouTube players when stopping lofi or playlist mode
+      if ((mode === 'lofi' || mode === 'playlist') && window.closeAllYouTubePlayers) {
+        console.log(`✕ Closing YouTube player for ${mode} mode`);
+        window.closeAllYouTubePlayers();
+      }
 
       // Reset state for this specific mode
       setModeState(mode, { active: false, loading: false, startTime: null });
@@ -693,19 +697,26 @@ const AdBreakSettings = ({
 
     // ✅ IMPORTANT: Start playlist directly without ad break logic
     if (playlistProvider === 'spotify') {
-      await audioPlayer.playPlaylist(playlistId, { 
-        shuffle: playlistShuffle, 
-        provider: 'spotify',
-        isManualTest: true,
-        isIsolatedTest: true
-      });
+      // For Spotify, use the audioPlayer's playSpotify method if available
+      if (audioPlayer?.playSpotify) {
+        await audioPlayer.playSpotify(playlistId, {
+          shuffle: playlistShuffle
+        });
+      } else {
+        throw new Error('Spotify afspelen niet beschikbaar');
+      }
     } else {
-      await audioPlayer.playPlaylist(playlistId, { 
-        shuffle: playlistShuffle, 
-        provider: playlistProvider,
-        isManualTest: true,
-        isIsolatedTest: true
-      });
+      // For YouTube playlists, just open the overlay - no audio player needed
+      if (window.openYouTubePlayer) {
+        window.openYouTubePlayer({
+          playlistId,
+          title: playlistInfo?.title || 'YouTube Playlist Test',
+          isAutomatic: false,
+          autoCloseSeconds: null
+        });
+      } else {
+        throw new Error('YouTube speler niet beschikbaar');
+      }
     }
   };
   const startIsolatedNonstopMode = async () => {
@@ -732,14 +743,9 @@ const AdBreakSettings = ({
   };
   const startIsolatedLofiMode = async () => {
     console.log('🎵 Starting isolated lofi test (no ad breaks, just lofi)');
-    
-    const { getNextLofiStream, createLofiStation, extractYouTubeVideoId, openLofiYouTubeOverlay, syncLofiVolume } = await import('../utils/lofiUtils.js');
-    
-    // ✅ NEW: Sync lofi volume with current audio player volume
-    if (audioPlayer?.volume !== undefined) {
-      syncLofiVolume(audioPlayer.volume);
-    }
-    
+
+    const { getNextLofiStream, createLofiStation, extractYouTubeVideoId } = await import('../utils/lofiUtils.js');
+
     const lofiStream = getNextLofiStream();
     if (!lofiStream) {
       throw new Error('Geen lofi streams beschikbaar');
@@ -748,18 +754,29 @@ const AdBreakSettings = ({
     if (lofiStream.type === 'youtube_video') {
       const videoId = extractYouTubeVideoId(lofiStream.url);
       if (videoId) {
-        // ✅ IMPORTANT: Open lofi overlay directly without ad break logic
-        openLofiYouTubeOverlay(videoId, { 
-          isManualTest: true,
-          isIsolatedTest: true
-        });
+        // Play YouTube video - this sets audioSource to 'youtube' automatically
+        if (audioPlayer?.playYouTube) {
+          await audioPlayer.playYouTube({ video: videoId });
+        }
+
+        // Also open the resizable YouTube player overlay
+        if (window.openYouTubePlayer) {
+          window.openYouTubePlayer({
+            videoId,
+            title: 'Lofi Girl',
+            isAutomatic: false, // Manual test - no auto-close
+            autoCloseSeconds: null
+          });
+        } else {
+          throw new Error('YouTube speler niet beschikbaar');
+        }
       } else {
         throw new Error('Invalid YouTube video ID');
       }
     } else {
       const lofiStation = createLofiStation(lofiStream);
       // ✅ IMPORTANT: Play radio directly without ad break logic
-      await audioPlayer.playRadio(lofiStation, { 
+      await audioPlayer.playRadio(lofiStation, {
         isManualTest: true,
         isIsolatedTest: true
       });

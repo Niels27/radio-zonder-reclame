@@ -155,7 +155,31 @@ function App() {
         window.showNotification(message, type, duration);
       }
     };
-  }, [openYouTubePlayer, closeAllYouTubePlayers]);
+
+    // ✅ NEW: Expose audio manager and Spotify ready status
+    if (!window.audioPlayer) {
+      window.audioPlayer = {};
+    }
+    window.audioPlayer.spotifyPlayerReady = audio.isSpotifyReady();
+
+    // ✅ NEW: Expose manual Spotify initialization
+    window.audioPlayer.manualInitializeSpotifyPlayer = async () => {
+      if (audio.audioManager) {
+        const spotifySource = audio.audioManager.getSpotifySource();
+        if (spotifySource) {
+          try {
+            await spotifySource.initialize();
+            console.log('✅ Manual Spotify initialization successful');
+            return true;
+          } catch (error) {
+            console.error('❌ Manual Spotify initialization failed:', error);
+            throw error;
+          }
+        }
+      }
+      return false;
+    };
+  }, [openYouTubePlayer, closeAllYouTubePlayers, audio]);
 
   return (
     <ErrorBoundary>
@@ -303,6 +327,7 @@ function App() {
               nextAdBreakIn={adBreak.nextAdBreakIn}
               currentAdBreakTimeLeft={adBreak.adBreakTimeLeft}
               adBreakMode={adBreak.adBreakMode}
+              savedStation={adBreak.savedStation} // ✅ NEW: Pass saved station for "returning to" display
 
               currentSource={state.audioSource}
               error={state.error}
@@ -310,9 +335,11 @@ function App() {
               playlistShuffle={state.playlistShuffle}
               onToggleShuffle={audio.setShuffle}
               onNextTrack={audio.nextTrack}
+              onPreviousTrack={audio.previousTrack}  // ✅ NEW: Add previous track control
 
               onCancelAdBreak={adBreak.cancelAdBreak}
               onJumpToSwitchNow={adBreak.skipToZero}
+              onEndAdBreak={adBreak.endAdBreak}
             />
           </div>
         </div>

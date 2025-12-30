@@ -432,6 +432,20 @@ class AudioManager {
   }
 
   /**
+   * Check if Spotify player is ready
+   */
+  isSpotifyReady() {
+    return this.sources.spotify?.isReady || false;
+  }
+
+  /**
+   * Get Spotify source (for direct access if needed)
+   */
+  getSpotifySource() {
+    return this.sources.spotify;
+  }
+
+  /**
    * Cleanup and destroy
    */
   destroy() {

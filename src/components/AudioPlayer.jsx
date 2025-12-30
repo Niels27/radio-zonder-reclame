@@ -16,8 +16,11 @@ const AudioPlayer = ({
   error,
   playlistShuffle,
   onToggleShuffle,
-  onNextTrack,  playlistInfo,  // queuedStation and onCancelQueuedSwitch removed - queue system disabled  
+  onNextTrack,
+  onPreviousTrack,  // ✅ NEW: Add previous track control
+  playlistInfo,  // queuedStation and onCancelQueuedSwitch removed - queue system disabled
   adBreakMode,           // ✅ NEW: Add ad break mode prop
+  savedStation,          // ✅ NEW: Station we'll return to after ad break
   onRotateNonstopStation, // ✅ NEW: Add rotation callback prop
   useCommunityTimings,    // ✅ NEW: Add community timings flag prop
   currentAdBreakUsedCommunityTiming = false, // ✅ NEW: Track if current ad break used community timing
@@ -29,7 +32,8 @@ const AudioPlayer = ({
   // ✅ NEW: Manual timer control functions
   onJumpToSwitchNow,
   onSkipCurrentSwitch,
-  onAddOneMinute
+  onAddOneMinute,
+  onEndAdBreak  // ✅ NEW: Function to end ad break early
 }) => {
   // ✅ FIX: Add safety check for pausedRadioStation prop
   const safePausedRadioStation = pausedRadioStation || null;
@@ -40,6 +44,29 @@ const AudioPlayer = ({
   const volumeTimeoutRef = useRef(null);
   const volumeSliderRef = useRef(null);
   const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
+
+  // Filter technical errors and show user-friendly messages
+  const getUserFriendlyError = (errorMessage) => {
+    if (!errorMessage) return null;
+
+    // Hide these technical browser errors completely
+    const hiddenErrors = [
+      'Failed to load because no supported source was found',
+      'MEDIA_ELEMENT_ERROR',
+      'MEDIA_ERR_',
+      'NotSupportedError',
+      'AbortError',
+      'NotAllowedError'
+    ];
+
+    // Check if error contains technical jargon we want to hide
+    const shouldHide = hiddenErrors.some(tech => errorMessage.includes(tech));
+    if (shouldHide) {
+      return null; // Don't show error at all - our toast notifications already handled it
+    }
+
+    return errorMessage;
+  };
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -330,7 +357,7 @@ const AudioPlayer = ({
 
   // ✅ NEW: Format ad break timer display
   const formatAdBreakTimer = (timeLeft) => {
-    if (!timeLeft) return '';
+    if (timeLeft === null || timeLeft === undefined) return '0:00';
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
@@ -344,8 +371,7 @@ const AudioPlayer = ({
           {/* Play/Pause Button */}
           <button
             onClick={onTogglePlayPause}
-            disabled={!currentStation && !isAdBreakActive && currentSource !== 'playlist'}
-            className="w-12 h-12 rounded-full bg-radio-accent hover:bg-radio-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+            className="w-12 h-12 rounded-full bg-radio-accent hover:bg-radio-accent-hover flex items-center justify-center transition-colors"
             title="Druk op spatiebalk om af te spelen/pauzeren"
           >
             {isPlaying ? (
@@ -384,14 +410,27 @@ const AudioPlayer = ({
                     {formatStationName()}
                   </h3>
                   <div className="flex items-center space-x-2 mt-1">
-                    {currentSource === 'radio' && (
+                    {/* Normal radio mode (not during ad break) */}
+                    {currentSource === 'radio' && !isAdBreakActive && (
                       <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full flex items-center space-x-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
                         </svg>
                         <span>Radio</span>
                       </span>
-                    )}                    {currentSource === 'playlist' && (
+                    )}
+
+                    {/* ✅ NEW: Nonstop radio indicator during ad break */}
+                    {currentSource === 'radio' && isAdBreakActive && adBreakMode === 'nonstop' && (
+                      <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
+                        </svg>
+                        <span>Nonstop Radio</span>
+                      </span>
+                    )}
+
+                    {currentSource === 'playlist' && (
                       <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full flex items-center space-x-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
@@ -400,7 +439,17 @@ const AudioPlayer = ({
                           <span className="text-gray-300">({playlistInfo.videoCount})</span>
                         )}
                       </span>
-                    )}                    {/* ✅ NEW: Radio "On Hold" indicator during ad break */}
+                    )}                    {/* ✅ NEW: "Returning to" indicator during nonstop ad break */}
+                    {isAdBreakActive && adBreakMode === 'nonstop' && savedStation && (
+                      <span className="px-2 py-1 bg-green-600 text-white text-xs rounded-full flex items-center space-x-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                        </svg>
+                        <span>Switch terug naar: {savedStation.name}</span>
+                      </span>
+                    )}
+
+                    {/* ✅ NEW: Radio "On Hold" indicator during ad break */}
                     {isAdBreakActive && isRadioPausedForAdBreak && safePausedRadioStation && (
                       <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1 animate-pulse">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -418,9 +467,10 @@ const AudioPlayer = ({
           {/* Right Controls */}
           <div className="flex items-center space-x-6">
 
-            {/* Playlist Controls */}
-            {currentSource === 'playlist' && isPlaylistValid && (
+            {/* Playlist Controls - Show for Spotify */}
+            {currentSource === 'spotify' && (
               <div className="flex items-center space-x-2">
+                {/* Shuffle Button */}
                 <button
                   onClick={() => onToggleShuffle(!playlistShuffle)}
                   className={`p-2 rounded transition-colors ${playlistShuffle
@@ -434,6 +484,18 @@ const AudioPlayer = ({
                   </svg>
                 </button>
 
+                {/* Previous Track Button */}
+                <button
+                  onClick={onPreviousTrack}
+                  className="p-2 rounded bg-gray-600 hover:bg-gray-500 text-gray-300 transition-colors"
+                  title="Vorig nummer"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z" />
+                  </svg>
+                </button>
+
+                {/* Next Track Button */}
                 <button
                   onClick={onNextTrack}
                   className="p-2 rounded bg-gray-600 hover:bg-gray-500 text-gray-300 transition-colors"
@@ -465,31 +527,15 @@ const AudioPlayer = ({
                       </span>
                     </div>
                     
-                    {/* ✅ NEW: Timer Control Buttons */}
-                    {onJumpToSwitchNow && onSkipCurrentSwitch && onAddOneMinute && (
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={onJumpToSwitchNow}
-                          className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
-                          title="Direct terugschakelen naar radio"
-                        >
-                          Nu switchen
-                        </button>
-                        <button
-                          onClick={onSkipCurrentSwitch}
-                          className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
-                          title="Niet meer terugschakelen"
-                        >
-                          Niet terug switchen
-                        </button>
-                        <button
-                          onClick={onAddOneMinute}
-                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                          title="1 minuut langer wachten"
-                        >
-                          +1min
-                        </button>
-                      </div>
+                    {/* ✅ NEW: "Nu terug" button to end ad break immediately */}
+                    {onEndAdBreak && (
+                      <button
+                        onClick={onEndAdBreak}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors"
+                        title="Direct terug naar radio"
+                      >
+                        Nu terug
+                      </button>
                     )}
                   </div>
 
@@ -609,10 +655,10 @@ const AudioPlayer = ({
         </div>
 
         {/* Error Message */}
-        {error && (
+        {error && getUserFriendlyError(error) && (
           <div className="mt-3 p-3 bg-red-900/20 border border-red-500/20 rounded-lg text-red-300 text-sm">
             <div className="flex items-center justify-between">
-              <span>{error}</span>
+              <span>{getUserFriendlyError(error)}</span>
               {currentStation && currentSource === 'radio' && (
                 <ReportStationButton
                   currentStation={currentStation}

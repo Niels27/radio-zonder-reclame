@@ -172,14 +172,19 @@ export class AdBreakController {
       clearTimeout(this.timer);
     }
 
+    // Clear existing countdown
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+      this.countdownInterval = null;
+    }
+
     // Set new timer
     this.timer = setTimeout(() => {
       this.end();
     }, minutes * 60 * 1000);
 
-    // Update countdown
-    const currentTimeLeft = this._getCountdownTimeLeft();
-    this._startCountdown(currentTimeLeft + (minutes * 60));
+    // Restart countdown with new duration
+    this._startCountdown(minutes * 60);
   }
 
   // Private methods
@@ -265,19 +270,22 @@ export class AdBreakController {
       clearInterval(this.countdownInterval);
     }
 
+    // Track time locally in closure
+    let currentTime = seconds;
+
     // Set initial time
-    this.actions.setAdBreakTimeLeft(seconds);
+    this.actions.setAdBreakTimeLeft(currentTime);
 
     // Update every second
     this.countdownInterval = setInterval(() => {
-      const currentTime = this._getCountdownTimeLeft();
+      currentTime--;
 
       if (currentTime <= 0) {
         clearInterval(this.countdownInterval);
         this.countdownInterval = null;
         this.actions.setAdBreakTimeLeft(0);
       } else {
-        this.actions.setAdBreakTimeLeft(currentTime - 1);
+        this.actions.setAdBreakTimeLeft(currentTime);
       }
     }, 1000);
   }
@@ -286,8 +294,7 @@ export class AdBreakController {
    * Get current countdown time left
    */
   _getCountdownTimeLeft() {
-    // This would come from state in the real implementation
-    // For now, return 0 as placeholder
+    // No longer used - countdown tracked internally in _startCountdown
     return 0;
   }
 

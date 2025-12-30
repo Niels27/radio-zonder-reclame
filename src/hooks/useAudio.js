@@ -348,7 +348,10 @@ export function useAudio() {
     // Utilities
     getAudioElement,
     getInterruptionHandler,
-    audioManager: audioManagerRef.current
+    audioManager: audioManagerRef.current,
+
+    // ✅ NEW: Spotify ready check
+    isSpotifyReady: () => audioManagerRef.current?.isSpotifyReady() || false
   };
 }
 
