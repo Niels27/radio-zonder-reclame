@@ -177,7 +177,12 @@ function App() {
     if (!window.audioPlayer) {
       window.audioPlayer = {};
     }
-    window.audioPlayer.spotifyPlayerReady = audio.isSpotifyReady();
+    // Use defineProperty so polling always gets the live value
+    Object.defineProperty(window.audioPlayer, 'spotifyPlayerReady', {
+      get: () => audio.isSpotifyReady(),
+      set: () => {}, // Allow manual sets without error
+      configurable: true
+    });
 
     // ✅ Expose Firebase utilities for testing
     import('./utils/firebase.js').then(({ setFirebaseDemoMode, getFirebaseDemoMode, stationReportsAPI }) => {
@@ -194,6 +199,10 @@ function App() {
           try {
             await spotifySource.initialize();
             console.log('✅ Manual Spotify initialization successful');
+            // Notify components that Spotify is ready
+            window.dispatchEvent(new CustomEvent('spotifyPlayerReady', {
+              detail: { ready: true, manual: true }
+            }));
             return true;
           } catch (error) {
             console.error('❌ Manual Spotify initialization failed:', error);
