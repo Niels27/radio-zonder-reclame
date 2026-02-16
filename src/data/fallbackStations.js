@@ -2,17 +2,17 @@
 // Station definitions with multiple fallback URLs - AUTO-UPDATED
 // This file can be directly edited to override station URLs
 // URLs are tried in order from first to last
-// Last updated: 2025-06-08T19:38:31.964Z
+// Last updated: 2026-02-16T13:29:05.996Z
 
 export const fallbackStations = {
   "SLAM!": {
     name: "SLAM!",
     urls: [
-      "https://29033.live.streamtheworld.com/SLAM_MP3_SC",
-      "https://icecast-qmusicnl-cdp.triple-it.nl/slam_96.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/SLAM_MP3.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/SLAM_AAC.aac",
       "https://icecast-qmusicnl-cdp.triple-it.nl/slam_128.mp3",
-      "https://22393.live.streamtheworld.com/SLAM.mp3",
-      "https://22673.live.streamtheworld.com/WEB14_MP3_SC",
+      "https://icecast-qmusicnl-cdp.triple-it.nl/slam_96.mp3",
+      "https://29033.live.streamtheworld.com/SLAM_MP3_SC",
     ],
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/SLAM%21_logo_2015.svg/200px-SLAM%21_logo_2015.svg.png",
     description: "Pop muziek"
@@ -65,11 +65,127 @@ export const fallbackStations = {
   "KINK": {
     name: "KINK",
     urls: [
-      "https://25243.live.streamtheworld.com/KINK_SC",
       "https://playerservices.streamtheworld.com/api/livestream-redirect/KINK.mp3",
+      "https://25243.live.streamtheworld.com/KINK_SC",
     ],
     logo: "https://kink.nl/static/apple-touch-icon.png",
-    description: "Commerciële radio"
+    description: "Alternatieve rock"
+  },
+
+  "NPO Radio 1": {
+    name: "NPO Radio 1",
+    urls: [
+      "https://icecast.omroep.nl/radio1-bb-mp3",
+      "https://icecast.omroep.nl/radio1-sb-mp3",
+      "https://icecast.omroep.nl/radio1-bb-aac",
+    ],
+    logo: null,
+    description: "Nieuws en achtergronden"
+  },
+
+  "NPO Radio 2": {
+    name: "NPO Radio 2",
+    urls: [
+      "https://icecast.omroep.nl/radio2-bb-mp3",
+      "https://icecast.omroep.nl/radio2-sb-mp3",
+      "https://icecast.omroep.nl/radio2-bb-aac",
+    ],
+    logo: null,
+    description: "Pop muziek"
+  },
+
+  "3FM": {
+    name: "3FM",
+    urls: [
+      "https://icecast.omroep.nl/3fm-bb-mp3",
+      "https://icecast.omroep.nl/3fm-sb-mp3",
+      "https://icecast.omroep.nl/3fm-bb-aac",
+    ],
+    logo: null,
+    description: "Alternatieve pop"
+  },
+
+  "NPO Radio 4": {
+    name: "NPO Radio 4",
+    urls: [
+      "https://icecast.omroep.nl/radio4-bb-mp3",
+      "https://icecast.omroep.nl/radio4-sb-mp3",
+      "https://icecast.omroep.nl/radio4-bb-aac",
+    ],
+    logo: null,
+    description: "Klassieke muziek"
+  },
+
+  "NPO FunX": {
+    name: "NPO FunX",
+    urls: [
+      "https://icecast.omroep.nl/funx-bb-mp3",
+      "https://icecast.omroep.nl/funx-sb-mp3",
+    ],
+    logo: null,
+    description: "Urban muziek"
+  },
+
+  "Arrow Classic Rock": {
+    name: "Arrow Classic Rock",
+    urls: [
+      "https://stream.player.arrow.nl/arrow",
+      "https://stream.gal.io/arrow",
+    ],
+    logo: null,
+    description: "Classic rock"
+  },
+
+  "Sublime": {
+    name: "Sublime",
+    urls: [
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/SUBLIME.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/SUBLIMEAAC.aac",
+      "http://stream.sublimefm.nl/SublimeFM_mp3",
+    ],
+    logo: null,
+    description: "Soul, jazz en R&B"
+  },
+
+  "BNR Nieuwsradio": {
+    name: "BNR Nieuwsradio",
+    urls: [
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/BNR_NIEUWSRADIO.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/BNR_NIEUWSRADIOAAC.aac",
+      "http://stream.bnr.nl/bnr_mp3_128_20",
+    ],
+    logo: null,
+    description: "Financieel nieuws"
+  },
+
+  "Joy Radio": {
+    name: "Joy Radio",
+    urls: [
+      "https://stream.joyradio.nl/joyradio",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.joyradio.nl%2Fjoyradio",
+      "http://stream.joyradio.nl/joyradio",
+    ],
+    logo: null,
+    description: "90s & 00s hits"
+  },
+
+  "Vibe Radio": {
+    name: "Vibe Radio",
+    urls: [
+      "https://stream.viberadio.nl/viberadio",
+    ],
+    logo: null,
+    description: "Pop muziek"
+  },
+
+  "Qmusic Non-Stop": {
+    name: "Qmusic Non-Stop",
+    urls: [
+      "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop_96.mp3",
+      "https://icecast-qmusicnl-cdp.triple-it.nl/qmusic_96.mp3",
+    ],
+    logo: null,
+    description: "Non-stop muziek"
   },
 
   "Radio Veronica": {
@@ -108,8 +224,9 @@ export const fallbackStations = {
     urls: [
       "https://corsproxy.io/?http%3A%2F%2Fstream.radiocorp.nl%2Fweb13_mp3",
       "https://api.allorigins.win/raw?url=http%3A%2F%2Fstream.radiocorp.nl%2Fweb13_mp3",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2Fweb13_mp3",
       "http://stream.radiocorp.nl/web13_mp3",
-      "https://stream.radiocorp.nl/web13_mp3",
+      "http://streaming.slam.nl/web13_aac",
     ],
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/SLAM%21_logo_2015.svg/200px-SLAM%21_logo_2015.svg.png",
     description: "SLAM! Mixmarathon - Non-stop mixes"
@@ -118,8 +235,11 @@ export const fallbackStations = {
   "SLAM! Hardstyle": {
     name: "SLAM! Hardstyle",
     urls: [
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/WEB11_MP3.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/WEB08_AAC.aac",
       "https://corsproxy.io/?http%3A%2F%2Fstream.radiocorp.nl%2Fweb14_mp3",
       "http://stream.radiocorp.nl/web14_mp3",
+      "http://streaming.slam.nl/web11_mp3",
     ],
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/SLAM%21_logo_2015.svg/200px-SLAM%21_logo_2015.svg.png",
     description: "SLAM! Hardstyle"
@@ -162,11 +282,13 @@ export const fallbackStations = {
   "100% NL": {
     name: "100% NL",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.100p.nl%2F100pctnl.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/100PNL_MP3.mp3",
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/100PNL_AAC.aac",
+      "https://stream.100p.nl/web01_mp3",
       "http://stream.100p.nl/100pctnl.mp3",
     ],
     logo: null,
-    description: "Auto-recovered via cors_proxy_corsproxy.io"
+    description: "Nederlandse hits"
   },
 
   "Slam! The Boom Room": {
@@ -182,8 +304,8 @@ export const fallbackStations = {
   "SLAM! DANCE CLASSICS": {
     name: "SLAM! DANCE CLASSICS",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2FWEB15_MP3",
       "http://stream.slam.nl/WEB15_MP3",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2FWEB15_MP3",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -192,8 +314,8 @@ export const fallbackStations = {
   "SLAM! Housuh In De Pauzuh": {
     name: "SLAM! Housuh In De Pauzuh",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2FWEB16_MP3",
       "http://stream.slam.nl/WEB16_MP3",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2FWEB16_MP3",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -202,8 +324,8 @@ export const fallbackStations = {
   "Arrow CAZ!": {
     name: "Arrow CAZ!",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.arrowcaz.nl%2Fcaz128kmp3",
       "http://stream.arrowcaz.nl/caz128kmp3",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.arrowcaz.nl%2Fcaz128kmp3",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -212,8 +334,8 @@ export const fallbackStations = {
   "SLAM! Juize": {
     name: "SLAM! Juize",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2FWEB09_MP3",
       "http://stream.slam.nl/WEB09_MP3",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.slam.nl%2FWEB09_MP3",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -222,8 +344,8 @@ export const fallbackStations = {
   "SLAM! MixMarathon 96kbps": {
     name: "SLAM! MixMarathon 96kbps",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstreaming.slam.nl%2Fweb13_aac",
       "http://streaming.slam.nl/web13_aac",
+      "https://corsproxy.io/?http%3A%2F%2Fstreaming.slam.nl%2Fweb13_aac",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -232,8 +354,8 @@ export const fallbackStations = {
   "SLAM": {
     name: "SLAM",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstreaming.slam.nl%2Fslam_aac",
       "http://streaming.slam.nl/slam_aac",
+      "https://corsproxy.io/?http%3A%2F%2Fstreaming.slam.nl%2Fslam_aac",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -242,8 +364,8 @@ export const fallbackStations = {
   "SLAM! WKNDMX": {
     name: "SLAM! WKNDMX",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstreaming.slam.nl%2Fweb11_aac",
       "http://streaming.slam.nl/web11_aac",
+      "https://corsproxy.io/?http%3A%2F%2Fstreaming.slam.nl%2Fweb11_aac",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -272,8 +394,8 @@ export const fallbackStations = {
   "Omroep Brabant": {
     name: "Omroep Brabant",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstreaming.omroepbrabant.nl%2Fmp3hq",
       "http://streaming.omroepbrabant.nl/mp3hq",
+      "https://corsproxy.io/?http%3A%2F%2Fstreaming.omroepbrabant.nl%2Fmp3hq",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -282,8 +404,8 @@ export const fallbackStations = {
   "BNR nieuwsradio - http": {
     name: "BNR nieuwsradio - http",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.bnr.nl%2Fbnr_mp3_128_20",
       "http://stream.bnr.nl/bnr_mp3_128_20",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.bnr.nl%2Fbnr_mp3_128_20",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -352,8 +474,8 @@ export const fallbackStations = {
   "Deep Radio": {
     name: "Deep Radio",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.deep.radio%2Fhd",
       "http://stream.deep.radio/hd",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.deep.radio%2Fhd",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -412,8 +534,8 @@ export const fallbackStations = {
   "Hardstyle FM": {
     name: "Hardstyle FM",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.laut.fm%2Fhardstylefm",
       "http://stream.laut.fm/hardstylefm",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.laut.fm%2Fhardstylefm",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -452,8 +574,8 @@ export const fallbackStations = {
   "Omroep Venray": {
     name: "Omroep Venray",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Ficecast.omroepvenray.nl%2Flov.mp3",
       "http://icecast.omroepvenray.nl/lov.mp3",
+      "https://corsproxy.io/?http%3A%2F%2Ficecast.omroepvenray.nl%2Flov.mp3",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -532,8 +654,8 @@ export const fallbackStations = {
   "WestRadio  AAC 96kbps": {
     name: "WestRadio  AAC 96kbps",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstreaming.westradio.nl%2FWestRadio-aac-96",
       "http://streaming.westradio.nl/WestRadio-aac-96",
+      "https://corsproxy.io/?http%3A%2F%2Fstreaming.westradio.nl%2FWestRadio-aac-96",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -552,8 +674,8 @@ export const fallbackStations = {
   "i-turn Radio": {
     name: "i-turn Radio",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Flive2.i-turnradio.nl%2Fstream4",
       "http://live2.i-turnradio.nl/stream4",
+      "https://corsproxy.io/?http%3A%2F%2Flive2.i-turnradio.nl%2Fstream4",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -612,8 +734,8 @@ export const fallbackStations = {
   "RN7nl": {
     name: "RN7nl",
     urls: [
-      "https://corsproxy.io/?http%3A%2F%2Fstream.stream.delivery%2Frn7nl",
       "http://stream.stream.delivery/rn7nl",
+      "https://corsproxy.io/?http%3A%2F%2Fstream.stream.delivery%2Frn7nl",
     ],
     logo: null,
     description: "Auto-recovered via cors_proxy_corsproxy.io"
@@ -692,11 +814,13 @@ export const fallbackStations = {
   "SLAM! Non Stop": {
     name: "SLAM! Non Stop",
     urls: [
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/SLAM_MP3.mp3",
+      "https://icecast-qmusicnl-cdp.triple-it.nl/slam_128.mp3",
       "https://corsproxy.io/?http%3A%2F%2Fstream.radiocorp.nl%2Fweb10_mp3",
       "http://stream.radiocorp.nl/web10_mp3",
     ],
     logo: null,
-    description: "Auto-recovered via cors_proxy_corsproxy.io"
+    description: "SLAM! Non Stop"
   },
 
   "181.FM Awesome 80s": {
@@ -789,6 +913,46 @@ export const fallbackStations = {
     description: "Auto-recovered via cors_proxy_corsproxy.io"
   },
 
+  "DANCEableRADIO": {
+    name: "DANCEableRADIO",
+    urls: [
+      "http://s14.myradiostream.com:19580/listen.mp3?sid=1",
+      "http://s14.myradiostream.com:19580/listen.pls?sid=1",
+    ],
+    logo: null,
+    description: "Auto-recovered via alternative_format"
+  },
+
+  "Pyro-Tec Radio": {
+    name: "Pyro-Tec Radio",
+    urls: [
+      "https://stream.zeno.fm/wfafmjdyhrrvv",
+      "http://stream.zeno.fm/wfafmjdyhrrvv",
+    ],
+    logo: null,
+    description: "Auto-recovered via https_upgrade"
+  },
+
+  "Radio Decibel": {
+    name: "Radio Decibel",
+    urls: [
+      "https://stream.decibel.nl/decibel.mp3",
+      "http://stream.decibel.nl/decibel.mp3",
+    ],
+    logo: null,
+    description: "Auto-recovered via https_upgrade"
+  },
+
+  "Radio Speedy Gemert": {
+    name: "Radio Speedy Gemert",
+    urls: [
+      "https://server-27.stream-server.nl:18312/;listen.mp3",
+      "https://server-27.stream-server.nl:18312/;listen.m3u",
+    ],
+    logo: null,
+    description: "Auto-recovered via alternative_format"
+  },
+
 };
 
 // Function to get station definition with fallbacks
@@ -815,7 +979,7 @@ export function updateStationDefinition(stationName, urls, logo = null, descript
 
 // Auto-generated statistics
 export const fallbackStats = {
-  totalStations: 77,
-  lastUpdated: "2025-06-08T19:38:31.964Z",
-  recoveredInLastTest: 70
+  totalStations: 92,
+  lastUpdated: "2026-02-16T13:29:05.996Z",
+  recoveredInLastTest: 19
 };

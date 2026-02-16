@@ -1,5 +1,6 @@
 // Station reporting and override management service
 // Handles user reports of failed stations and developer overrides
+import { stationReportsAPI, isDemoMode } from './firebase.js';
 
 class StationReportingService {
   constructor() {
@@ -25,15 +26,15 @@ class StationReportingService {
     }
   }
   // Report a failed station
-  reportFailedStation(stationData, errorDetails) {
+  async reportFailedStation(stationData, errorDetails) {
     const reports = this.getReports();
     const overrides = this.getOverrides();
     const timestamp = new Date().toISOString();
     const reportId = this.getNextReportId();
-    
+
     const stationKey = stationData.name;
     const hasOverride = overrides[stationKey] && overrides[stationKey].active;
-    
+
     if (!reports[stationKey]) {
       reports[stationKey] = {
         stationName: stationData.name,
@@ -78,10 +79,38 @@ class StationReportingService {
     reports[stationKey].totalReports++;
     reports[stationKey].lastReported = timestamp;
 
+    // Save to localStorage (for backward compatibility and offline mode)
     this.saveReports(reports);
-    
+
     console.log(`📊 Station reported: ${stationData.name} (Report #${reports[stationKey].totalReports})${hasOverride ? ' [Using Override]' : ''}`);
-    
+
+    // Also send to Firebase if not in demo mode
+    try {
+      const firebaseReport = {
+        stationName: stationData.name,
+        stationUrl: stationData.url,
+        originalUrl: hasOverride ? overrides[stationKey].originalUrl : stationData.url,
+        logoUrl: stationData.logo,
+        description: stationData.description,
+        category: stationData.originalCategory || 'unknown',
+        reportId,
+        timestamp,
+        usingOverride: hasOverride,
+        overrideUrl: hasOverride ? stationData.url : null,
+        errorDetails: report.errorDetails,
+        browserInfo: report.browserInfo
+      };
+
+      const firebaseResult = await stationReportsAPI.submitReport(firebaseReport);
+
+      if (!firebaseResult.demo) {
+        console.log(`🔥 Report also sent to Firebase: ${firebaseResult.id}`);
+      }
+    } catch (firebaseError) {
+      console.warn('⚠️ Failed to send report to Firebase (saved locally):', firebaseError);
+      // Don't fail the whole operation if Firebase fails
+    }
+
     return {
       success: true,
       reportId,

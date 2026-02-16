@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TimeRangeSlider from './TimeRangeSlider';
 import PlaylistProviderSelector from './PlaylistProviderSelector';
+import YouTubeUrlInput from './YouTubeUrlInput';
 import VisualizerSettings from './VisualizerSettings';
 import { setupTestDetection, cleanupTestDetection } from '../utils/musicDetection.js';
 import { allRadioStations } from '../data/allRadioStations.js';
@@ -87,7 +88,10 @@ const AdBreakSettings = ({
   // ✅ NEW: Fade audio streams setting
   fadeAudioStreams,
   onFadeAudioStreamsChange,
-  // ✅ NEW: Simple nonstop cycling button state
+  // YouTube mode props
+  youtubeUrl,
+  onYoutubeUrlChange,
+  // Simple nonstop cycling button state
   setIsNonstopModeManuallyActive
 
 }) => {
@@ -124,7 +128,6 @@ const AdBreakSettings = ({
   const [showFadeTooltip, setShowFadeTooltip] = useState(false);
   // Overlay states
   const [showNonstopSettings, setShowNonstopSettings] = useState(false);
-  const [showLofiSettings, setShowLofiSettings] = useState(false);
   const [showVisualizerSettings, setShowVisualizerSettings] = useState(false);
 
   // Nonstop radio custom settings
@@ -137,15 +140,7 @@ const AdBreakSettings = ({
     }
   });
 
-  // Lofi custom URL setting
-  const [customLofiUrl, setCustomLofiUrl] = useState(() => {
-    try {
-      const saved = localStorage.getItem('custom_lofi_url');
-      return saved || '';
-    } catch {
-      return '';
-    }
-  });  // Search state for nonstop overlay
+  // Search state for nonstop overlay
   const [nonstopSearchTerm, setNonstopSearchTerm] = useState('');
   // Error message for nonstop removal
   const [nonstopRemovalError, setNonstopRemovalError] = useState('');  // ✅ CLEANED: Removed old state variables to prevent conflicts
@@ -215,7 +210,7 @@ const AdBreakSettings = ({
     switch (adBreakMode) {
       case 'playlist': return 'Wissel naar afspeellijst';
       case 'nonstop': return 'Wissel naar non-stop radio';
-      case 'lofi': return 'Wissel naar Lofi Girl';
+      case 'youtube': return 'Wissel naar YouTube';
       default: return 'Onbekende modus';
     }
   };
@@ -339,11 +334,6 @@ const AdBreakSettings = ({
   };
 
   // Validate YouTube URL
-  const isValidYouTubeUrl = (url) => {
-    if (!url) return true; // Empty is valid (uses default)
-    const regex = /^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)[\w-]+/;
-    return regex.test(url);
-  };
 
   // Test individual station
   const testStation = (station) => {
@@ -399,7 +389,7 @@ const AdBreakSettings = ({
     loading: false,
     startTime: null
   });
-  const [lofiModeState, setLofiModeState] = useState({
+  const [youtubeModeState, setYoutubeModeState] = useState({
     active: false,
     loading: false,
     startTime: null
@@ -412,7 +402,7 @@ const AdBreakSettings = ({
     switch (mode) {
       case 'playlist': return playlistModeState;
       case 'nonstop': return nonstopModeState;
-      case 'lofi': return lofiModeState;
+      case 'youtube': return youtubeModeState;
       default: return { active: false, loading: false, startTime: null };
     }
   };
@@ -426,8 +416,8 @@ const AdBreakSettings = ({
       case 'nonstop': 
         setNonstopModeState(newState);
         break;
-      case 'lofi': 
-        setLofiModeState(newState);
+      case 'youtube': 
+        setYoutubeModeState(newState);
         break;
       default:
         console.warn(`Unknown mode: ${mode}`);
@@ -439,7 +429,7 @@ const AdBreakSettings = ({
       console.log(`🎵 External playlist stop detected: ${type}`);
       
       // ✅ NEW: Handle ad break scenarios when overlays are manually closed
-      if (isAdBreakActive && adBreakMode === 'lofi' && type === 'lofi') {
+      if (isAdBreakActive && adBreakMode === 'youtube' && type === 'youtube') {
         console.log('🎵 Lofi overlay manually closed during ad break - resuming radio');
         // Resume the radio since the lofi overlay was closed during an ad break
         if (audioPlayer?.resumeRadioFromAdBreak) {
@@ -453,12 +443,11 @@ const AdBreakSettings = ({
       
       // Reset manual mode states
       switch (type) {
-        case 'youtube':
         case 'spotify':
           setPlaylistModeState({ active: false, loading: false, startTime: null });
           break;
-        case 'lofi':
-          setLofiModeState({ active: false, loading: false, startTime: null });
+        case 'youtube':
+          setYoutubeModeState({ active: false, loading: false, startTime: null });
           break;
         case 'nonstop':
           setNonstopModeState({ active: false, loading: false, startTime: null });
@@ -477,18 +466,18 @@ const AdBreakSettings = ({
 
   // Check if any mode is active
   const isAnyModeActive = () => {
-    return playlistModeState.active || nonstopModeState.active || lofiModeState.active;
+    return playlistModeState.active || nonstopModeState.active || youtubeModeState.active;
   };
 
   // Check if any mode is loading
   const isAnyModeLoading = () => {
-    return playlistModeState.loading || nonstopModeState.loading || lofiModeState.loading;
+    return playlistModeState.loading || nonstopModeState.loading || youtubeModeState.loading;
   };
   // Get the currently active mode
   const getActiveMode = () => {
     if (playlistModeState.active) return 'playlist';
     if (nonstopModeState.active) return 'nonstop';
-    if (lofiModeState.active) return 'lofi';
+    if (youtubeModeState.active) return 'youtube';
     return null;
   };  // ✅ GOLDEN RULE ENFORCEMENT: Stop all manual modes (exposed globally)
   const stopAllManualModes = async () => {
@@ -500,10 +489,10 @@ const AdBreakSettings = ({
     const activeModes = [];
     if (playlistModeState.active) activeModes.push('playlist');
     if (nonstopModeState.active) activeModes.push('nonstop');
-    if (lofiModeState.active) activeModes.push('lofi');
+    if (youtubeModeState.active) activeModes.push('youtube');
     
     // ✅ CRITICAL: Also check if the ad break timer is running any of these modes
-    if (isAdBreakActive && (adBreakMode === 'playlist' || adBreakMode === 'nonstop' || adBreakMode === 'lofi')) {
+    if (isAdBreakActive && (adBreakMode === 'playlist' || adBreakMode === 'nonstop' || adBreakMode === 'youtube')) {
       console.log('🛑 GOLDEN RULE: Also stopping active ad break mode:', adBreakMode);
       if (onStopTimer) {
         onStopTimer(); // This will call forceExitAdBreakMode
@@ -600,8 +589,8 @@ const AdBreakSettings = ({
         case 'nonstop':
           await startIsolatedNonstopMode();
           break;
-        case 'lofi':
-          await startIsolatedLofiMode();
+        case 'youtube':
+          await startIsolatedYouTubeMode();
           break;
         default:
           throw new Error(`Unknown mode: ${mode}`);
@@ -653,7 +642,7 @@ const AdBreakSettings = ({
       }
 
       // Close YouTube players when stopping lofi or playlist mode
-      if ((mode === 'lofi' || mode === 'playlist') && window.closeAllYouTubePlayers) {
+      if ((mode === 'youtube' || mode === 'playlist') && window.closeAllYouTubePlayers) {
         console.log(`✕ Closing YouTube player for ${mode} mode`);
         window.closeAllYouTubePlayers();
       }
@@ -683,104 +672,90 @@ const AdBreakSettings = ({
     }
   };// ✅ ISOLATED: Individual mode start functions
   const startIsolatedPlaylistMode = async () => {
-    if (!playlistUrl || !playlistInfo?.isValid) {
-      throw new Error('Geen geldige playlist URL ingesteld');
+    if (!playlistUrl) {
+      throw new Error('Geen Spotify playlist ingesteld');
     }
 
-    console.log('🎵 Starting isolated playlist test (no ad breaks, just playlist)');
-    
-    // Extract playlist ID and start playlist directly
-    const playlistId = playlistProvider === 'spotify' ? playlistUrl : extractPlaylistId(playlistUrl);
-    if (!playlistId) {
-      throw new Error('Ongeldige playlist URL');
-    }
+    console.log('🎵 Starting isolated Spotify playlist test');
 
-    // ✅ IMPORTANT: Start playlist directly without ad break logic
-    if (playlistProvider === 'spotify') {
-      // For Spotify, use the audioPlayer's playSpotify method if available
-      if (audioPlayer?.playSpotify) {
-        await audioPlayer.playSpotify(playlistId, {
-          shuffle: playlistShuffle
-        });
-      } else {
-        throw new Error('Spotify afspelen niet beschikbaar');
-      }
+    if (audioPlayer?.playSpotify) {
+      await audioPlayer.playSpotify(playlistUrl, {
+        shuffle: playlistShuffle
+      });
     } else {
-      // For YouTube playlists, just open the overlay - no audio player needed
-      if (window.openYouTubePlayer) {
-        window.openYouTubePlayer({
-          playlistId,
-          title: playlistInfo?.title || 'YouTube Playlist Test',
-          isAutomatic: false,
-          autoCloseSeconds: null
-        });
-      } else {
-        throw new Error('YouTube speler niet beschikbaar');
-      }
+      throw new Error('Spotify afspelen niet beschikbaar');
     }
   };
   const startIsolatedNonstopMode = async () => {
     console.log('🎵 Starting isolated nonstop radio test (no ad breaks, just nonstop radio)');
-    
-    const { getRandomNonstopStation } = await import('../utils/nonstopUtils.js');
-    const nonstopStation = getRandomNonstopStation();
-    if (!nonstopStation) {
-      throw new Error('Geen nonstop stations beschikbaar');
-    }
-      // ✅ IMPORTANT: Play radio directly without ad break logic - MARK as nonstop mode
-    window.isInNonstopMode = true; // ✅ FLAG: Mark that we're in deliberate nonstop mode
-    
-    // ✅ NEW: Set simple state for cycling button
-    if (setIsNonstopModeManuallyActive) {
-      setIsNonstopModeManuallyActive(true);
-    }
-    
-    await audioPlayer.playRadio(nonstopStation, { 
-      isManualTest: true,
-      isIsolatedTest: true,
-      isNonstopMode: true  // ✅ DIFFERENTIATE: This is nonstop mode, not just a nonstop station
-    });
-  };
-  const startIsolatedLofiMode = async () => {
-    console.log('🎵 Starting isolated lofi test (no ad breaks, just lofi)');
 
-    const { getNextLofiStream, createLofiStation, extractYouTubeVideoId } = await import('../utils/lofiUtils.js');
+    const { getRandomNonstopStation, markStationAsFailed, getNonstopStationsCount } = await import('../utils/nonstopUtils.js');
 
-    const lofiStream = getNextLofiStream();
-    if (!lofiStream) {
-      throw new Error('Geen lofi streams beschikbaar');
-    }
-
-    if (lofiStream.type === 'youtube_video') {
-      const videoId = extractYouTubeVideoId(lofiStream.url);
-      if (videoId) {
-        // Play YouTube video - this sets audioSource to 'youtube' automatically
-        if (audioPlayer?.playYouTube) {
-          await audioPlayer.playYouTube({ video: videoId });
-        }
-
-        // Also open the resizable YouTube player overlay
-        if (window.openYouTubePlayer) {
-          window.openYouTubePlayer({
-            videoId,
-            title: 'Lofi Girl',
-            isAutomatic: false, // Manual test - no auto-close
-            autoCloseSeconds: null
-          });
-        } else {
-          throw new Error('YouTube speler niet beschikbaar');
-        }
-      } else {
-        throw new Error('Invalid YouTube video ID');
+    const maxRetries = Math.min(getNonstopStationsCount(), 6);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const nonstopStation = getRandomNonstopStation();
+      if (!nonstopStation) {
+        throw new Error('Geen nonstop stations beschikbaar');
       }
-    } else {
-      const lofiStation = createLofiStation(lofiStream);
-      // ✅ IMPORTANT: Play radio directly without ad break logic
-      await audioPlayer.playRadio(lofiStation, {
-        isManualTest: true,
-        isIsolatedTest: true
-      });
+
+      console.log(`🎵 Nonstop attempt ${attempt + 1}/${maxRetries}: ${nonstopStation.name}`);
+
+      try {
+        window.isInNonstopMode = true;
+        if (setIsNonstopModeManuallyActive) {
+          setIsNonstopModeManuallyActive(true);
+        }
+
+        await audioPlayer.playRadio(nonstopStation, {
+          isManualTest: true,
+          isIsolatedTest: true,
+          isNonstopMode: true
+        });
+        return; // Success - exit the retry loop
+      } catch (error) {
+        console.warn(`⚠️ Nonstop station "${nonstopStation.name}" failed:`, error.message);
+        markStationAsFailed(nonstopStation.name);
+        // Continue to next station
+      }
     }
+
+    // All retries exhausted
+    window.isInNonstopMode = false;
+    if (setIsNonstopModeManuallyActive) {
+      setIsNonstopModeManuallyActive(false);
+    }
+    throw new Error(`Geen werkende nonstop stations gevonden na ${maxRetries} pogingen`);
+  };
+  const startIsolatedYouTubeMode = async () => {
+    console.log('🎵 Starting isolated YouTube mode');
+
+    const url = youtubeUrl;
+    if (!url) {
+      throw new Error('Geen YouTube URL ingesteld');
+    }
+
+    const { extractYouTubeVideoId } = await import('../utils/lofiUtils.js');
+    const { extractPlaylistId } = await import('../utils/youtubeUtils.js');
+
+    const videoId = extractYouTubeVideoId(url);
+    const playlistId = extractPlaylistId(url);
+
+    if (!videoId && !playlistId) {
+      throw new Error('Ongeldige YouTube URL');
+    }
+
+    if (!window.openYouTubePlayer) {
+      throw new Error('YouTube speler niet beschikbaar');
+    }
+
+    // Open the resizable YouTube player overlay
+    window.openYouTubePlayer({
+      videoId: videoId || undefined,
+      playlistId: playlistId || undefined,
+      title: 'YouTube',
+      isAutomatic: false,
+      autoCloseSeconds: null
+    });
   };
 
   // Helper function to get mode display name
@@ -788,18 +763,12 @@ const AdBreakSettings = ({
     switch (mode) {
       case 'playlist': return 'Playlist';
       case 'nonstop': return 'Nonstop Radio';
-      case 'lofi': return 'Lofi Girl';
+      case 'youtube': return 'YouTube';
       default: return 'Onbekend';
     }
   };
 
-  // Helper function to extract playlist ID from URL
-  const extractPlaylistId = (url) => {
-    if (!url) return null;
-    const match = url.match(/[?&]list=([^&#]*)/);
-    return match ? match[1] : null;
-  };
-  // ✅ ISOLATED: Get button text based on current isolated state
+  // Get button text based on current isolated state
   const getManualModeButtonText = () => {
     const currentModeState = getModeState(adBreakMode);
     
@@ -895,22 +864,22 @@ const AdBreakSettings = ({
     Switch Methode:
   </label>
   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-    {/* Playlist Mode */}
+    {/* Spotify Mode */}
     <div
       className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:opacity-80 ${adBreakMode === 'playlist'
-        ? 'border-blue-500 bg-blue-600/20 text-blue-300'
+        ? 'border-green-500 bg-green-600/20 text-green-300'
         : 'border-gray-600 bg-gray-700 text-gray-300'
         }`}
       onClick={() => onAdBreakModeChange('playlist')}
     >
       <div className="flex items-center gap-3 mb-2">
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
         </svg>
-        <span className="font-semibold">Playlist</span>
+        <span className="font-semibold">Spotify</span>
       </div>
       <p className="text-xs text-gray-400">
-        Wissel naar YouTube/Spotify afspeellijst tijdens reclame
+        Wissel naar Spotify afspeellijst tijdens reclame
       </p>
     </div>
 
@@ -955,70 +924,50 @@ const AdBreakSettings = ({
       </div>
     </div>
 
-    {/* Lofi Mode */}
+    {/* YouTube Playlist Mode */}
     <div
-      className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${adBreakMode === 'lofi'
-        ? 'border-purple-500 bg-purple-600/20 text-purple-300'
+      className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${adBreakMode === 'youtube'
+        ? 'border-red-500 bg-red-600/20 text-red-300'
         : 'border-gray-600 bg-gray-700 text-gray-300'
         }`}
-      onClick={() => onAdBreakModeChange('lofi')}
+      onClick={() => onAdBreakModeChange('youtube')}
     >
       <div className="flex items-center gap-3 mb-2">
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a2.99 2.99 0 0 0-2.11-2.11C19.504 3.5 12 3.5 12 3.5s-7.504 0-9.388.576a2.99 2.99 0 0 0-2.11 2.11C0 8.07 0 12 0 12s0 3.93.502 5.814a2.99 2.99 0 0 0 2.11 2.11C4.496 20.5 12 20.5 12 20.5s7.504 0 9.388-.576a2.99 2.99 0 0 0 2.11-2.11C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
         </svg>
-        <span className="font-semibold">Lofi Girl</span>
+        <span className="font-semibold">YouTube</span>
       </div>
       <p className="text-xs text-gray-400">
-        Wissel naar Lofi Girl study streams
+        Wissel naar YouTube video/playlist tijdens reclame
       </p>
-      {/* Gear icon */}
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowLofiSettings(true);
-        }}
-        className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors cursor-pointer"
-        title="Lofi Girl instellingen"
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.stopPropagation();
-            e.preventDefault();
-            setShowLofiSettings(true);
-          }
-        }}
-      >
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
-        </svg>
-      </div>
     </div>
   </div>
 
-  {/* ✅ NEW: Add PlaylistProviderSelector here when playlist mode is selected */}
+  {/* Spotify playlist selector when playlist/spotify mode is selected */}
   {adBreakMode === 'playlist' && (
     <div className="mt-4 pt-4 border-t border-gray-600">
       <PlaylistProviderSelector
-        selectedProvider={playlistProvider}
-        onProviderChange={onProviderChange}
         playlistUrl={playlistUrl}
         onPlaylistUrlChange={onPlaylistUrlChange}
-        playlistInfo={playlistInfo}
         onPlaylistInfoChange={(info) => {
-          console.log('Playlist info changed:', info);
           if (onPlaylistInfoChange) {
             onPlaylistInfoChange(info);
           }
         }}
-        isValidating={isValidatingPlaylist}
-        onValidatingChange={(validating) => {
-          // Handle validation state change
-          console.log('Validation state changed:', validating);
-        }}
+        onValidatingChange={() => {}}
         error={audioPlayer?.error}
         onRetry={audioPlayer?.manualInitializeSpotifyPlayer}
+      />
+    </div>
+  )}
+
+  {/* YouTube URL input + dice button when youtube mode is selected */}
+  {adBreakMode === 'youtube' && (
+    <div className="mt-4 pt-4 border-t border-gray-600">
+      <YouTubeUrlInput
+        youtubeUrl={youtubeUrl}
+        onYoutubeUrlChange={onYoutubeUrlChange}
       />
     </div>
   )}
@@ -1533,60 +1482,7 @@ const AdBreakSettings = ({
             </div>
           )}
 
-          {/* Lofi Girl Settings Overlay */}
-          {showLofiSettings && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-gray-800 rounded-lg border border-gray-600 p-6 max-w-lg w-full mx-4">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-white">Lofi Girl Instellingen</h3>
-                  <button
-                    onClick={() => setShowLofiSettings(false)}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                  </svg>
-                  </button>
-                </div>            <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Custom YouTube URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={customLofiUrl}
-                      onChange={(e) => setCustomLofiUrl(e.target.value)}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none ${isValidYouTubeUrl(customLofiUrl)
-                          ? 'border-gray-600 focus:border-purple-500'
-                          : 'border-red-500 focus:border-red-400'
-                        }`}
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      Voer een YouTube video of livestream URL in. Laat leeg voor standaard Lofi Girl streams.
-                    </p>
-                    {customLofiUrl && !isValidYouTubeUrl(customLofiUrl) && (
-                      <p className="text-xs text-red-400 mt-1">
-                        ⚠️ Ongeldige YouTube URL. Gebruik formaat: https://www.youtube.com/watch?v=...
-                      </p>
-                    )}
-                  </div>              <div className="flex gap-3">
-
-                    <button
-                      onClick={() => setShowLofiSettings(false)}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg"
-                    >
-                      Opslaan
-                    </button>
-                  </div>              {customLofiUrl && (
-                    <div className="p-3 bg-purple-600/20 border border-purple-600/30 rounded-lg">
-                      <div className="text-purple-300 text-sm font-medium">Custom URL ingesteld:</div>
-                      <div className="text-gray-300 text-xs break-all">{customLofiUrl}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>)}        </div>
+        </div>
       </div>      {/* Visualizer Settings Overlay */}
       <VisualizerSettings
         isOpen={showVisualizerSettings}

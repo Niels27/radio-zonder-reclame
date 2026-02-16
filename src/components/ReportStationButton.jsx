@@ -1,46 +1,53 @@
 // Component for reporting failed radio stations
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { stationReportingService } from '../utils/stationReporting.js';
 
 const ReportStationButton = ({ currentStation, error }) => {
   const [isReporting, setIsReporting] = useState(false);
   const [reported, setReported] = useState(false);
+  const [hasFailed, setHasFailed] = useState(false);
+  const lastStationRef = useRef(null);
 
-  // Add extra debugging to understand the timing
-  console.log('🔍 ReportStationButton Render:', {
-    timestamp: new Date().toISOString(),
-    currentStation: currentStation ? {
-      name: currentStation.name,
-      url: currentStation.url
-    } : 'NO STATION',
-    error: error || 'NO ERROR',
-    propsReceived: {
-      currentStation: typeof currentStation,
-      error: typeof error
+  // Track when station changes - reset failed state immediately
+  useEffect(() => {
+    const stationId = currentStation ? `${currentStation.name}-${currentStation.url}` : null;
+
+    // If station changed, reset failed state immediately
+    if (stationId !== lastStationRef.current) {
+      lastStationRef.current = stationId;
+      setHasFailed(false);
+      setReported(false);
     }
-  });
+  }, [currentStation]);
 
-  // Show button for radio connection errors - EXPANDED CONDITIONS
-  const shouldShowButton = currentStation && error && (
-    error.includes('verloren') ||           // Lost connection
-    error.includes('niet afspelen') ||      // Cannot play
-    error.includes('stream URLs failed') || // All stream URLs failed
-    error.includes('CORS restrictions') ||  // CORS issues
-    error.includes('offline') ||            // Station offline
-    error.includes('Verbinding mislukt') || // Connection failed
-    error.includes('timeout') ||            // Connection timeout
-    error.includes('403') ||                // Forbidden
-    error.includes('404') ||                // Not found
-    error.includes('500')                   // Server error
-  );
+  // Track when error occurs - mark as failed
+  // Also clear failed state when error clears (station successfully plays)
+  useEffect(() => {
+    if (!error) {
+      // No error - station is playing successfully, clear failed state
+      setHasFailed(false);
+      setReported(false);
+    } else if (currentStation && (
+      error.includes('verloren') ||           // Lost connection
+      error.includes('niet afspelen') ||      // Cannot play
+      error.includes('stream URLs failed') || // All stream URLs failed
+      error.includes('CORS restrictions') ||  // CORS issues
+      error.includes('offline') ||            // Station offline
+      error.includes('Verbinding mislukt') || // Connection failed
+      error.includes('Verbindingsfout') ||    // Connection error (main error)
+      error.includes('verbinding timeout') || // Timeout error
+      error.includes('alle streams geprobeerd') || // All streams failed
+      error.includes('timeout') ||            // Connection timeout
+      error.includes('403') ||                // Forbidden
+      error.includes('404') ||                // Not found
+      error.includes('500')                   // Server error
+    )) {
+      setHasFailed(true);
+    }
+  }, [currentStation, error]);
 
-  console.log('🔍 ReportStationButton Decision:', {
-    shouldShowButton,
-    hasStation: !!currentStation,
-    hasError: !!error,
-    stationName: currentStation?.name,
-    errorMessage: error
-  });
+  // Show button if station has failed, regardless of current error state
+  const shouldShowButton = currentStation && hasFailed;
 
   const handleReport = async () => {
     if (!currentStation || isReporting) return;
@@ -69,11 +76,8 @@ const ReportStationButton = ({ currentStation, error }) => {
 
   // Don't render if conditions aren't met
   if (!shouldShowButton) {
-    console.log('🚫 ReportStationButton: Not showing button - conditions not met');
     return null;
   }
-
-  console.log('✅ ReportStationButton: Showing button for', currentStation?.name);
 
   if (reported) {
     return (
@@ -91,9 +95,9 @@ const ReportStationButton = ({ currentStation, error }) => {
       onClick={handleReport}
       disabled={isReporting}
       className="ml-2 px-3 py-1 text-sm bg-orange-600 text-orange-100 hover:bg-orange-500 rounded-md border border-orange-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      title="Melden dat radio niet werkt / Verzoek tot fixen"
+      title="Meld niet werkende radio"
     >
-      {isReporting ? '...' : 'Melden dat radio niet werkt / Verzoek tot fixen'}
+      {isReporting ? '...' : 'Meld niet werkende radio'}
     </button>
   );
 };

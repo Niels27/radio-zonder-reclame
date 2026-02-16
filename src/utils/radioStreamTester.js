@@ -837,7 +837,7 @@ export const fallbackStats = {
       audio.addEventListener('error', handleError, { once: true });
 
       try {
-        audio.crossOrigin = 'anonymous';
+        // Do NOT set crossOrigin - it forces CORS checks which most radio streams fail
         audio.preload = 'metadata';
         audio.volume = 0;
         audio.src = url;

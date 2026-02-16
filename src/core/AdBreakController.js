@@ -14,7 +14,7 @@ export class AdBreakController {
 
   /**
    * Start an ad break
-   * @param {string} mode - 'playlist' | 'nonstop' | 'lofi'
+   * @param {string} mode - 'playlist' | 'nonstop' | 'youtube'
    * @param {number} duration - Duration in minutes
    * @param {object} config - Mode-specific configuration
    */
@@ -50,8 +50,8 @@ export class AdBreakController {
           success = await this._startNonstopMode(config);
           break;
 
-        case 'lofi':
-          success = await this._startLofiMode(config);
+        case 'youtube':
+          success = await this._startYouTubeMode(config);
           break;
 
         default:
@@ -235,30 +235,33 @@ export class AdBreakController {
   }
 
   /**
-   * Start lofi mode (YouTube lofi stream)
+   * Start YouTube mode (video or playlist)
    */
-  async _startLofiMode(config) {
-    const { videoId } = config;
+  async _startYouTubeMode(config) {
+    const { videoId, playlistId } = config;
 
-    if (!videoId) {
-      throw new Error('No lofi video ID provided');
+    if (!videoId && !playlistId) {
+      throw new Error('No YouTube video or playlist ID provided');
     }
 
-    console.log(`🎵 AdBreakController: Starting lofi stream ${videoId}`);
+    console.log(`🎵 AdBreakController: Starting YouTube ${playlistId ? 'playlist' : 'video'}`);
 
     // Open YouTube overlay
     if (window.openYouTubePlayer) {
       window.openYouTubePlayer({
-        videoId,
-        title: 'Lofi Girl',
+        videoId: videoId || undefined,
+        playlistId: playlistId || undefined,
+        title: 'YouTube',
         isAutomatic: true,
         autoCloseSeconds: null
       });
     }
 
-    return await this.audioManager.play('youtube', {
-      video: videoId
-    });
+    if (videoId) {
+      return await this.audioManager.play('youtube', { video: videoId });
+    }
+    // For playlists, the overlay handles playback
+    return true;
   }
 
   /**

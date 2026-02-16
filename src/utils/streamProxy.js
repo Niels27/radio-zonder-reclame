@@ -124,8 +124,7 @@ export class StreamProxy {
       }
       
       const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
-      
+
       const timeoutId = setTimeout(() => {
         audio.removeEventListener('canplay', resolve);
         audio.removeEventListener('error', reject);

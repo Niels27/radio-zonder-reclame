@@ -67,7 +67,6 @@ const DeveloperDashboard = ({ onClose }) => {
     try {
       // Create a test audio element
       const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
       
       const testPromise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {

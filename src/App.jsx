@@ -162,6 +162,13 @@ function App() {
     }
     window.audioPlayer.spotifyPlayerReady = audio.isSpotifyReady();
 
+    // ✅ Expose Firebase utilities for testing
+    import('./utils/firebase.js').then(({ setFirebaseDemoMode, getFirebaseDemoMode, stationReportsAPI }) => {
+      window.setFirebaseDemoMode = setFirebaseDemoMode;
+      window.getFirebaseDemoMode = getFirebaseDemoMode;
+      window.stationReportsAPI = stationReportsAPI;
+    });
+
     // ✅ NEW: Expose manual Spotify initialization
     window.audioPlayer.manualInitializeSpotifyPlayer = async () => {
       if (audio.audioManager) {
@@ -277,6 +284,10 @@ function App() {
                 visualizerBlur={state.visualizerBlur}
                 onVisualizerBlurChange={actions.setVisualizerBlur}
 
+                // YouTube mode settings
+                youtubeUrl={state.youtubeUrl}
+                onYoutubeUrlChange={actions.setYoutubeUrl}
+
                 // Other settings
                 fadeAudioStreams={state.fadeAudioStreams}
                 onFadeAudioStreamsChange={actions.setFadeAudioStreams}
@@ -359,7 +370,26 @@ function App() {
                 <p className="text-xs text-gray-400 truncate">
                   {state.currentStation?.name || 'Bezig met laden...'}
                 </p>
+                {state.connectionStatus && (
+                  <p className="text-xs text-gray-500 truncate mt-0.5">
+                    {state.connectionStatus}
+                  </p>
+                )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Buffering Indicator */}
+        {state.isBuffering && state.isPlaying && !state.isLoading && (
+          <div className="fixed bottom-20 right-4 bg-gray-800/90 border border-yellow-600/50 rounded-lg px-3 py-2 shadow-lg z-40">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-0.5">
+                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <span className="text-xs text-yellow-300">Bufferen</span>
             </div>
           </div>
         )}

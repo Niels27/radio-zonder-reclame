@@ -2,7 +2,73 @@
 // Handles HTML5 Audio element for live radio streams
 
 import { AdSkipUtils } from '../utils/adSkipUtils.js';
+import { getStationDefinition } from '../data/fallbackStations.js';
 import toast from '../utils/toastNotifications.js';
+
+// CORS proxies to try when direct URLs fail
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+];
+
+// localStorage key for cached working URLs
+const URL_CACHE_KEY = 'radio_working_urls';
+
+/**
+ * Load the working URL cache from localStorage
+ */
+function loadUrlCache() {
+  try {
+    const raw = localStorage.getItem(URL_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Save a working URL + CORS mode for a station
+ */
+function cacheWorkingUrl(stationName, url, corsMode) {
+  try {
+    const cache = loadUrlCache();
+    cache[stationName] = { url, cors: corsMode, ts: Date.now() };
+    localStorage.setItem(URL_CACHE_KEY, JSON.stringify(cache));
+    console.log(`💾 Cached working URL for "${stationName}": ${url.substring(0, 60)}... (CORS: ${corsMode})`);
+  } catch {
+    // localStorage full or unavailable - ignore
+  }
+}
+
+/**
+ * Get the cached working URL for a station (if any, and not too old)
+ */
+function getCachedUrl(stationName) {
+  try {
+    const cache = loadUrlCache();
+    const entry = cache[stationName];
+    if (!entry) return null;
+    // Cache entries expire after 7 days
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - entry.ts > maxAge) return null;
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear the cached URL for a station (when it stops working)
+ */
+function clearCachedUrl(stationName) {
+  try {
+    const cache = loadUrlCache();
+    delete cache[stationName];
+    localStorage.setItem(URL_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore
+  }
+}
 
 export class RadioSource {
   constructor() {
@@ -10,41 +76,107 @@ export class RadioSource {
     this.currentStation = null;
     this.volume = 0.5;
     this.isInitialized = false;
-    this.retryCount = 0;
-    this.maxRetries = 3;
     this.prerollSkipTimeout = null;
-    this.hasSkippedPreroll = false; // Track if we've already skipped for this station
+    this.hasSkippedPreroll = false;
+    this._playAttemptId = 0;
+    this.corsEnabled = true;
+    this.onStatusUpdate = null;   // callback: (statusText) => void
+    this.onBufferingChange = null; // callback: (isBuffering) => void
   }
 
-  /**
-   * Initialize the radio audio element
-   */
   async initialize() {
     if (this.isInitialized) return true;
 
     try {
-      this.audio = new Audio();
-      this.audio.crossOrigin = 'anonymous';
-      this.audio.preload = 'none';
-
-      // Set up event listeners
-      this.audio.addEventListener('error', this._handleError.bind(this));
-      this.audio.addEventListener('loadeddata', this._handleLoaded.bind(this));
-      this.audio.addEventListener('playing', this._handlePlaying.bind(this));
-      this.audio.addEventListener('waiting', this._handleWaiting.bind(this));
-
+      this._createAudioElement(true);
       this.isInitialized = true;
       console.log('✅ RadioService: Initialized');
       return true;
-    } catch (error) {
-      console.error('❌ RadioService: Initialization failed', error);
+    } catch {
+      console.error('❌ RadioService: Initialization failed');
       return false;
     }
   }
 
+  _createAudioElement(withCors) {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.removeEventListener('loadeddata', this._boundHandleLoaded);
+      this.audio.removeEventListener('playing', this._boundHandlePlaying);
+      this.audio.removeEventListener('waiting', this._boundHandleWaiting);
+      this.audio.src = '';
+    }
+
+    this.audio = new Audio();
+    if (withCors) {
+      this.audio.crossOrigin = 'anonymous';
+    }
+    this.audio.preload = 'none';
+    this.corsEnabled = withCors;
+
+    this._boundHandleLoaded = this._handleLoaded.bind(this);
+    this._boundHandlePlaying = this._handlePlaying.bind(this);
+    this._boundHandleWaiting = this._handleWaiting.bind(this);
+
+    this.audio.addEventListener('loadeddata', this._boundHandleLoaded);
+    this.audio.addEventListener('playing', this._boundHandlePlaying);
+    this.audio.addEventListener('waiting', this._boundHandleWaiting);
+
+    console.log(`🔧 RadioService: Created audio element (CORS: ${withCors})`);
+  }
+
+  _buildUrlList(station) {
+    const urls = [];
+    const seen = new Set();
+
+    const addUrl = (url) => {
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        urls.push(url);
+      }
+    };
+
+    // 1. Check fallbackStations.js for curated URLs
+    const fallbackDef = getStationDefinition(station.name);
+    if (fallbackDef && fallbackDef.urls) {
+      fallbackDef.urls.forEach(addUrl);
+    }
+
+    // 2. Station's own urls array
+    if (station.urls && Array.isArray(station.urls)) {
+      station.urls.forEach(addUrl);
+    }
+
+    // 3. Station's primary url
+    addUrl(station.url);
+
+    // 4. Legacy fallbackUrl
+    if (station.fallbackUrl) {
+      addUrl(station.fallbackUrl);
+    }
+
+    // 5. For HTTP URLs, try HTTPS upgrade
+    const httpUrls = urls.filter(u => u.startsWith('http://'));
+    httpUrls.forEach(httpUrl => {
+      addUrl(httpUrl.replace('http://', 'https://'));
+    });
+
+    return urls;
+  }
+
+  _buildProxyUrls(urls) {
+    const proxyUrls = [];
+    const httpUrls = urls.filter(u => u.startsWith('http://') && !u.includes('corsproxy') && !u.includes('allorigins'));
+    httpUrls.forEach(httpUrl => {
+      for (const proxy of CORS_PROXIES) {
+        proxyUrls.push(proxy + encodeURIComponent(httpUrl));
+      }
+    });
+    return proxyUrls;
+  }
+
   /**
-   * Play a radio station
-   * @param {object} config - { station: { name, url, favicon } }
+   * Play a radio station - tries cached URL first, then fallback list
    */
   async play(config) {
     if (!this.isInitialized) {
@@ -58,11 +190,6 @@ export class RadioSource {
 
     console.log(`🎵 RadioService: Playing ${station.name}`);
 
-    // Show loading status
-    if (toast) {
-      toast.info('Radio aan het laden...', 2000);
-    }
-
     try {
       // Stop current stream
       if (this.audio.src) {
@@ -70,151 +197,245 @@ export class RadioSource {
         this.audio.src = '';
       }
 
-      // Reset retry count and pre-roll skip flag
-      this.retryCount = 0;
-      this.hasSkippedPreroll = false; // Reset for new station
-
-      // Set new station
+      this.hasSkippedPreroll = false;
       this.currentStation = station;
+      this._playAttemptId++;
+      const attemptId = this._playAttemptId;
 
-      // Try to load and play with 20 second timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout na 20 seconden')), 20000)
-      );
+      // === FAST PATH: Try cached working URL first ===
+      const cached = getCachedUrl(station.name);
+      if (cached) {
+        console.log(`⚡ RadioService: Trying cached URL for ${station.name}`);
+        this._emitStatus('Opgeslagen stream proberen...');
+        const needsCorsSwitch = cached.cors !== this.corsEnabled;
+        if (needsCorsSwitch) {
+          this._createAudioElement(cached.cors);
+          this._signalVisualizerReconnect();
+        }
+        try {
+          const success = await this._tryUrl(cached.url, station, 8000);
+          if (success) {
+            console.log(`⚡ RadioService: Cached URL worked for ${station.name}`);
+            // Refresh the cache timestamp so it stays valid
+            cacheWorkingUrl(station.name, cached.url, cached.cors);
+            this._emitStatus(null);
+            return true;
+          }
+        } catch (err) {
+          if (err.message === 'Cancelled') throw err;
+          console.log(`⚡ RadioService: Cached URL failed, trying full list...`);
+          clearCachedUrl(station.name);
+        }
+      }
 
-      const playPromise = this._tryPlayStation(station);
+      // Build URL lists
+      const urlList = this._buildUrlList(station);
+      const proxyUrls = this._buildProxyUrls(urlList);
+      console.log(`📋 RadioService: ${urlList.length} URLs + ${proxyUrls.length} proxy URLs for ${station.name}`);
 
-      return await Promise.race([playPromise, timeoutPromise]);
+      // === PASS 1: Try with CORS enabled (audio + visualizer) ===
+      if (!this.corsEnabled) {
+        this._createAudioElement(true);
+        this._signalVisualizerReconnect();
+      }
+
+      const totalUrls = urlList.length + proxyUrls.length;
+      let tryCount = 0;
+
+      for (let i = 0; i < urlList.length; i++) {
+        if (this._playAttemptId !== attemptId) return false;
+        tryCount++;
+        const url = urlList[i];
+        this._emitStatus(`Stream ${tryCount}/${totalUrls} proberen...`);
+        console.log(`🔗 [CORS] Trying URL ${i + 1}/${urlList.length}: ${url.substring(0, 80)}...`);
+        try {
+          const success = await this._tryUrl(url, station, 8000);
+          if (success) {
+            cacheWorkingUrl(station.name, url, true);
+            console.log(`✅ RadioService: Playing ${station.name} with CORS (URL ${i + 1})`);
+            this._emitStatus(null);
+            return true;
+          }
+        } catch (err) {
+          if (err.message === 'Cancelled') return false;
+        }
+      }
+
+      // Try proxy URLs with CORS
+      for (let i = 0; i < proxyUrls.length; i++) {
+        if (this._playAttemptId !== attemptId) return false;
+        tryCount++;
+        const url = proxyUrls[i];
+        this._emitStatus(`Proxy ${tryCount}/${totalUrls} proberen...`);
+        console.log(`🔗 [CORS+Proxy] Trying: ${url.substring(0, 80)}...`);
+        try {
+          const success = await this._tryUrl(url, station, 8000);
+          if (success) {
+            cacheWorkingUrl(station.name, url, true);
+            console.log(`✅ RadioService: Playing ${station.name} via CORS proxy`);
+            this._emitStatus(null);
+            return true;
+          }
+        } catch (err) {
+          if (err.message === 'Cancelled') return false;
+        }
+      }
+
+      // === PASS 2: Try WITHOUT CORS (audio works, no visualizer) ===
+      console.log(`🔄 RadioService: CORS failed, trying without CORS...`);
+      this._emitStatus('Zonder visualizer proberen...');
+      this._createAudioElement(false);
+      this._signalVisualizerReconnect();
+
+      for (let i = 0; i < urlList.length; i++) {
+        if (this._playAttemptId !== attemptId) return false;
+        this._emitStatus(`Alternatief ${i + 1}/${urlList.length} proberen...`);
+        const url = urlList[i];
+        console.log(`🔗 [No-CORS] Trying URL ${i + 1}/${urlList.length}: ${url.substring(0, 80)}...`);
+        try {
+          const success = await this._tryUrl(url, station, 8000);
+          if (success) {
+            cacheWorkingUrl(station.name, url, false);
+            console.log(`✅ RadioService: Playing ${station.name} without CORS (no visualizer)`);
+            this._emitStatus(null);
+            if (toast) {
+              toast.info('Afspelen zonder visualizer (stream ondersteunt geen CORS)', 3000);
+            }
+            return true;
+          }
+        } catch (err) {
+          if (err.message === 'Cancelled') return false;
+        }
+      }
+
+      this._emitStatus(null);
+      throw new Error('Alle streams geprobeerd - geen werkende gevonden');
 
     } catch (error) {
       console.error('❌ RadioService: Play failed', error);
 
-      // Show error after all attempts failed
+      const userMessage = error.message.includes('Alle streams') || error.message.includes('timeout')
+        ? error.message
+        : 'Verbindingsfout - kan radio niet laden';
+
       if (toast) {
-        if (error.message === 'Timeout na 20 seconden') {
-          toast.error('Geen werkende radiostream gevonden - verbinding timeout', 4000);
-        } else if (this.retryCount >= this.maxRetries) {
-          toast.error('Geen werkende radiostream gevonden - alle streams geprobeerd', 4000);
-        } else {
-          toast.error('Verbindingsfout - kan radio niet laden', 4000);
-        }
+        toast.error(userMessage, 4000);
       }
 
-      throw error;
+      const userError = new Error(userMessage);
+      userError.originalError = error;
+      throw userError;
     }
   }
 
-  /**
-   * Try to play station with fallback support
-   */
-  async _tryPlayStation(station) {
-    try {
-      // Set audio source
-      this.audio.src = station.url;
+  _emitStatus(text) {
+    if (this.onStatusUpdate) {
+      this.onStatusUpdate(text);
+    }
+  }
 
-      // Check if we should start muted for pre-roll skip
+  _emitBuffering(isBuffering) {
+    if (this.onBufferingChange) {
+      this.onBufferingChange(isBuffering);
+    }
+  }
+
+  _signalVisualizerReconnect() {
+    if (typeof window !== 'undefined') {
+      window._radioAudioElementChanged = true;
+      window._radioCorsEnabled = this.corsEnabled;
+    }
+  }
+
+  _tryUrl(url, station, timeoutMs) {
+    const attemptId = this._playAttemptId;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn, val) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        clearInterval(cancelChecker);
+        this.audio.removeEventListener('error', onError);
+        fn(val);
+      };
+
+      const timer = setTimeout(() => {
+        settle(reject, new Error(`Timeout na ${timeoutMs / 1000}s`));
+      }, timeoutMs);
+
+      // Check every 200ms if this attempt was cancelled
+      const cancelChecker = setInterval(() => {
+        if (this._playAttemptId !== attemptId) {
+          settle(reject, new Error('Cancelled'));
+        }
+      }, 200);
+
+      const onError = () => {
+        settle(reject, new Error('Stream error'));
+      };
+
+      this.audio.addEventListener('error', onError, { once: true });
+
       const isAutoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
       const shouldSkipPreroll = isAutoSkipEnabled &&
-                                !this.hasSkippedPreroll &&
-                                AdSkipUtils.shouldOfferPrerollSkip(station.url, station.name);
+        !this.hasSkippedPreroll &&
+        AdSkipUtils.shouldOfferPrerollSkip(url, station.name);
 
       if (shouldSkipPreroll) {
-        // Start muted - we'll restore volume after skip
         this.audio.volume = 0;
-        // Store target volume for later restoration
         this.audio.dataset.targetVolume = this.volume;
-        console.log('🔇 Starting muted for pre-roll skip');
       } else {
-        // Normal volume
         this.audio.volume = this.volume;
       }
 
-      // Attempt to play
+      this.audio.src = url;
       const playPromise = this.audio.play();
 
       if (playPromise !== undefined) {
-        await playPromise;
-        console.log(`✅ RadioService: Successfully started ${station.name}`);
-        return true;
+        playPromise
+          .then(() => settle(resolve, true))
+          .catch(err => settle(reject, err));
+      } else {
+        setTimeout(() => {
+          if (!this.audio.paused) {
+            settle(resolve, true);
+          } else {
+            settle(reject, new Error('Playback did not start'));
+          }
+        }, 2000);
       }
-
-      return false;
-
-    } catch (error) {
-      console.error(`❌ RadioService: Failed to play ${station.name}`, error);
-
-      // Try fallback URL if available
-      if (station.fallbackUrl && this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        console.log(`🔄 RadioService: Trying fallback URL (attempt ${this.retryCount})`);
-
-        // Show retry message
-        if (toast) {
-          toast.info('Andere stream aan het proberen...', 2000);
-        }
-
-        const fallbackStation = { ...station, url: station.fallbackUrl };
-        return await this._tryPlayStation(fallbackStation);
-      }
-
-      throw error;
-    }
+    });
   }
 
-  /**
-   * Pause playback
-   */
   async pause() {
     if (!this.audio) return;
-
     try {
       this.audio.pause();
-      console.log('⏸️ RadioService: Paused');
-    } catch (error) {
-      console.error('❌ RadioService: Pause failed', error);
-    }
+    } catch {}
   }
 
-  /**
-   * Resume playback
-   */
   async resume() {
     if (!this.audio) return;
-
-    try {
-      await this.audio.play();
-      console.log('▶️ RadioService: Resumed');
-    } catch (error) {
-      console.error('❌ RadioService: Resume failed', error);
-      throw error;
-    }
+    await this.audio.play();
   }
 
-  /**
-   * Stop playback
-   */
   async stop() {
     if (!this.audio) return;
-
     try {
-      // Clear pre-roll skip timeout
       if (this.prerollSkipTimeout) {
         clearTimeout(this.prerollSkipTimeout);
         this.prerollSkipTimeout = null;
       }
-
+      this._playAttemptId++;
       this.audio.pause();
       this.audio.src = '';
       this.currentStation = null;
-      console.log('🛑 RadioService: Stopped');
-    } catch (error) {
-      console.error('❌ RadioService: Stop failed', error);
-    }
+      this._emitStatus(null);
+      this._emitBuffering(false);
+    } catch {}
   }
 
-  /**
-   * Set volume (0.0 to 1.0)
-   */
   setVolume(volume) {
     this.volume = Math.max(0, Math.min(1, volume));
     if (this.audio) {
@@ -222,31 +443,12 @@ export class RadioSource {
     }
   }
 
-  /**
-   * Get audio element (for visualizer integration)
-   */
   getAudioElement() {
     return this.audio;
   }
 
-  /**
-   * Get current station
-   */
   getCurrentStation() {
     return this.currentStation;
-  }
-
-  // Event handlers
-
-  _handleError(event) {
-    console.error('❌ RadioService: Audio error', event);
-
-    // Attempt retry with fallback if available
-    if (this.currentStation && this.retryCount < this.maxRetries) {
-      this.retryCount++;
-      console.log(`🔄 RadioService: Retrying (attempt ${this.retryCount})`);
-      this._tryPlayStation(this.currentStation);
-    }
   }
 
   _handleLoaded() {
@@ -255,83 +457,50 @@ export class RadioSource {
 
   _handlePlaying() {
     console.log('▶️ RadioService: Stream playing');
-
-    // Check if we should auto-skip pre-roll
+    this._emitBuffering(false);
     this._handlePrerollSkip();
   }
 
-  /**
-   * Handle automatic pre-roll skip if enabled
-   */
   async _handlePrerollSkip() {
-    // Only skip once per station load
-    if (this.hasSkippedPreroll) {
-      console.log('⏭️ Pre-roll already skipped for this station - ignoring');
-      return;
-    }
+    if (this.hasSkippedPreroll) return;
 
-    // Clear any existing timeout
     if (this.prerollSkipTimeout) {
       clearTimeout(this.prerollSkipTimeout);
       this.prerollSkipTimeout = null;
     }
 
-    // Check if auto-skip is enabled
     const isAutoSkipEnabled = AdSkipUtils.getAutoSkipSetting();
+    if (!isAutoSkipEnabled) return;
 
-    if (!isAutoSkipEnabled) {
-      console.log('⏭️ Auto pre-roll skip is disabled');
-      return;
-    }
-
-    // Check if this station should have pre-roll skip
     if (!this.currentStation || !AdSkipUtils.shouldOfferPrerollSkip(this.currentStation.url, this.currentStation.name)) {
-      console.log('⏭️ Pre-roll skip not needed for this station');
       return;
     }
 
-    console.log('⏭️ Auto pre-roll skip is ENABLED - preparing to skip...');
-
-    // Mark that we're about to skip (prevent duplicate skips)
     this.hasSkippedPreroll = true;
 
-    // Minimal wait - just enough for stream to start buffering
     this.prerollSkipTimeout = setTimeout(async () => {
       try {
-        console.log('⏭️ Executing automatic pre-roll skip...');
-
-        // Smart skip duration based on stream readiness
-        // Start with smaller skip (10s) for live streams to reduce buffering
         const skipDuration = 17;
-
-        // Skip forward
         await AdSkipUtils.skipPrerollSilently(this.audio, skipDuration);
-
-        // Show toast notification
         toast.success(`Pre-roll reclame overgeslagen`, 2500);
-
       } catch (error) {
         console.error('❌ Auto pre-roll skip failed:', error);
-        // Reset flag on error so user can try again
         this.hasSkippedPreroll = false;
       }
-    }, 200); // Reduced from 500ms to 200ms for faster skip
+    }, 200);
   }
 
   _handleWaiting() {
     console.log('⏳ RadioService: Buffering...');
+    this._emitBuffering(true);
   }
 
-  /**
-   * Cleanup
-   */
   destroy() {
-    // Clear pre-roll skip timeout
     if (this.prerollSkipTimeout) {
       clearTimeout(this.prerollSkipTimeout);
       this.prerollSkipTimeout = null;
     }
-
+    this._playAttemptId++;
     if (this.audio) {
       this.audio.pause();
       this.audio.src = '';
@@ -341,5 +510,8 @@ export class RadioSource {
     this.isInitialized = false;
   }
 }
+
+// Export cache functions for use by stream tester / dev dashboard
+export { cacheWorkingUrl, getCachedUrl, clearCachedUrl, loadUrlCache };
 
 export default RadioSource;

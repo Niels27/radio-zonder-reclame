@@ -12,23 +12,28 @@ const initialState = {
   isLoading: false,
   isTransitioning: false,
   volume: 0.5,
-  audioSource: null,        // 'radio' | 'spotify' | 'youtube' | 'lofi' | null
+  audioSource: null,        // 'radio' | 'spotify' | 'youtube' | null
   error: null,
+  connectionStatus: null,   // Brief description of what's being tried
+  isBuffering: false,        // Whether the stream is currently buffering
 
   // Ad break state
   isAdBreakActive: false,
-  adBreakMode: 'playlist',  // 'playlist' | 'nonstop' | 'lofi'
+  adBreakMode: 'playlist',  // 'playlist' | 'nonstop' | 'youtube'
   adBreakTimeLeft: null,
   nextAdBreakIn: null,
   isTimerRunning: false,
   savedStation: null,       // Station to restore after ad break
 
-  // Playlist state
+  // Playlist state (Spotify)
   playlistUrl: '',
   playlistId: null,
-  playlistProvider: 'spotify', // 'spotify' | 'youtube'
+  playlistProvider: 'spotify',
   playlistShuffle: false,
   playlistInfo: null,
+
+  // YouTube mode state
+  youtubeUrl: 'https://www.youtube.com/watch?v=jfKfPfyJRdk', // Default: Lofi Girl
 
   // UI state
   showVisualizer: true,
@@ -63,6 +68,8 @@ const ActionTypes = {
   SET_VOLUME: 'SET_VOLUME',
   SET_AUDIO_SOURCE: 'SET_AUDIO_SOURCE',
   SET_ERROR: 'SET_ERROR',
+  SET_CONNECTION_STATUS: 'SET_CONNECTION_STATUS',
+  SET_BUFFERING: 'SET_BUFFERING',
 
   // Ad break actions
   START_AD_BREAK: 'START_AD_BREAK',
@@ -78,6 +85,7 @@ const ActionTypes = {
   SET_PLAYLIST_INFO: 'SET_PLAYLIST_INFO',
   SET_PLAYLIST_PROVIDER: 'SET_PLAYLIST_PROVIDER',
   SET_PLAYLIST_SHUFFLE: 'SET_PLAYLIST_SHUFFLE',
+  SET_YOUTUBE_URL: 'SET_YOUTUBE_URL',
 
   // UI actions
   TOGGLE_VISUALIZER: 'TOGGLE_VISUALIZER',
@@ -125,6 +133,12 @@ function appReducer(state, action) {
     case ActionTypes.SET_ERROR:
       return { ...state, error: action.payload };
 
+    case ActionTypes.SET_CONNECTION_STATUS:
+      return { ...state, connectionStatus: action.payload };
+
+    case ActionTypes.SET_BUFFERING:
+      return { ...state, isBuffering: action.payload };
+
     // Ad break actions
     case ActionTypes.START_AD_BREAK:
       return {
@@ -171,6 +185,9 @@ function appReducer(state, action) {
 
     case ActionTypes.SET_PLAYLIST_SHUFFLE:
       return { ...state, playlistShuffle: action.payload };
+
+    case ActionTypes.SET_YOUTUBE_URL:
+      return { ...state, youtubeUrl: action.payload };
 
     // UI actions
     case ActionTypes.TOGGLE_VISUALIZER:
@@ -240,7 +257,13 @@ export function StateProvider({ children }) {
     fadeAudioStreams: JSON.parse(localStorage.getItem('fade_audio_streams') || 'false'),
     useCommunityTimings: JSON.parse(localStorage.getItem('use_community_timings') || 'true'),
     playlistProvider: localStorage.getItem('playlist_provider') || 'spotify',
-    adBreakMode: localStorage.getItem('adbreak_mode') || 'playlist',
+    youtubeUrl: localStorage.getItem('youtube_url') || localStorage.getItem('custom_lofi_url') || 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
+    adBreakMode: (() => {
+      const saved = localStorage.getItem('adbreak_mode');
+      // Migrate old 'lofi' mode to 'youtube'
+      if (saved === 'lofi') return 'youtube';
+      return saved || 'playlist';
+    })(),
     adBreakMinute: parseInt(localStorage.getItem('adbreak_minute') || '29'),
     adBreakMinute2: parseInt(localStorage.getItem('adbreak_minute2') || '59'),
     adBreakDuration: parseInt(localStorage.getItem('adbreak_duration') || '6'),
@@ -281,6 +304,10 @@ export function StateProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('adbreak_mode', state.adBreakMode);
   }, [state.adBreakMode]);
+
+  useEffect(() => {
+    localStorage.setItem('youtube_url', state.youtubeUrl);
+  }, [state.youtubeUrl]);
 
   // Save ad break settings
   useEffect(() => {
@@ -363,6 +390,14 @@ export function useActions() {
       dispatch({ type: ActionTypes.SET_ERROR, payload: error });
     }, [dispatch]),
 
+    setConnectionStatus: useCallback((status) => {
+      dispatch({ type: ActionTypes.SET_CONNECTION_STATUS, payload: status });
+    }, [dispatch]),
+
+    setBuffering: useCallback((isBuffering) => {
+      dispatch({ type: ActionTypes.SET_BUFFERING, payload: isBuffering });
+    }, [dispatch]),
+
     // Ad break actions
     startAdBreak: useCallback((mode) => {
       dispatch({ type: ActionTypes.START_AD_BREAK, payload: { mode } });
@@ -407,6 +442,10 @@ export function useActions() {
 
     setPlaylistShuffle: useCallback((shuffle) => {
       dispatch({ type: ActionTypes.SET_PLAYLIST_SHUFFLE, payload: shuffle });
+    }, [dispatch]),
+
+    setYoutubeUrl: useCallback((url) => {
+      dispatch({ type: ActionTypes.SET_YOUTUBE_URL, payload: url });
     }, [dispatch]),
 
     // UI actions

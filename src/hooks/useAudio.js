@@ -12,6 +12,7 @@ export function useAudio() {
 
   const audioManagerRef = useRef(null);
   const interruptionHandlerRef = useRef(null);
+  const playAttemptRef = useRef(0);
 
   // Initialize AudioManager on mount
   useEffect(() => {
@@ -42,9 +43,11 @@ export function useAudio() {
         if (newState === 'playing') {
           actions.setPlaying(true);
           actions.setPaused(false);
+          actions.setLoading(false);
         } else if (newState === 'paused') {
           actions.setPlaying(false);
           actions.setPaused(true);
+          actions.setLoading(false);
         } else if (newState === 'loading' || newState === 'transitioning') {
           actions.setLoading(true);
         } else {
@@ -63,6 +66,17 @@ export function useAudio() {
           window.addNotification('🚨 Volume automatically reduced for safety', 'warning', 3000);
         }
       });
+
+      // Set up RadioService callbacks for connection status and buffering
+      const radioSource = audioManagerRef.current.getSource('radio');
+      if (radioSource) {
+        radioSource.onStatusUpdate = (status) => {
+          actions.setConnectionStatus(status);
+        };
+        radioSource.onBufferingChange = (isBuffering) => {
+          actions.setBuffering(isBuffering);
+        };
+      }
     }
 
     return () => {
@@ -93,6 +107,10 @@ export function useAudio() {
   const playRadio = useCallback(async (station) => {
     if (!audioManagerRef.current) return false;
 
+    // Increment attempt ID - any previous play call will see its ID is stale
+    playAttemptRef.current++;
+    const myAttemptId = playAttemptRef.current;
+
     try {
       // Check for interruption
       const interruption = interruptionHandlerRef.current.handleUserAction('station_select', { station });
@@ -100,14 +118,22 @@ export function useAudio() {
         console.log('🔔 useAudio: User interrupted automated action');
       }
 
+      // Immediately update UI to show new station
       actions.setLoading(true);
       actions.setStation(station);
       actions.setAudioSource('radio');
+      actions.setConnectionStatus(null);
+      actions.setBuffering(false);
 
       const success = await audioManagerRef.current.play('radio', { station });
 
+      // Only update state if this is still the current attempt
+      if (playAttemptRef.current !== myAttemptId) {
+        console.log('🔄 useAudio: Stale play attempt, ignoring result');
+        return false;
+      }
+
       if (success) {
-        // Save last played station
         try {
           localStorage.setItem('lastPlayedStation', JSON.stringify(station));
         } catch (error) {
@@ -116,11 +142,16 @@ export function useAudio() {
       }
 
       actions.setLoading(false);
+      actions.setConnectionStatus(null);
       return success;
 
     } catch (error) {
+      // Only update error state if still current attempt
+      if (playAttemptRef.current !== myAttemptId) return false;
+
       console.error('❌ useAudio: Failed to play radio', error);
       actions.setLoading(false);
+      actions.setConnectionStatus(null);
       actions.setError(error.message);
       return false;
     }

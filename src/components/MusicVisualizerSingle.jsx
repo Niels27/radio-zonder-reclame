@@ -2,15 +2,39 @@
 import React, { useEffect, useRef } from 'react';
 
 // Global singleton audio manager - only one instance across the entire app
+// Handles createMediaElementSource for visualizer, with reconnect support
 const globalAudioManager = {
   audioContext: null,
   analyser: null,
   source: null,
   frequencyData: null,
   isSetup: false,
-  
+  connectedElement: null, // Track which element we're connected to
+
   async setup() {
+    // Check if the audio element changed (RadioService swapped it)
+    if (window._radioAudioElementChanged) {
+      window._radioAudioElementChanged = false;
+      // Force reconnect by resetting
+      this.isSetup = false;
+      this.source = null;
+      this.connectedElement = null;
+      // Close old context - we need a fresh one for a new element
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        try { this.audioContext.close(); } catch (e) { /* ignore */ }
+      }
+      this.audioContext = null;
+      this.analyser = null;
+      this.frequencyData = null;
+    }
+
     if (this.isSetup) return true;
+
+    // Don't connect if RadioService is in non-CORS mode
+    if (window._radioCorsEnabled === false) {
+      console.log('🎵 Visualizer: Skipping setup - stream has no CORS support');
+      return false;
+    }
 
     try {
       // Get audio element from AudioManager
@@ -37,29 +61,37 @@ const globalAudioManager = {
         return false;
       }
 
+      // Don't reconnect to the same element
+      if (this.connectedElement === targetElement && this.isSetup) {
+        return true;
+      }
+
       console.log('✅ Found audio element for visualizer:', targetElement);
-      
-      // Create audio context ONCE
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Create audio context
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
-      
-      // Create analyser ONCE
+
+      // Create analyser
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 2048;
       this.analyser.smoothingTimeConstant = 0.8;
       this.analyser.minDecibels = -85;
       this.analyser.maxDecibels = -15;
-      
-      // Create source ONCE
+
+      // Create source - connect audio element to Web Audio API
       this.source = this.audioContext.createMediaElementSource(targetElement);
       this.source.connect(this.analyser);
       this.analyser.connect(this.audioContext.destination);
-      
-      // Create frequency data array ONCE
+      this.connectedElement = targetElement;
+
+      // Create frequency data array
       this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
-      
+
       this.isSetup = true;
       console.log('✅ Global audio manager setup complete');
       return true;
@@ -68,17 +100,21 @@ const globalAudioManager = {
       return false;
     }
   },
-  
+
   getFrequencyData() {
+    // If CORS disabled or audio element changed, return null (fake visualizer will kick in)
+    if (window._radioCorsEnabled === false) return null;
+    if (window._radioAudioElementChanged) return null;
     if (!this.isSetup || !this.analyser || !this.frequencyData) return null;
     this.analyser.getByteFrequencyData(this.frequencyData);
     return this.frequencyData;
   },
-  
+
   cleanup() {
     this.isSetup = false;
+    this.connectedElement = null;
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close();
+      try { this.audioContext.close(); } catch (e) { /* ignore */ }
     }
     this.audioContext = null;
     this.analyser = null;
@@ -121,16 +157,21 @@ const MusicVisualizerSingle = ({
   const setupAttemptedRef = useRef(false);
   const animationStartTimeRef = useRef(null); // For fake streaming visualization timing
   const particlesRef = useRef([]); // For dust particles in fake visualization
-  // Setup audio context once when component mounts and audio is playing (only for radio)
+  // Setup audio context when audio is playing (only for radio)
+  // Also handles reconnection when RadioService swaps audio elements
   useEffect(() => {
-    if (!isPlaying || !isEnabled || setupAttemptedRef.current) return;
-    
-    // Only attempt audio setup for radio sources
+    if (!isPlaying || !isEnabled) return;
     if (currentSource !== 'radio') return;
-    
-    setupAttemptedRef.current = true;
-    
-    const attemptSetup = async () => {
+
+    // Check for audio element changes periodically
+    const checkAndSetup = async () => {
+      if (window._radioAudioElementChanged || !globalAudioManager.isSetup) {
+        setupAttemptedRef.current = false;
+      }
+
+      if (setupAttemptedRef.current) return;
+      setupAttemptedRef.current = true;
+
       const success = await globalAudioManager.setup();
       if (!success) {
         // Retry after 2 seconds
@@ -139,8 +180,18 @@ const MusicVisualizerSingle = ({
         }, 2000);
       }
     };
-    
-    attemptSetup();
+
+    checkAndSetup();
+
+    // Poll for audio element changes (RadioService may swap elements)
+    const pollInterval = setInterval(() => {
+      if (window._radioAudioElementChanged) {
+        setupAttemptedRef.current = false;
+        checkAndSetup();
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
   }, [isPlaying, isEnabled, currentSource]);
 
   // Animation loop

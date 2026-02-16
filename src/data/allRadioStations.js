@@ -74,48 +74,41 @@ export const getStats = () => ({
   other: 488
 });
 
-// Get all stations from all categories - ENHANCED DEBUG VERSION
 // Get all stations from all categories - ENHANCED with fallback-first integration
 export const getAllRadioStations = () => {
-  const allRadioStations = [];
+  const stationList = [];
 
   Object.entries(allRadioStations).forEach(([category, stations]) => {
     Object.values(stations).forEach(station => {
-      // ✅ ALWAYS check for fallback definition first
       const fallbackDefinition = getStationDefinition(station.name);
 
       if (fallbackDefinition) {
-        // Use fallback definition with multiple URLs (fallback-first strategy)
-        allRadioStations.push({
+        stationList.push({
           ...station,
-          url: fallbackDefinition.urls[0], // Primary URL for compatibility
-          urls: fallbackDefinition.urls,   // All URLs for fallback-first testing
+          url: fallbackDefinition.urls[0],
+          urls: fallbackDefinition.urls,
           logo: fallbackDefinition.logo || station.logo,
           description: fallbackDefinition.description || station.description,
           category,
           originalCategory: category,
           hasFallbackDefinition: true,
-          fallbackFirst: true // ✅ NEW: Flag indicating this uses fallback-first
         });
-        console.log(`🔄 Station ${station.name} will use fallback-first strategy (${fallbackDefinition.urls.length} URLs)`);
       } else {
-        // Use original station data (will be tested, might get fallback added later)
-        allRadioStations.push({
+        stationList.push({
           ...station,
-          urls: [station.url], // Convert single URL to array for consistency
+          urls: [station.url],
           category,
           originalCategory: category,
           hasFallbackDefinition: false,
-          fallbackFirst: false // ✅ NEW: Will test original first, then try fallbacks if fails
         });
       }
     });
   });
 
-  const fallbackCount = allRadioStations.filter(s => s.hasFallbackDefinition).length;
-  console.log(`📊 Loaded ${allRadioStations.length} stations (${fallbackCount} with fallback definitions)`);
+  const fallbackCount = stationList.filter(s => s.hasFallbackDefinition).length;
+  console.log(`📊 Loaded ${stationList.length} stations (${fallbackCount} with fallback definitions)`);
 
-  return allRadioStations;
+  return stationList;
 };
 
 export const allRadioStations = {
@@ -7877,23 +7870,68 @@ export const allRadioStations = {
   }
   },
   "realnonstop":{
-   "Alex FM Non Stop Hits ": {
-      "name": "Alex FM Non Stop Hits ",
-      "url": "https://radioalexfm.stream.laut.fm/radioalexfm?ref=web-app&start_time=1709718045653",
+   "Alex FM Non Stop Hits": {
+      "name": "Alex FM Non Stop Hits",
+      "url": "https://radioalexfm.stream.laut.fm/radioalexfm",
       "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
       "description": "Populaire hits",
       "bitrate": 128,
       "city": null,
       "votes": 7
     },
-    "Non Stop AlexFM ": {
-      "name": "Non Stop AlexFM ",
-      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits?ref=web-app&start_time=1709718823255",
+    "Non Stop AlexFM": {
+      "name": "Non Stop AlexFM",
+      "url": "https://radioalexfmhits.stream.laut.fm/radioalexfmhits",
       "logo": "https://assets.laut.fm/18f7036d2ebfa127df0635c6061bbcdb?t=_640x640",
       "description": "Non stop muziek",
       "bitrate": 128,
       "city": null,
       "votes": 2
+    },
+    "SLAM! Non Stop": {
+      "name": "SLAM! Non Stop",
+      "url": "https://stream.slam.nl/slam_nonstop",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Non-stop hits zonder reclame",
+      "bitrate": 128,
+      "city": "Amsterdam",
+      "votes": 5
+    },
+    "Qmusic Non-Stop": {
+      "name": "Qmusic Non-Stop",
+      "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop.mp3",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Non-stop muziek van Qmusic",
+      "bitrate": 128,
+      "city": "Amsterdam",
+      "votes": 4
+    },
+    "100% NL Non-Stop": {
+      "name": "100% NL Non-Stop",
+      "url": "https://stream.100p.nl/100pctnl_nonstop.mp3",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Non-stop Nederlandse hits",
+      "bitrate": 128,
+      "city": "Amsterdam",
+      "votes": 4
+    },
+    "Sky Radio Non-Stop": {
+      "name": "Sky Radio Non-Stop",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "Feel good non-stop hits",
+      "bitrate": 128,
+      "city": "Amsterdam",
+      "votes": 3
+    },
+    "Radio Veronica Non-Stop": {
+      "name": "Radio Veronica Non-Stop",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/VERONICA.mp3",
+      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "description": "The best music non-stop",
+      "bitrate": 128,
+      "city": "Amsterdam",
+      "votes": 3
     }
 
   }

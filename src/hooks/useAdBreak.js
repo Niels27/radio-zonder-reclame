@@ -5,7 +5,8 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useAppState, useActions } from '../core/StateManager';
 import { AdBreakController } from '../core/AdBreakController';
 import { getRandomNonstopStation } from '../utils/nonstopUtils';
-import { getNextLofiStream, extractYouTubeVideoId } from '../utils/lofiUtils';
+import { extractYouTubeVideoId } from '../utils/lofiUtils';
+import { extractPlaylistId as extractYouTubePlaylistId } from '../utils/youtubeUtils';
 
 export function useAdBreak(audioManager, interruptionHandler) {
   const state = useAppState();
@@ -82,28 +83,31 @@ export function useAdBreak(audioManager, interruptionHandler) {
           shuffle: state.playlistShuffle
         };
 
-      case 'nonstop':
+      case 'nonstop': {
         const nonstopStation = getRandomNonstopStation();
         if (!nonstopStation) {
           throw new Error('Geen nonstop stations beschikbaar');
         }
         return { station: nonstopStation };
+      }
 
-      case 'lofi':
-        const lofiStream = getNextLofiStream();
-        if (!lofiStream) {
-          throw new Error('Geen lofi streams beschikbaar');
+      case 'youtube': {
+        const ytUrl = state.youtubeUrl;
+        if (!ytUrl) {
+          throw new Error('Geen YouTube URL ingesteld');
         }
-        const videoId = extractYouTubeVideoId(lofiStream.url);
-        if (!videoId) {
-          throw new Error('Ongeldige lofi stream');
+        const videoId = extractYouTubeVideoId(ytUrl);
+        const playlistId = extractYouTubePlaylistId(ytUrl);
+        if (!videoId && !playlistId) {
+          throw new Error('Ongeldige YouTube URL');
         }
-        return { videoId };
+        return { videoId, playlistId };
+      }
 
       default:
         throw new Error(`Onbekende modus: ${state.adBreakMode}`);
     }
-  }, [state.adBreakMode, state.playlistUrl, state.playlistProvider, state.playlistShuffle]);
+  }, [state.adBreakMode, state.playlistUrl, state.playlistProvider, state.playlistShuffle, state.youtubeUrl]);
 
   /**
    * Get label for current mode
@@ -112,7 +116,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
     switch (state.adBreakMode) {
       case 'playlist': return 'afspeellijst';
       case 'nonstop': return 'nonstop radio';
-      case 'lofi': return 'lofi muziek';
+      case 'youtube': return 'YouTube';
       default: return 'onbekend';
     }
   }, [state.adBreakMode]);

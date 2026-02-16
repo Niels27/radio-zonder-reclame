@@ -100,19 +100,27 @@ class AudioManager {
   async play(sourceType, config = {}) {
     console.log(`🎵 AudioManager: Play request - ${sourceType}`, config);
 
-    // STRICT RULE: Wait for any ongoing transition to complete
+    // If already transitioning, force-cancel immediately for same-source switches (e.g. radio→radio)
     if (this.isTransitioning) {
-      console.warn('⚠️ AudioManager: Already transitioning, waiting...');
-      // Wait up to 2 seconds for transition to complete
-      let waitCount = 0;
-      while (this.isTransitioning && waitCount < 20) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        waitCount++;
-      }
-      if (this.isTransitioning) {
-        console.error('❌ AudioManager: Previous transition stuck, forcing stop');
-        await this.stopAll();
+      if (this.currentSource === sourceType || sourceType === 'radio') {
+        console.log(`⚡ AudioManager: Force-cancelling previous ${this.currentSource} transition for new ${sourceType}`);
+        // Stop the current source to cancel its URL attempts
+        if (this.sources[sourceType]) {
+          await this.sources[sourceType].stop();
+        }
         this.isTransitioning = false;
+      } else {
+        console.warn('⚠️ AudioManager: Already transitioning, waiting briefly...');
+        let waitCount = 0;
+        while (this.isTransitioning && waitCount < 10) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          waitCount++;
+        }
+        if (this.isTransitioning) {
+          console.error('❌ AudioManager: Previous transition stuck, forcing stop');
+          await this.stopAll();
+          this.isTransitioning = false;
+        }
       }
     }
 
