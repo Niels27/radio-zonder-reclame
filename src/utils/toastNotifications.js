@@ -14,7 +14,7 @@ class ToastManager {
       this.container.id = 'toast-container';
       this.container.style.cssText = `
         position: fixed;
-        bottom: 80px;
+        bottom: 175px;
         right: 20px;
         z-index: 10001;
         display: flex;

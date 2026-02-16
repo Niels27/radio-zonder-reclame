@@ -1,6 +1,4 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import ReportStationButton from './ReportStationButton';
-
 // components/AudioPlayer.jsx - Enhanced smooth volume control
 const AudioPlayer = ({
   currentStation,
@@ -13,7 +11,6 @@ const AudioPlayer = ({
   currentAdBreakTimeLeft, // ✅ ADD: This prop
   onCancelAdBreakTimer,   // ✅ ADD: This prop
   currentSource,
-  error,
   playlistShuffle,
   onToggleShuffle,
   onNextTrack,
@@ -44,29 +41,6 @@ const AudioPlayer = ({
   const volumeTimeoutRef = useRef(null);
   const volumeSliderRef = useRef(null);
   const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
-
-  // Filter technical errors and show user-friendly messages
-  const getUserFriendlyError = (errorMessage) => {
-    if (!errorMessage) return null;
-
-    // Hide these technical browser errors completely
-    const hiddenErrors = [
-      'Failed to load because no supported source was found',
-      'MEDIA_ELEMENT_ERROR',
-      'MEDIA_ERR_',
-      'NotSupportedError',
-      'AbortError',
-      'NotAllowedError'
-    ];
-
-    // Check if error contains technical jargon we want to hide
-    const shouldHide = hiddenErrors.some(tech => errorMessage.includes(tech));
-    if (shouldHide) {
-      return null; // Don't show error at all - our toast notifications already handled it
-    }
-
-    return errorMessage;
-  };
 
   const formatStationName = () => {
     if (currentSource === 'playlist' && playlistInfo) {
@@ -445,7 +419,7 @@ const AudioPlayer = ({
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                         </svg>
-                        <span>Switch terug naar: {savedStation.name}</span>
+                        <span>Switched terug naar: {savedStation.name}</span>
                       </span>
                     )}
 
@@ -654,26 +628,7 @@ const AudioPlayer = ({
           </div>
         </div>
 
-        {/* Error Message */}
-        {error && getUserFriendlyError(error) && (
-          <div className="mt-3 p-3 bg-red-900/20 border border-red-500/20 rounded-lg text-red-300 text-sm">
-            <div className="flex items-center justify-between">
-              <span>{getUserFriendlyError(error)}</span>
-              {currentStation && currentSource === 'radio' && (
-                <ReportStationButton
-                  currentStation={currentStation}
-                  error={error}
-                  onReported={(result) => {
-                    console.log('Station reported from AudioPlayer:', result);
-                    if (window.addNotification) {
-                      window.addNotification(`Radio ${currentStation.name} gemeld als niet werkend`, 'success', 3000);
-                    }
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        )}
+        {/* Error handled via toast notification in App.jsx */}
       </div>
     </div>
   );

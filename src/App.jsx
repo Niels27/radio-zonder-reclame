@@ -107,14 +107,31 @@ function App() {
     }
   }, []);
 
-  // Clear errors after 5 seconds
+  // Show error as toast notification (Dutch) and clear after 5 seconds
   useEffect(() => {
     if (state.error) {
+      // Filter technical browser errors
+      const technicalErrors = [
+        'Failed to load because no supported source was found',
+        'MEDIA_ELEMENT_ERROR', 'MEDIA_ERR_',
+        'NotSupportedError', 'AbortError', 'NotAllowedError'
+      ];
+      const isTechnical = technicalErrors.some(t => state.error.includes(t));
+
+      if (!isTechnical && window.addNotification) {
+        const stationName = state.currentStation?.name;
+        const dutchMessage = state.error.includes('Failed to start')
+          ? `Radio kon niet worden gestart${stationName ? ': ' + stationName : ''}`
+          : state.error;
+        window.addNotification(dutchMessage, 'error', 4000);
+      }
+
       const timer = setTimeout(() => {
         actions.setError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.error, actions]);
 
   // Scroll detection for visualizer placement
@@ -341,7 +358,6 @@ function App() {
               savedStation={adBreak.savedStation} // ✅ NEW: Pass saved station for "returning to" display
 
               currentSource={state.audioSource}
-              error={state.error}
 
               playlistShuffle={state.playlistShuffle}
               onToggleShuffle={audio.setShuffle}
@@ -384,12 +400,8 @@ function App() {
         {state.isBuffering && state.isPlaying && !state.isLoading && (
           <div className="fixed bottom-20 right-4 bg-gray-800/90 border border-yellow-600/50 rounded-lg px-3 py-2 shadow-lg z-40">
             <div className="flex items-center gap-2">
-              <div className="flex gap-0.5">
-                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-              </div>
-              <span className="text-xs text-yellow-300">Bufferen</span>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-400 border-t-transparent flex-shrink-0"></div>
+              <span className="text-sm text-yellow-300">Bufferen..</span>
             </div>
           </div>
         )}
