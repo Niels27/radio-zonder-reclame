@@ -54,16 +54,15 @@ export class SpotifySource {
         return;
       }
 
+      // Must set callback BEFORE loading the script - the SDK calls it during execution
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log('✅ SpotifyService: SDK loaded');
+        resolve();
+      };
+
       const script = document.createElement('script');
       script.src = 'https://sdk.scdn.co/spotify-player.js';
       script.async = true;
-
-      script.onload = () => {
-        window.onSpotifyWebPlaybackSDKReady = () => {
-          console.log('✅ SpotifyService: SDK loaded');
-          resolve();
-        };
-      };
 
       script.onerror = (error) => {
         console.error('❌ SpotifyService: Failed to load SDK', error);

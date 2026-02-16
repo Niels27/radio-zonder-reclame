@@ -886,7 +886,7 @@ const AdBreakSettings = ({
     {/* Nonstop Mode */}
     <div
       className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${adBreakMode === 'nonstop'
-        ? 'border-green-500 bg-green-600/20 text-green-300'
+        ? 'border-blue-500 bg-blue-600/20 text-blue-300'
         : 'border-gray-600 bg-gray-700 text-gray-300'
         }`}
       onClick={() => onAdBreakModeChange('nonstop')}

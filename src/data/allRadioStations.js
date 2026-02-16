@@ -7888,51 +7888,7 @@ export const allRadioStations = {
       "city": null,
       "votes": 2
     },
-    "SLAM! Non Stop": {
-      "name": "SLAM! Non Stop",
-      "url": "https://stream.slam.nl/slam_nonstop",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Non-stop hits zonder reclame",
-      "bitrate": 128,
-      "city": "Amsterdam",
-      "votes": 5
-    },
-    "Qmusic Non-Stop": {
-      "name": "Qmusic Non-Stop",
-      "url": "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_nonstop.mp3",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Non-stop muziek van Qmusic",
-      "bitrate": 128,
-      "city": "Amsterdam",
-      "votes": 4
-    },
-    "100% NL Non-Stop": {
-      "name": "100% NL Non-Stop",
-      "url": "https://stream.100p.nl/100pctnl_nonstop.mp3",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Non-stop Nederlandse hits",
-      "bitrate": 128,
-      "city": "Amsterdam",
-      "votes": 4
-    },
-    "Sky Radio Non-Stop": {
-      "name": "Sky Radio Non-Stop",
-      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "Feel good non-stop hits",
-      "bitrate": 128,
-      "city": "Amsterdam",
-      "votes": 3
-    },
-    "Radio Veronica Non-Stop": {
-      "name": "Radio Veronica Non-Stop",
-      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/VERONICA.mp3",
-      "logo": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
-      "description": "The best music non-stop",
-      "bitrate": 128,
-      "city": "Amsterdam",
-      "votes": 3
-    }
+
 
   }
 
