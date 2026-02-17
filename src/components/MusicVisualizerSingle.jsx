@@ -1,5 +1,7 @@
 // components/MusicVisualizerSingle.jsx - Single instance music visualizer with DOM movement
 import React, { useEffect, useRef } from 'react';
+import eventBus from '../utils/eventBus';
+import { getAudioManager } from '../core/AudioManager';
 
 // Global singleton audio manager - only one instance across the entire app
 // Handles createMediaElementSource for visualizer, with reconnect support
@@ -10,11 +12,13 @@ const globalAudioManager = {
   frequencyData: null,
   isSetup: false,
   connectedElement: null, // Track which element we're connected to
+  _audioElementChanged: false,
+  _corsEnabled: true,
 
   async setup() {
     // Check if the audio element changed (RadioService swapped it)
-    if (window._radioAudioElementChanged) {
-      window._radioAudioElementChanged = false;
+    if (this._audioElementChanged) {
+      this._audioElementChanged = false;
       // Force reconnect by resetting
       this.isSetup = false;
       this.source = null;
@@ -31,7 +35,7 @@ const globalAudioManager = {
     if (this.isSetup) return true;
 
     // Don't connect if RadioService is in non-CORS mode
-    if (window._radioCorsEnabled === false) {
+    if (this._corsEnabled === false) {
       console.log('🎵 Visualizer: Skipping setup - stream has no CORS support');
       return false;
     }
@@ -40,8 +44,9 @@ const globalAudioManager = {
       // Get audio element from AudioManager
       let targetElement = null;
 
-      if (window.audioManager) {
-        targetElement = window.audioManager.getAudioElement();
+      const audioMgr = getAudioManager();
+      if (audioMgr) {
+        targetElement = audioMgr.getAudioElement();
       }
 
       // Fallback: search DOM for audio elements
@@ -103,8 +108,8 @@ const globalAudioManager = {
 
   getFrequencyData() {
     // If CORS disabled or audio element changed, return null (fake visualizer will kick in)
-    if (window._radioCorsEnabled === false) return null;
-    if (window._radioAudioElementChanged) return null;
+    if (this._corsEnabled === false) return null;
+    if (this._audioElementChanged) return null;
     if (!this.isSetup || !this.analyser || !this.frequencyData) return null;
     this.analyser.getByteFrequencyData(this.frequencyData);
     return this.frequencyData;
@@ -163,9 +168,9 @@ const MusicVisualizerSingle = ({
     if (!isPlaying || !isEnabled) return;
     if (currentSource !== 'radio') return;
 
-    // Check for audio element changes periodically
+    // Check for audio element changes
     const checkAndSetup = async () => {
-      if (window._radioAudioElementChanged || !globalAudioManager.isSetup) {
+      if (globalAudioManager._audioElementChanged || !globalAudioManager.isSetup) {
         setupAttemptedRef.current = false;
       }
 
@@ -183,15 +188,15 @@ const MusicVisualizerSingle = ({
 
     checkAndSetup();
 
-    // Poll for audio element changes (RadioService may swap elements)
-    const pollInterval = setInterval(() => {
-      if (window._radioAudioElementChanged) {
-        setupAttemptedRef.current = false;
-        checkAndSetup();
-      }
-    }, 1000);
+    // Listen for audio element changes from RadioService via event bus
+    const unsub = eventBus.on('audio:elementChanged', ({ corsEnabled }) => {
+      globalAudioManager._audioElementChanged = true;
+      globalAudioManager._corsEnabled = corsEnabled;
+      setupAttemptedRef.current = false;
+      checkAndSetup();
+    });
 
-    return () => clearInterval(pollInterval);
+    return () => unsub();
   }, [isPlaying, isEnabled, currentSource]);
 
   // Animation loop

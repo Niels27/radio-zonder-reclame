@@ -10,6 +10,7 @@ import {
 } from '../utils/youtubePlaylistDefaults.js';
 import { extractPlaylistId } from '../utils/youtubeUtils.js';
 import { extractYouTubeVideoId } from '../utils/lofiUtils.js';
+import { notify } from '../utils/eventBus';
 
 const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
   const [showDiceDropdown, setShowDiceDropdown] = useState(false);
@@ -49,9 +50,7 @@ const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
     const random = getRandomDicePlaylist();
     if (random) {
       onYoutubeUrlChange(random.url);
-      if (window.addNotification) {
-        window.addNotification(`Willekeurig: ${random.name}`, 'info', 2000);
-      }
+      notify(`Willekeurig: ${random.name}`, 'info', 2000);
     }
   };
 
@@ -64,9 +63,7 @@ const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
     if (!youtubeUrl || !isValidUrl(youtubeUrl)) return;
     // Check if already exists
     if (dicePlaylists.some(p => p.url === youtubeUrl)) {
-      if (window.addNotification) {
-        window.addNotification('Deze URL staat al in de lijst', 'warning', 2000);
-      }
+      notify('Deze URL staat al in de lijst', 'warning', 2000);
       return;
     }
     const name = newPlaylistName.trim() || 'Aangepaste playlist';
@@ -75,18 +72,14 @@ const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
     setDicePlaylists(updated);
     setNewPlaylistName('');
     setShowAddForm(false);
-    if (window.addNotification) {
-      window.addNotification(`"${name}" opgeslagen in de lijst`, 'success', 2000);
-    }
+    notify(`"${name}" opgeslagen in de lijst`, 'success', 2000);
   };
 
   const handleResetDefaults = () => {
     const defaults = [...DEFAULT_YOUTUBE_PLAYLISTS];
     saveDicePlaylists(defaults);
     setDicePlaylists(defaults);
-    if (window.addNotification) {
-      window.addNotification('Lijst gereset naar standaard', 'info', 2000);
-    }
+    notify('Lijst gereset naar standaard', 'info', 2000);
   };
 
   const urlDisplayName = getUrlDisplayInfo();
@@ -211,9 +204,9 @@ const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
                       if (youtubeUrl && isValidUrl(youtubeUrl) && !dicePlaylists.some(p => p.url === youtubeUrl)) {
                         setShowAddForm(true);
                       } else if (!youtubeUrl) {
-                        if (window.addNotification) window.addNotification('Voer eerst een URL in', 'warning', 2000);
+                        notify('Voer eerst een URL in', 'warning', 2000);
                       } else if (dicePlaylists.some(p => p.url === youtubeUrl)) {
-                        if (window.addNotification) window.addNotification('Deze URL staat al in de lijst', 'warning', 2000);
+                        notify('Deze URL staat al in de lijst', 'warning', 2000);
                       }
                     }}
                     className="w-full px-2 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 rounded text-xs text-center"

@@ -5,6 +5,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useAppState, useActions } from '../core/StateManager';
 import { getAudioManager } from '../core/AudioManager';
 import { InterruptionHandler } from '../core/InterruptionHandler';
+import { notify } from '../utils/eventBus';
 
 export function useAudio() {
   const state = useAppState();
@@ -19,9 +20,6 @@ export function useAudio() {
     if (!audioManagerRef.current) {
       audioManagerRef.current = getAudioManager();
       interruptionHandlerRef.current = new InterruptionHandler();
-
-      // Expose to window for visualizer
-      window.audioManager = audioManagerRef.current;
 
       // Sync settings from state BEFORE initializing
       if (state.volume !== undefined) {
@@ -62,9 +60,7 @@ export function useAudio() {
       });
 
       audioManagerRef.current.on('onEmergency', (event) => {
-        if (window.addNotification) {
-          window.addNotification('Volume automatisch verlaagd voor veiligheid', 'warning', 3000);
-        }
+        notify('Volume automatisch verlaagd voor veiligheid', 'warning', 3000);
       });
 
       // Set up RadioService callbacks for connection status and buffering

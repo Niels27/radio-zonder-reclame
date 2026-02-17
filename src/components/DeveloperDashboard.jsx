@@ -4,6 +4,7 @@ import { stationReportingService } from '../utils/stationReporting';
 import { getAllRadioStations, getPopularStations } from '../data/allRadioStations';
 import { getIsProduction, restoreConsole, setManualProductionMode } from '../utils/logger';
 import { RadioStreamTester, startRadioStreamTest } from '../utils/radioStreamTester';
+import { notify } from '../utils/eventBus';
 // Community timings removed (ad break timing submissions)
 // Station reports still work via stationReportingService
 
@@ -453,9 +454,7 @@ const DeveloperDashboard = ({ onClose }) => {
                           setTestResults(results);
                         } catch (error) {
                           console.error('Stream test failed:', error);
-                          if (window.addNotification) {
-                            window.addNotification('❌ Stream test failed: ' + error.message, 'error', 5000);
-                          }
+                          notify('❌ Stream test failed: ' + error.message, 'error', 5000);
                         } finally {
                           setIsTestingStreams(false);
                         }
@@ -550,9 +549,7 @@ const DeveloperDashboard = ({ onClose }) => {
                         const previous = RadioStreamTester.loadPreviousResults();
                         if (previous) {
                           setTestResults(previous);
-                          if (window.addNotification) {
-                            window.addNotification('📊 Previous test results loaded', 'info', 2000);
-                          }
+                          notify('📊 Previous test results loaded', 'info', 2000);
                         }
                       }}
                       className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"

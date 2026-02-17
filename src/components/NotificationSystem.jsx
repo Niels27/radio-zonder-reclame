@@ -1,32 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import eventBus from '../utils/eventBus';
 
 const NotificationSystem = () => {
   const [notifications, setNotifications] = useState([]);
 
-  const addNotification = (message, type = 'info', duration = 3000) => {
+  const removeNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const addNotification = useCallback((message, type = 'info', duration = 3000) => {
     const id = Date.now();
     const notification = { id, message, type, duration };
-    
+
     setNotifications(prev => [...prev, notification]);
-    
+
     if (duration > 0) {
       setTimeout(() => {
         removeNotification(id);
       }, duration);
     }
-  };
+  }, [removeNotification]);
 
-  const removeNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+  // Listen for notification events via event bus
+  useEffect(() => {
+    const handler = ({ message, type, duration }) => {
+      addNotification(message, type, duration);
+    };
+    return eventBus.on('notification', handler);
+  }, [addNotification]);
 
-  // Expose addNotification globally for easy access
+  // Keep window.addNotification as a thin shim for backwards compat during migration
   useEffect(() => {
     window.showNotification = addNotification;
+    window.addNotification = addNotification;
     return () => {
       delete window.showNotification;
+      delete window.addNotification;
     };
-  }, []);
+  }, [addNotification]);
 
   const getNotificationIcon = (type) => {
     switch (type) {

@@ -66,6 +66,7 @@ This creates invisible dependencies between components, makes the code harder to
 **fix** Use React Context, custom events, or a simple event bus for the few cases where non-React code needs to communicate with React components.
 **Note** seems like a hard fix, but might be important, try it. if its best to do this first or as very last, ill leave it up to you..if you changes a LOT to do this, u can pause and ask me test, or you can test every file urself to see if functiaonlty remains the same..
 
+**Implemented**: Created `eventBus.js` with pub/sub pattern and helper functions (`notify`, `openYouTubePlayer`, `closeAllYouTubePlayers`, `signalAudioElementChanged`). Replaced all 60+ `window.addNotification` calls with `notify()` across 9 files. Replaced YouTube player globals in AdBreakController. Replaced `window._radioAudioElementChanged`/`window._radioCorsEnabled` polling with event-driven approach in MusicVisualizerSingle. Removed `window.audioManager`, `window.isInNonstopMode`, `window.onPlaylistStopped`, `window.stopAllManualModes`. Replaced `window.spotifySearchTimeout` with useRef. Remaining window globals are SDK-required callbacks (YouTube/Spotify) and debug utilities (intentionally kept for console access).
 
 ### Singleton AudioManager Has Mixed Access Patterns
 AudioManager is accessed three different ways:

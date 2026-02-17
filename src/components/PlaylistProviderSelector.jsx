@@ -8,6 +8,7 @@ import {
   logoutFromSpotify,
   validateSpotifyPlaylist
 } from '../utils/spotifyUtils';
+import { notify } from '../utils/eventBus';
 
 const PlaylistProviderSelector = ({
   playlistUrl,
@@ -27,6 +28,7 @@ const PlaylistProviderSelector = ({
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
 
   const playlistDropdownRef = useRef(null);
+  const searchTimeoutRef = useRef(null);
 
   // Poll for Spotify player ready state
   useEffect(() => {
@@ -90,16 +92,12 @@ const PlaylistProviderSelector = ({
 
       await loadSpotifyPlaylists();
 
-      if (window.addNotification) {
-        window.addNotification('Spotify verbonden! Kies een afspeellijst.', 'success', 3000);
-      }
+      notify('Spotify verbonden! Kies een afspeellijst.', 'success', 3000);
     } catch (error) {
       console.error('Spotify login failed:', error);
       setSpotifyError(error.message);
 
-      if (window.addNotification) {
-        window.addNotification('Spotify login mislukt', 'error', 4000);
-      }
+      notify('Spotify login mislukt', 'error', 4000);
     } finally {
       setIsSpotifyLoginInProgress(false);
     }
@@ -125,8 +123,8 @@ const PlaylistProviderSelector = ({
   const handlePlaylistSearch = (query) => {
     setPlaylistSearchQuery(query);
 
-    clearTimeout(window.spotifySearchTimeout);
-    window.spotifySearchTimeout = setTimeout(() => {
+    clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
       loadSpotifyPlaylists(query);
     }, 300);
   };
@@ -165,9 +163,7 @@ const PlaylistProviderSelector = ({
     onPlaylistUrlChange('');
     onPlaylistInfoChange(null);
 
-    if (window.addNotification) {
-      window.addNotification('Spotify uitgelogd', 'info', 2000);
-    }
+    notify('Spotify uitgelogd', 'info', 2000);
   };
 
   // Filter playlists based on search

@@ -4,6 +4,7 @@
 import { AdSkipUtils } from '../utils/adSkipUtils.js';
 import { getStationDefinition } from '../data/fallbackStations.js';
 import toast from '../utils/toastNotifications.js';
+import { signalAudioElementChanged } from '../utils/eventBus';
 
 // CORS proxies to try when direct URLs fail
 const CORS_PROXIES = [
@@ -341,10 +342,7 @@ export class RadioSource {
   }
 
   _signalVisualizerReconnect() {
-    if (typeof window !== 'undefined') {
-      window._radioAudioElementChanged = true;
-      window._radioCorsEnabled = this.corsEnabled;
-    }
+    signalAudioElementChanged(this.corsEnabled);
   }
 
   _tryUrl(url, station, timeoutMs) {

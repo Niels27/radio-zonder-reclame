@@ -7,6 +7,7 @@ import YouTubeUrlInput from './YouTubeUrlInput';
 import VisualizerSettings from './VisualizerSettings';
 import NonstopSettingsOverlay from './NonstopSettingsOverlay';
 import AdBreakExpandedSettings from './AdBreakExpandedSettings';
+import eventBus, { notify, openYouTubePlayer, closeAllYouTubePlayers, registerStopAllManualModes } from '../utils/eventBus';
 
 const getInitialDaySettings = () => {
   try {
@@ -209,13 +210,11 @@ const AdBreakSettings = ({
       }
     };
 
-    // Set up global callback
-    window.onPlaylistStopped = handlePlaylistStopped;
-    
+    // Listen for playlist stops via event bus
+    const unsub = eventBus.on('playlist:stopped', handlePlaylistStopped);
+
     // Cleanup
-    return () => {
-      window.onPlaylistStopped = null;
-    };
+    return () => unsub();
   }, []);
 
   // Check if any mode is active
@@ -238,7 +237,7 @@ const AdBreakSettings = ({
     console.log('🛑 GOLDEN RULE: Stopping ALL active manual modes');
     
     // ✅ CLEAR nonstop mode flag when stopping all modes
-    window.isInNonstopMode = false;
+    // nonstop mode tracked via nonstopModeState.active
     
     const activeModes = [];
     if (playlistModeState.active) activeModes.push('playlist');
@@ -267,17 +266,10 @@ const AdBreakSettings = ({
     }
     
     console.log('✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule');
-  };  // ✅ EXPOSE GLOBALLY: Make the function available to other components
+  };  // Register stopAllManualModes via event bus
   useEffect(() => {
-    // ✅ INITIALIZE: Ensure nonstop mode flag is properly initialized
-    if (typeof window.isInNonstopMode === 'undefined') {
-      window.isInNonstopMode = false;
-    }
-    
-    window.stopAllManualModes = stopAllManualModes;
-    return () => {
-      delete window.stopAllManualModes;
-    };
+    registerStopAllManualModes(stopAllManualModes);
+    return () => registerStopAllManualModes(null);
   }, [stopAllManualModes, isAdBreakActive, adBreakMode, onStopTimer]);  // ✅ ISOLATED: Manual mode toggle with complete mode isolation
   const handleManualModeToggle = async () => {
     const currentModeState = getModeState(adBreakMode);
@@ -358,19 +350,14 @@ const AdBreakSettings = ({
       });
       setSelectedManualMode(mode);
 
-      if (window.addNotification) {
-        const modeText = getModeDisplayName(mode);
-        window.addNotification(`🎵 ${modeText} Test Gestart`, 'success', 2000);
-      }
+      notify(`🎵 ${getModeDisplayName(mode)} Test Gestart`, 'success', 2000);
     } catch (error) {
       console.error(`Failed to start ${mode} mode:`, error);
       
       // Reset state on error
       setModeState(mode, { active: false, loading: false, startTime: null });
       
-      if (window.addNotification) {
-        window.addNotification(`❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`, 'error', 3000);
-      }
+      notify(`❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`, 'error', 3000);
     }
   };  // ✅ ISOLATED: Stop a specific mode with complete isolation
   const stopSpecificMode = async (mode) => {
@@ -385,7 +372,7 @@ const AdBreakSettings = ({
       console.log(`🛑 Stopping isolated ${mode} mode test`);
         // ✅ CLEAR nonstop mode flag when stopping nonstop mode
       if (mode === 'nonstop') {
-        window.isInNonstopMode = false;
+        // nonstop mode tracked via nonstopModeState.active
         // ✅ NEW: Clear simple state for cycling button
         if (setIsNonstopModeManuallyActive) {
           setIsNonstopModeManuallyActive(false);
@@ -396,9 +383,9 @@ const AdBreakSettings = ({
       }
 
       // Close YouTube players when stopping lofi or playlist mode
-      if ((mode === 'youtube' || mode === 'playlist') && window.closeAllYouTubePlayers) {
+      if (mode === 'youtube' || mode === 'playlist') {
         console.log(`✕ Closing YouTube player for ${mode} mode`);
-        window.closeAllYouTubePlayers();
+        closeAllYouTubePlayers();
       }
 
       // Reset state for this specific mode
@@ -409,9 +396,7 @@ const AdBreakSettings = ({
         setSelectedManualMode(null);
       }
 
-      if (window.addNotification) {
-        window.addNotification(`🛑 ${getModeDisplayName(mode)} Test Gestopt`, 'info', 2000);
-      }
+      notify(`🛑 ${getModeDisplayName(mode)} Test Gestopt`, 'info', 2000);
     } catch (error) {
       console.error(`Failed to stop ${mode} mode:`, error);
       // Force reset state even on error
@@ -421,7 +406,7 @@ const AdBreakSettings = ({
       }
       // ✅ FORCE CLEAR nonstop mode flag even on error
       if (mode === 'nonstop') {
-        window.isInNonstopMode = false;
+        // nonstop mode tracked via nonstopModeState.active
       }
     }
   };// ✅ ISOLATED: Individual mode start functions
@@ -455,7 +440,7 @@ const AdBreakSettings = ({
       console.log(`🎵 Nonstop attempt ${attempt + 1}/${maxRetries}: ${nonstopStation.name}`);
 
       try {
-        window.isInNonstopMode = true;
+        // nonstop mode tracked via nonstopModeState.active
         if (setIsNonstopModeManuallyActive) {
           setIsNonstopModeManuallyActive(true);
         }
@@ -474,7 +459,7 @@ const AdBreakSettings = ({
     }
 
     // All retries exhausted
-    window.isInNonstopMode = false;
+    // nonstop mode tracked via nonstopModeState.active
     if (setIsNonstopModeManuallyActive) {
       setIsNonstopModeManuallyActive(false);
     }
@@ -498,12 +483,8 @@ const AdBreakSettings = ({
       throw new Error('Ongeldige YouTube URL');
     }
 
-    if (!window.openYouTubePlayer) {
-      throw new Error('YouTube speler niet beschikbaar');
-    }
-
     // Open the resizable YouTube player overlay
-    window.openYouTubePlayer({
+    openYouTubePlayer({
       videoId: videoId || undefined,
       playlistId: playlistId || undefined,
       title: 'YouTube',

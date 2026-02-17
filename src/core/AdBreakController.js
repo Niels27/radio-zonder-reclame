@@ -1,6 +1,8 @@
 // core/AdBreakController.js - Simplified ad break management
 // Handles automatic switching to alternative audio during ad breaks
 
+import { notify, openYouTubePlayer, closeAllYouTubePlayers } from '../utils/eventBus';
+
 export class AdBreakController {
   constructor(audioManager, stateActions) {
     this.audioManager = audioManager;
@@ -63,9 +65,7 @@ export class AdBreakController {
         this._cleanup();
 
         // Show user-friendly notification
-        if (window.addNotification) {
-          window.addNotification(`❌ Kon ${mode} niet starten - probeer het opnieuw`, 'error', 4000);
-        }
+        notify(`❌ Kon ${mode} niet starten - probeer het opnieuw`, 'error', 4000);
 
         return false;
       }
@@ -83,9 +83,7 @@ export class AdBreakController {
       this._cleanup();
 
       // Show user-friendly notification
-      if (window.addNotification) {
-        window.addNotification(`❌ Fout bij starten reclamepauze: ${error.message}`, 'error', 4000);
-      }
+      notify(`❌ Fout bij starten reclamepauze: ${error.message}`, 'error', 4000);
 
       return false;
     }
@@ -107,9 +105,7 @@ export class AdBreakController {
       this._cleanup();
 
       // Close any open YouTube overlays
-      if (window.closeAllYouTubePlayers) {
-        window.closeAllYouTubePlayers();
-      }
+      closeAllYouTubePlayers();
 
       // Small delay to let YouTube stop cleanly before starting radio
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -147,9 +143,7 @@ export class AdBreakController {
     this._cleanup();
 
     // Close any open YouTube overlays
-    if (window.closeAllYouTubePlayers) {
-      window.closeAllYouTubePlayers();
-    }
+    closeAllYouTubePlayers();
 
     this.isActive = false;
     this.savedStation = null;
@@ -202,8 +196,8 @@ export class AdBreakController {
     console.log(`🎵 AdBreakController: Starting ${provider} playlist ${playlistId}`);
 
     // Open YouTube overlay for YouTube playlists
-    if (provider === 'youtube' && window.openYouTubePlayer) {
-      window.openYouTubePlayer({
+    if (provider === 'youtube') {
+      openYouTubePlayer({
         playlistId,
         title: 'YouTube Playlist',
         isAutomatic: true,
@@ -247,15 +241,13 @@ export class AdBreakController {
     console.log(`🎵 AdBreakController: Starting YouTube ${playlistId ? 'playlist' : 'video'}`);
 
     // Open YouTube overlay
-    if (window.openYouTubePlayer) {
-      window.openYouTubePlayer({
-        videoId: videoId || undefined,
-        playlistId: playlistId || undefined,
-        title: 'YouTube',
-        isAutomatic: true,
-        autoCloseSeconds: null
-      });
-    }
+    openYouTubePlayer({
+      videoId: videoId || undefined,
+      playlistId: playlistId || undefined,
+      title: 'YouTube',
+      isAutomatic: true,
+      autoCloseSeconds: null
+    });
 
     if (videoId) {
       return await this.audioManager.play('youtube', { video: videoId });

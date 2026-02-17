@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { allRadioStations } from '../data/allRadioStations.js';
 import { refreshNonstopStations } from '../utils/nonstopUtils.js';
+import { notify } from '../utils/eventBus';
 
 const NonstopSettingsOverlay = ({
   isOpen,
@@ -107,9 +108,7 @@ const NonstopSettingsOverlay = ({
         localStorage.setItem('removed_default_stations', JSON.stringify(removedDefaults));
       }
       setCustomNonstopStations([...customNonstopStations]);
-      if (window.addNotification) {
-        window.addNotification(`Standaard station weggehaald: ${stationName}`, 'info', 3000);
-      }
+      notify(`Standaard station weggehaald: ${stationName}`, 'info', 3000);
     } else {
       if (totalStations <= 1) {
         setNonstopRemovalError('Er moet minstens 1 radio zijn ingesteld');
@@ -117,9 +116,7 @@ const NonstopSettingsOverlay = ({
         return;
       }
       setCustomNonstopStations(customNonstopStations.filter(name => name !== stationName));
-      if (window.addNotification) {
-        window.addNotification(`Custom station verwijderd: ${stationName}`, 'info', 3000);
-      }
+      notify(`Custom station verwijderd: ${stationName}`, 'info', 3000);
     }
     setNonstopRemovalError('');
   };
@@ -127,9 +124,7 @@ const NonstopSettingsOverlay = ({
   const testStation = (station) => {
     if (audioPlayer && audioPlayer.playRadio) {
       audioPlayer.playRadio(station);
-      if (window.addNotification) {
-        window.addNotification(`Test: ${station.name}`, 'info', 3000);
-      }
+      notify(`Test: ${station.name}`, 'info', 3000);
     }
   };
 

@@ -1,5 +1,7 @@
 // src/utils/spotifyUtils.js - Spotify Web API integration utilities
 
+import { notify } from './eventBus';
+
 // Spotify API Configuration
 const getRedirectUri = () => {
   // Ensure consistent redirect URI format
@@ -495,9 +497,7 @@ export const initializeSpotifyPlayer = () => {
       console.log('🎵 Spotify initialization timeout (30s)');
       console.warn('🎵 ⚠️ Spotify initialization taking longer than expected, but continuing to wait...');
       
-      if (window.addNotification) {
-        window.addNotification('Spotify laadt langzaam - even geduld...', 'warning', 5000);
-      }
+      notify('Spotify laadt langzaam - even geduld...', 'warning', 5000);
       
       setTimeout(() => {
         console.error('🎵 ❌ Final Spotify timeout (60s total)');
@@ -689,9 +689,7 @@ const createSpotifyPlayer = (resolve, reject) => {
     console.error('Spotify playback error:', message);
     // Only show critical playback errors to user
     if (message && !message.includes('CloudPlayback')) {
-      if (window.addNotification) {
-        window.addNotification('Spotify afspeelfout: ' + message, 'error', 5000);
-      }
+      notify('Spotify afspeelfout: ' + message, 'error', 5000);
     }
   });
   

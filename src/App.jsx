@@ -7,6 +7,7 @@ import AudioPlayer from './components/AudioPlayer';
 import AdBreakSettings from './components/AdBreakSettings';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationSystem from './components/NotificationSystem';
+import eventBus, { notify } from './utils/eventBus';
 
 // Lazy-loaded components (not needed on initial render)
 const ResizableYouTubePlayer = lazy(() => import('./components/overlays/ResizableYouTubePlayer'));
@@ -43,10 +44,7 @@ function App() {
     // User manually selected station - this interrupts any automated action
     audio.playRadio(station);
 
-    // Show notification
-    if (window.addNotification) {
-      window.addNotification(`Nu aan het spelen: ${station.name}`, 'success', 2000);
-    }
+    notify(`Nu aan het spelen: ${station.name}`, 'success', 2000);
   };
 
   /**
@@ -119,12 +117,12 @@ function App() {
       ];
       const isTechnical = technicalErrors.some(t => state.error.includes(t));
 
-      if (!isTechnical && window.addNotification) {
+      if (!isTechnical) {
         const stationName = state.currentStation?.name;
         const dutchMessage = state.error.includes('Failed to start')
           ? `Radio kon niet worden gestart${stationName ? ': ' + stationName : ''}`
           : state.error;
-        window.addNotification(dutchMessage, 'error', 4000);
+        notify(dutchMessage, 'error', 4000);
       }
 
       const timer = setTimeout(() => {
@@ -164,35 +162,29 @@ function App() {
     document.documentElement.style.setProperty('--visualizer-blur', `${state.visualizerBlur}px`);
   }, [state.visualizerBlur]);
 
-  // Expose global functions for backward compatibility
+  // Event bus subscriptions for YouTube player
   useEffect(() => {
+    const unsubOpen = eventBus.on('youtube:open', openYouTubePlayer);
+    const unsubClose = eventBus.on('youtube:close', closeAllYouTubePlayers);
+    return () => { unsubOpen(); unsubClose(); };
+  }, [openYouTubePlayer, closeAllYouTubePlayers]);
+
+  // Expose remaining globals that can't easily be replaced yet
+  useEffect(() => {
+    // Keep window globals as shims for code that still uses them
     window.openYouTubePlayer = openYouTubePlayer;
     window.closeAllYouTubePlayers = closeAllYouTubePlayers;
-    window.addNotification = (message, type, duration) => {
-      if (window.showNotification) {
-        window.showNotification(message, type, duration);
-      }
-    };
 
-    // ✅ NEW: Expose audio manager and Spotify ready status
+    // Spotify ready status
     if (!window.audioPlayer) {
       window.audioPlayer = {};
     }
-    // Use defineProperty so polling always gets the live value
     Object.defineProperty(window.audioPlayer, 'spotifyPlayerReady', {
       get: () => audio.isSpotifyReady(),
-      set: () => {}, // Allow manual sets without error
+      set: () => {},
       configurable: true
     });
 
-    // ✅ Expose Firebase utilities for testing
-    import('./utils/firebase.js').then(({ setFirebaseDemoMode, getFirebaseDemoMode, stationReportsAPI }) => {
-      window.setFirebaseDemoMode = setFirebaseDemoMode;
-      window.getFirebaseDemoMode = getFirebaseDemoMode;
-      window.stationReportsAPI = stationReportsAPI;
-    });
-
-    // ✅ NEW: Expose manual Spotify initialization
     window.audioPlayer.manualInitializeSpotifyPlayer = async () => {
       if (audio.audioManager) {
         const spotifySource = audio.audioManager.getSpotifySource();
@@ -200,7 +192,6 @@ function App() {
           try {
             await spotifySource.initialize();
             console.log('✅ Manual Spotify initialization successful');
-            // Notify components that Spotify is ready
             window.dispatchEvent(new CustomEvent('spotifyPlayerReady', {
               detail: { ready: true, manual: true }
             }));
@@ -246,9 +237,7 @@ function App() {
             onClick={(e) => {
               if (e.detail === 3 && localStorage.getItem('dev_mode') === 'true') {
                 actions.toggleDeveloperDashboard(true);
-                if (window.addNotification) {
-                  window.addNotification('Developer Dashboard geopend', 'success', 2000);
-                }
+                notify('Developer Dashboard geopend', 'success', 2000);
               }
             }}
           />
