@@ -241,13 +241,10 @@ function App() {
           <div
             className="absolute top-5 right-10 w-5 h-5 cursor-pointer z-10"
             onClick={(e) => {
-              if (e.detail === 3) {
-                const password = prompt('Enter developer password:');
-                if (password === 'xd') {
-                  actions.toggleDeveloperDashboard(true);
-                  if (window.addNotification) {
-                    window.addNotification('🛠️ Developer Dashboard geopend', 'success', 2000);
-                  }
+              if (e.detail === 3 && localStorage.getItem('dev_mode') === 'true') {
+                actions.toggleDeveloperDashboard(true);
+                if (window.addNotification) {
+                  window.addNotification('Developer Dashboard geopend', 'success', 2000);
                 }
               }
             }}

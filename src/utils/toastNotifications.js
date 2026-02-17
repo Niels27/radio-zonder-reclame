@@ -61,24 +61,21 @@ class ToastManager {
 
     const color = colors[type] || colors.info;
 
-    toast.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <div style="
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: ${color};
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          font-weight: bold;
-          flex-shrink: 0;
-        ">${icon}</div>
-        <div style="flex: 1; font-size: 14px; font-weight: 500;">${message}</div>
-      </div>
-    `;
+    // Build toast content safely using DOM APIs (no innerHTML to prevent XSS)
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+
+    const iconEl = document.createElement('div');
+    iconEl.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: ${color}; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; flex-shrink: 0;`;
+    iconEl.textContent = icon;
+
+    const msgEl = document.createElement('div');
+    msgEl.style.cssText = 'flex: 1; font-size: 14px; font-weight: 500;';
+    msgEl.textContent = message;
+
+    row.appendChild(iconEl);
+    row.appendChild(msgEl);
+    toast.appendChild(row);
 
     toast.style.cssText = `
       background: #1f2937;

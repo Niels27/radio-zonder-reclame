@@ -150,9 +150,15 @@ class StationReportingService {
 
   // Set override for a station (developer function)
   setStationOverride(stationName, overrideData) {
+    // Validate URL to prevent javascript: or data: injection
+    if (overrideData.url && !/^https?:\/\//i.test(overrideData.url)) {
+      console.warn('Rejected override URL - must start with http:// or https://', overrideData.url);
+      return false;
+    }
+
     const overrides = this.getOverrides();
     const timestamp = new Date().toISOString();
-    
+
     overrides[stationName] = {
       ...overrideData,
       updatedAt: timestamp,
