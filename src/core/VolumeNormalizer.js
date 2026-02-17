@@ -70,35 +70,45 @@ export class VolumeNormalizer {
   }
 
   /**
-   * Start monitoring audio levels
+   * Start monitoring audio levels (stores callback for use when playing)
    */
   startMonitoring(onEmergency) {
-    if (this.isMonitoring) return;
-
     this.emergencyCallback = onEmergency;
-    this.isMonitoring = true;
-
-    // Monitor every 100ms
-    this.monitoringInterval = setInterval(() => {
-      this._checkAudioLevels();
-    }, 100);
-
-    console.log('🎚️ VolumeNormalizer: Monitoring started');
+    // Don't start interval yet - wait until audio is actually playing
+    console.log('🎚️ VolumeNormalizer: Ready to monitor (starts on play)');
   }
 
   /**
-   * Stop monitoring audio levels
+   * Resume active monitoring (call when audio starts playing)
    */
-  stopMonitoring() {
+  resumeMonitoring() {
+    if (this.isMonitoring) return;
+    this.isMonitoring = true;
+
+    this.monitoringInterval = setInterval(() => {
+      this._checkAudioLevels();
+    }, 250);
+  }
+
+  /**
+   * Pause monitoring (call when audio stops/pauses)
+   */
+  pauseMonitoring() {
     if (!this.isMonitoring) return;
 
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
     }
-
     this.isMonitoring = false;
-    console.log('🎚️ VolumeNormalizer: Monitoring stopped');
+  }
+
+  /**
+   * Stop monitoring completely
+   */
+  stopMonitoring() {
+    this.pauseMonitoring();
+    this.emergencyCallback = null;
   }
 
   /**

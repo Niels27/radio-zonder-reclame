@@ -237,24 +237,27 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
     };
   }, []);
 
-  // Combine all stations from allStations
-  const allStations = useMemo(() => {
-    const stations = [];
-    
-    // Add popular stations first
-    const popularStations = getPopularStations();
-    stations.push(...popularStations.map(station => ({
+  // Popular stations - always available (cheap, ~22 stations)
+  const popularStations = useMemo(() => {
+    return getPopularStations().map(station => ({
       ...station,
       category: 'popular',
       isDefault: true
-    })));
-    
-    // Add other categories from allStations
+    }));
+  }, []);
+
+  // Full station list - only computed when needed (search or non-popular tab)
+  const needsFullList = selectedCategory !== 'popular' || searchQuery;
+  const allStations = useMemo(() => {
+    if (!needsFullList) return popularStations;
+
+    const stations = [...popularStations];
+    const popularNames = new Set(popularStations.map(s => s.name));
+
     Object.entries(allRadioStations).forEach(([category, categoryStations]) => {
       if (category !== 'popular') {
         Object.values(categoryStations).forEach(station => {
-          // Only add if not already in popular stations
-          if (!popularStations.find(p => p.name === station.name)) {
+          if (!popularNames.has(station.name)) {
             stations.push({
               ...station,
               category,
@@ -264,9 +267,9 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
         });
       }
     });
-    
+
     return stations;
-  }, []);
+  }, [needsFullList, popularStations]);
 
   // Filter stations based on search and category
   const filteredStations = useMemo(() => {

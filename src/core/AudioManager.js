@@ -412,6 +412,14 @@ class AudioManager {
 
   _setState(newState) {
     this.state = newState;
+
+    // Resume/pause volume monitoring based on playback state
+    if (newState === 'playing') {
+      this.volumeNormalizer.resumeMonitoring();
+    } else if (newState === 'idle' || newState === 'paused') {
+      this.volumeNormalizer.pauseMonitoring();
+    }
+
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(newState);
     }

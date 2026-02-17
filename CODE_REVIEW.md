@@ -96,15 +96,21 @@ AudioManager is accessed three different ways:
 
 **Fix**: Only monitor when audio is actively playing. Stop monitoring on pause/stop. Could also reduce frequency to 250-500ms.
 
+**Implemented**: Split startMonitoring into resumeMonitoring/pauseMonitoring. AudioManager now auto-resumes on play and pauses on idle/paused. Interval increased from 100ms to 250ms.
+
 ### 806 Stations Loaded Upfront
 `allRadioStations.js` loads all 806 stations into memory at import time. The data file is large. Most users only interact with the ~22 popular stations.
 
 **Fix**: make this a bit smarter and efficient somehow, maybe only on opening ALle stations? we already default to Populair like u said. but also when using search of course.
 
+**Implemented**: RadioGrid now only computes the popular stations list (~22) on initial render. The full 806-station list is only built when the user switches to a non-popular tab or uses search.
+
 ### No Code Splitting or Lazy Loading
 All components are eagerly imported in App.jsx, including DeveloperDashboard (which 99% of users never see), ResizableYouTubePlayer (only needed during YouTube ad breaks), and MusicVisualizerSingle.
 
 **Fix**: Use `React.lazy()` for DeveloperDashboard, ResizableYouTubePlayer, and MusicVisualizerSingle.
+
+**Implemented**: Converted DeveloperDashboard, ResizableYouTubePlayer, and MusicVisualizerSingle to React.lazy() with Suspense wrappers in App.jsx. These chunks only load when the components are actually needed.
 
 ---
 

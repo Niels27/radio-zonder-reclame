@@ -1,16 +1,17 @@
 // App.jsx - Main application component (REWRITTEN with new architecture)
 // Orchestrates the application using new StateManager and hooks
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import RadioGrid from './components/RadioGrid';
 import AudioPlayer from './components/AudioPlayer';
 import AdBreakSettings from './components/AdBreakSettings';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationSystem from './components/NotificationSystem';
-import ResizableYouTubePlayer from './components/overlays/ResizableYouTubePlayer';
-import DeveloperDashboard from './components/DeveloperDashboard';
-import MusicVisualizerSingle from './components/MusicVisualizerSingle';
-import LoadingIndicator from './components/LoadingIndicator';
+
+// Lazy-loaded components (not needed on initial render)
+const ResizableYouTubePlayer = lazy(() => import('./components/overlays/ResizableYouTubePlayer'));
+const DeveloperDashboard = lazy(() => import('./components/DeveloperDashboard'));
+const MusicVisualizerSingle = lazy(() => import('./components/MusicVisualizerSingle'));
 
 import { useAppState, useActions } from './core/StateManager';
 import { useAudio } from './hooks/useAudio';
@@ -228,13 +229,15 @@ function App() {
 
           {/* Music Visualizer in Header */}
           {state.showVisualizer && state.visualizerType !== 'none' && visualizerPosition === 'header' && (
-            <MusicVisualizerSingle
-              isPlaying={state.isPlaying}
-              isEnabled={state.showVisualizer}
-              visualizerType={state.visualizerType}
-              position="header"
-              currentSource={state.audioSource}
-            />
+            <Suspense fallback={null}>
+              <MusicVisualizerSingle
+                isPlaying={state.isPlaying}
+                isEnabled={state.showVisualizer}
+                visualizerType={state.visualizerType}
+                position="header"
+                currentSource={state.audioSource}
+              />
+            </Suspense>
           )}
 
           {/* Hidden Developer Access - Triple click */}
@@ -338,13 +341,15 @@ function App() {
           {/* Music Visualizer in Footer */}
           {state.showVisualizer && state.visualizerType !== 'none' && visualizerPosition === 'footer' && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-              <MusicVisualizerSingle
-                isPlaying={state.isPlaying}
-                isEnabled={state.showVisualizer}
-                visualizerType={state.visualizerType}
-                position="footer"
-                currentSource={state.audioSource}
-              />
+              <Suspense fallback={null}>
+                <MusicVisualizerSingle
+                  isPlaying={state.isPlaying}
+                  isEnabled={state.showVisualizer}
+                  visualizerType={state.visualizerType}
+                  position="footer"
+                  currentSource={state.audioSource}
+                />
+              </Suspense>
             </div>
           )}
 
@@ -414,24 +419,30 @@ function App() {
 
         {/* Developer Dashboard */}
         {state.showDeveloperDashboard && (
-          <DeveloperDashboard onClose={() => actions.toggleDeveloperDashboard(false)} />
+          <Suspense fallback={null}>
+            <DeveloperDashboard onClose={() => actions.toggleDeveloperDashboard(false)} />
+          </Suspense>
         )}
 
         {/* YouTube Players (can have multiple) */}
-        {youtubePlayers.map(player => (
-          <ResizableYouTubePlayer
-            key={player.id}
-            isVisible={true}
-            playlistId={player.playlistId}
-            videoId={player.videoId}
-            title={player.title}
-            volume={player.volume}
-            onVolumeChange={(vol) => handleYouTubeVolumeChange(player.id, vol)}
-            onClose={() => closeYouTubePlayer(player.id)}
-            isAutomatic={player.isAutomatic}
-            autoCloseSeconds={player.autoCloseSeconds}
-          />
-        ))}
+        {youtubePlayers.length > 0 && (
+          <Suspense fallback={null}>
+            {youtubePlayers.map(player => (
+              <ResizableYouTubePlayer
+                key={player.id}
+                isVisible={true}
+                playlistId={player.playlistId}
+                videoId={player.videoId}
+                title={player.title}
+                volume={player.volume}
+                onVolumeChange={(vol) => handleYouTubeVolumeChange(player.id, vol)}
+                onClose={() => closeYouTubePlayer(player.id)}
+                isAutomatic={player.isAutomatic}
+                autoCloseSeconds={player.autoCloseSeconds}
+              />
+            ))}
+          </Suspense>
+        )}
       </div>
     </ErrorBoundary>
   );
