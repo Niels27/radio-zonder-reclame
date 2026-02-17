@@ -156,6 +156,8 @@ Most user-facing text is Dutch, but some English leaks through:
 - `AdBreakSettings.jsx` - handles too many concerns (timing, mode selection, playlist config, YouTube config, visualizer settings, nonstop management)
 **Fix** split this into 2 or 3 files at most, and/or move parts to other files where it belongs more. make sure functionaltiy remains intact!
 
+**Implemented**: Extracted two new components: NonstopSettingsOverlay.jsx (nonstop station management modal) and AdBreakExpandedSettings.jsx (expandable settings panel with timing, toggles, day/time config). Removed dead music detection code (getStatusDisplay, detection state). AdBreakSettings.jsx now ~840→~830 lines focused on mode selection, manual mode control, and timer logic.
+
 ### Redundant localStorage Persistence
 Ad break minute/duration settings are persisted in TWO places:
 1. `StateManager.jsx:313-327` - useEffect watchers for adBreakMinute, adBreakMinute2, etc.
