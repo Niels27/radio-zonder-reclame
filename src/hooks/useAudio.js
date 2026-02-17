@@ -58,12 +58,12 @@ export function useAudio() {
       });
 
       audioManagerRef.current.on('onError', (error) => {
-        actions.setError(error.message || 'Audio playback error');
+        actions.setError(error.message || 'Audio afspeelfout');
       });
 
       audioManagerRef.current.on('onEmergency', (event) => {
         if (window.addNotification) {
-          window.addNotification('🚨 Volume automatically reduced for safety', 'warning', 3000);
+          window.addNotification('Volume automatisch verlaagd voor veiligheid', 'warning', 3000);
         }
       });
 

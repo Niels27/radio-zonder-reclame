@@ -35,6 +35,8 @@ The app writes to ~20+ localStorage keys including cached URLs, station reports,
 
 **Fix**: Add a try/catch wrapper around all localStorage writes (some already have this, many don't). Consider purging old data periodically.
 
+**Implemented**: Added `safePersist()` helper in StateManager.jsx that wraps all 13 localStorage writes with try/catch for QuotaExceededError handling.
+
 ### LOW - CORS Proxy Sends User Requests Through Third Parties
 `RadioService.js:10` routes failed streams through `corsproxy.io` and `api.allorigins.win`. These third-party services can see which radio streams users are requesting and could inject content.
 
@@ -140,6 +142,8 @@ Most user-facing text is Dutch, but some English leaks through:
 
 **Fix**: Audit all `window.addNotification()` and `toast.*()` calls for English text.
 
+**Implemented**: Translated English notifications to Dutch in useAudio.js (emergency volume, playback error) and spotifyUtils.js (slow loading, playback error). DeveloperDashboard strings left English (dev-only).
+
 ### Large Components
 - `AdBreakSettings.jsx` - handles too many concerns (timing, mode selection, playlist config, YouTube config, visualizer settings, nonstop management)
 **Fix** split this into 2 or 3 files at most, and/or move parts to other files where it belongs more. make sure functionaltiy remains intact!
@@ -152,6 +156,8 @@ Ad break minute/duration settings are persisted in TWO places:
 Both write to the same localStorage keys. This is harmless but wasteful and confusing.
 
 **Fix**: Remove the persistence from `useAdBreak.js` since `StateManager.jsx` already handles it.
+
+**Implemented**: Removed 4 redundant localStorage useEffects from useAdBreak.js (lines 346-361). StateManager handles all persistence.
 
 ---
 

@@ -3,6 +3,15 @@
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 
+// Safe localStorage write - handles QuotaExceededError gracefully
+const safePersist = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn(`localStorage write failed for "${key}":`, e.name);
+  }
+};
+
 // Initial state shape
 const initialState = {
   // Audio state
@@ -273,58 +282,19 @@ export function StateProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, loadedState);
 
   // Persist important state to localStorage
-  useEffect(() => {
-    localStorage.setItem('volume', state.volume.toString());
-  }, [state.volume]);
-
-  useEffect(() => {
-    localStorage.setItem('visualizer_enabled', JSON.stringify(state.showVisualizer));
-  }, [state.showVisualizer]);
-
-  useEffect(() => {
-    localStorage.setItem('visualizer_type', state.visualizerType);
-  }, [state.visualizerType]);
-
-  useEffect(() => {
-    localStorage.setItem('visualizer_blur', state.visualizerBlur.toString());
-  }, [state.visualizerBlur]);
-
-  useEffect(() => {
-    localStorage.setItem('fade_audio_streams', JSON.stringify(state.fadeAudioStreams));
-  }, [state.fadeAudioStreams]);
-
-  useEffect(() => {
-    localStorage.setItem('use_community_timings', JSON.stringify(state.useCommunityTimings));
-  }, [state.useCommunityTimings]);
-
-  useEffect(() => {
-    localStorage.setItem('playlist_provider', state.playlistProvider);
-  }, [state.playlistProvider]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_mode', state.adBreakMode);
-  }, [state.adBreakMode]);
-
-  useEffect(() => {
-    localStorage.setItem('youtube_url', state.youtubeUrl);
-  }, [state.youtubeUrl]);
-
-  // Save ad break settings
-  useEffect(() => {
-    localStorage.setItem('adbreak_minute', state.adBreakMinute.toString());
-  }, [state.adBreakMinute]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_minute2', state.adBreakMinute2.toString());
-  }, [state.adBreakMinute2]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_duration', state.adBreakDuration.toString());
-  }, [state.adBreakDuration]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_duration2', state.adBreakDuration2.toString());
-  }, [state.adBreakDuration2]);
+  useEffect(() => { safePersist('volume', state.volume.toString()); }, [state.volume]);
+  useEffect(() => { safePersist('visualizer_enabled', JSON.stringify(state.showVisualizer)); }, [state.showVisualizer]);
+  useEffect(() => { safePersist('visualizer_type', state.visualizerType); }, [state.visualizerType]);
+  useEffect(() => { safePersist('visualizer_blur', state.visualizerBlur.toString()); }, [state.visualizerBlur]);
+  useEffect(() => { safePersist('fade_audio_streams', JSON.stringify(state.fadeAudioStreams)); }, [state.fadeAudioStreams]);
+  useEffect(() => { safePersist('use_community_timings', JSON.stringify(state.useCommunityTimings)); }, [state.useCommunityTimings]);
+  useEffect(() => { safePersist('playlist_provider', state.playlistProvider); }, [state.playlistProvider]);
+  useEffect(() => { safePersist('adbreak_mode', state.adBreakMode); }, [state.adBreakMode]);
+  useEffect(() => { safePersist('youtube_url', state.youtubeUrl); }, [state.youtubeUrl]);
+  useEffect(() => { safePersist('adbreak_minute', state.adBreakMinute.toString()); }, [state.adBreakMinute]);
+  useEffect(() => { safePersist('adbreak_minute2', state.adBreakMinute2.toString()); }, [state.adBreakMinute2]);
+  useEffect(() => { safePersist('adbreak_duration', state.adBreakDuration.toString()); }, [state.adBreakDuration]);
+  useEffect(() => { safePersist('adbreak_duration2', state.adBreakDuration2.toString()); }, [state.adBreakDuration2]);
 
   return (
     <StateContext.Provider value={state}>

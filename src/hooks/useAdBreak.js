@@ -343,23 +343,6 @@ export function useAdBreak(audioManager, interruptionHandler) {
     };
   }, []);
 
-  // Save ad break settings to localStorage
-  useEffect(() => {
-    localStorage.setItem('adbreak_minute', state.adBreakMinute.toString());
-  }, [state.adBreakMinute]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_minute2', state.adBreakMinute2.toString());
-  }, [state.adBreakMinute2]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_duration', state.adBreakDuration.toString());
-  }, [state.adBreakDuration]);
-
-  useEffect(() => {
-    localStorage.setItem('adbreak_duration2', state.adBreakDuration2.toString());
-  }, [state.adBreakDuration2]);
-
   /**
    * Get saved station (the radio station we'll return to after ad break)
    */

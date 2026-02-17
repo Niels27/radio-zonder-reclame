@@ -496,7 +496,7 @@ export const initializeSpotifyPlayer = () => {
       console.warn('🎵 ⚠️ Spotify initialization taking longer than expected, but continuing to wait...');
       
       if (window.addNotification) {
-        window.addNotification('🎵 ⚠️ Spotify loading slowly - please wait...', 'warning', 5000);
+        window.addNotification('Spotify laadt langzaam - even geduld...', 'warning', 5000);
       }
       
       setTimeout(() => {
@@ -690,7 +690,7 @@ const createSpotifyPlayer = (resolve, reject) => {
     // Only show critical playback errors to user
     if (message && !message.includes('CloudPlayback')) {
       if (window.addNotification) {
-        window.addNotification('Spotify playback error: ' + message, 'error', 5000);
+        window.addNotification('Spotify afspeelfout: ' + message, 'error', 5000);
       }
     }
   });
