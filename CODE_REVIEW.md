@@ -134,6 +134,8 @@ Examples:
 **Fix**: Define a clear error handling pattern: (1) operational errors go to toast notifications, (2) always log to console, (3) never swallow errors silently without at least a console.warn.
 Imporve the error handeling and logging but make sure it does not spam too hard for no good reason..
 
+**Implemented**: Replaced empty `catch {}` blocks in RadioService.js (stop, pause) with `console.warn` logging. All catch blocks now at minimum log to console without spamming user-facing notifications.
+
 ### Mixed Language in User-Facing Code
 Most user-facing text is Dutch, but some English leaks through:
 - Emergency volume notification in useAudio.js:67: "Volume automatically reduced for safety"

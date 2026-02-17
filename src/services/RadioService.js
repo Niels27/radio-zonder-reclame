@@ -412,7 +412,9 @@ export class RadioSource {
     if (!this.audio) return;
     try {
       this.audio.pause();
-    } catch {}
+    } catch (error) {
+      console.warn('RadioService: pause() error:', error.message);
+    }
   }
 
   async resume() {
@@ -433,7 +435,9 @@ export class RadioSource {
       this.currentStation = null;
       this._emitStatus(null);
       this._emitBuffering(false);
-    } catch {}
+    } catch (error) {
+      console.warn('RadioService: stop() cleanup error:', error.message);
+    }
   }
 
   setVolume(volume) {
