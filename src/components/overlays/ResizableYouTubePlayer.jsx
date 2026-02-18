@@ -28,8 +28,8 @@ const ResizableYouTubePlayer = ({
   // YouTube fallback methods
   const [showSettings, setShowSettings] = useState(false);
   const [currentMethod, setCurrentMethod] = useState(() => {
-    // Default to youtube_music (index 3) instead of full_player (index 0)
-    return parseInt(localStorage.getItem('youtube_embed_method') || '3');
+    // Default to full_player (index 0) = Standaard
+    return parseInt(localStorage.getItem('youtube_embed_method') || '0');
   });
 
   const playerRef = useRef(null);

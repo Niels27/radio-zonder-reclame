@@ -84,6 +84,20 @@ function App() {
   }, []);
 
   /**
+   * Update all open YouTube players with new video/playlist
+   */
+  const updateYouTubePlayers = useCallback((config) => {
+    setYoutubePlayers(prev => {
+      if (prev.length === 0) return prev;
+      return prev.map(p => ({
+        ...p,
+        videoId: config.videoId ?? p.videoId,
+        playlistId: config.playlistId ?? p.playlistId,
+      }));
+    });
+  }, []);
+
+  /**
    * Handle YouTube volume change
    */
   const handleYouTubeVolumeChange = (playerId, volume) => {
@@ -166,8 +180,9 @@ function App() {
   useEffect(() => {
     const unsubOpen = eventBus.on('youtube:open', openYouTubePlayer);
     const unsubClose = eventBus.on('youtube:close', closeAllYouTubePlayers);
-    return () => { unsubOpen(); unsubClose(); };
-  }, [openYouTubePlayer, closeAllYouTubePlayers]);
+    const unsubUpdate = eventBus.on('youtube:update', updateYouTubePlayers);
+    return () => { unsubOpen(); unsubClose(); unsubUpdate(); };
+  }, [openYouTubePlayer, closeAllYouTubePlayers, updateYouTubePlayers]);
 
   // Expose remaining globals that can't easily be replaced yet
   useEffect(() => {

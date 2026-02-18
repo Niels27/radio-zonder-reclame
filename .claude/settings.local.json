@@ -15,7 +15,9 @@
       "Bash(npx vite build:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git status:*)",
+      "Bash(git push:*)"
     ]
   }
 }

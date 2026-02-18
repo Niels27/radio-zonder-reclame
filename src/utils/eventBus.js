@@ -42,6 +42,10 @@ export const closeAllYouTubePlayers = () => {
   eventBus.emit('youtube:close');
 };
 
+export const updateYouTubePlayers = (config) => {
+  eventBus.emit('youtube:update', config);
+};
+
 // --- Audio element signal helpers ---
 export const signalAudioElementChanged = (corsEnabled) => {
   eventBus.emit('audio:elementChanged', { corsEnabled });

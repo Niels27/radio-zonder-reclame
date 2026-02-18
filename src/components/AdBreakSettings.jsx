@@ -110,6 +110,29 @@ const AdBreakSettings = ({
     }
   }, [autoSkipPreroll]);
 
+  // Update open YouTube player when URL changes - close and reopen with new URL
+  useEffect(() => {
+    if (!youtubeUrl || !getModeState("youtube").active) return;
+    import("../utils/lofiUtils.js").then(({ extractYouTubeVideoId }) => {
+      import("../utils/youtubeUtils.js").then(({ extractPlaylistId }) => {
+        const videoId = extractYouTubeVideoId(youtubeUrl);
+        const playlistId = extractPlaylistId(youtubeUrl);
+        if (videoId || playlistId) {
+          closeAllYouTubePlayers();
+          setTimeout(() => {
+            openYouTubePlayer({
+              videoId: videoId || undefined,
+              playlistId: playlistId || undefined,
+              title: "YouTube",
+              isAutomatic: false,
+              autoCloseSeconds: null,
+            });
+          }, 100);
+        }
+      });
+    });
+  }, [youtubeUrl]);
+
   // ✅ ISOLATED: Separate state for each manual mode to prevent race conditions
   const [playlistModeState, setPlaylistModeState] = useState({
     active: false,
@@ -676,7 +699,7 @@ const AdBreakSettings = ({
                     <button
                       onClick={handleManualModeToggle}
                       disabled={!isModeValid() || isAnyModeLoading() || isTimerRunning || isTimerStarting}
-                      className={`mt-6 px-3 py-[9px] rounded-lg font-medium transition-colors text-sm whitespace-nowrap flex-shrink-0 ${
+                      className={`mt-7 px-3 py-[9px] rounded-lg font-medium transition-colors text-sm whitespace-nowrap flex-shrink-0 ${
                         getModeState("playlist").loading
                           ? "bg-yellow-600 text-white cursor-wait"
                           : getModeState("playlist").active
