@@ -13,7 +13,6 @@ export class LogoFallback {
       
       // Favicon from the radio's domain
       domain ? `https://${domain}/favicon.ico` : null,
-      domain ? `http://${domain}/favicon.ico` : null,
       
       // Common logo paths
       domain ? `https://${domain}/logo.png` : null,

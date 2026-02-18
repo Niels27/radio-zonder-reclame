@@ -21,9 +21,8 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        // Remove console logs in production build (optional - our logger handles this)
-        drop_console: false, // Keep false since we handle it manually for better control
-        drop_debugger: true
+        drop_debugger: true,
+        pure_funcs: ['console.log'],  // Strip console.log in production, keep warn/error
       }
     },
     // Generate source maps for debugging (optional, remove if you want smaller builds)

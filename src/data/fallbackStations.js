@@ -253,7 +253,7 @@ export const fallbackStations = {
       "https://icecast-qmusicnl-cdp.triple-it.nl/skyradio_96.mp3",
       "https://25243.live.streamtheworld.com/SKYRADIO_MP3_SC",
     ],
-    logo: "http://www.skyradio.nl/favicon.ico",
+    logo: "https://www.skyradio.nl/favicon.ico",
     description: "Perfect voor op kantoor"
   },
 

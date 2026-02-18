@@ -170,7 +170,7 @@ export const allRadioStations = {
     "Sky Radio 101 FM": {
       "name": "Sky Radio",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Commerciële radio",
       "bitrate": 128,
       "city": null,
@@ -695,7 +695,7 @@ export const allRadioStations = {
     "Sky Radio 80s Hits": {
       "name": "Sky Radio 80s Hits",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/SRGSTR04.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Populaire hits",
       "bitrate": 128,
       "city": null,
@@ -723,7 +723,7 @@ export const allRadioStations = {
     "Sky Radio Christmas": {
       "name": "Sky Radio Christmas",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/SRGSTR08.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Commerciële radio",
       "bitrate": 128,
       "city": null,
@@ -750,7 +750,7 @@ export const allRadioStations = {
     "Sky Radio 90s Hits": {
       "name": "Sky Radio 90s Hits",
       "url": "http://playerservices.streamtheworld.com/api/livestream-redirect/SRGSTR05.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Populaire hits",
       "bitrate": 128,
       "city": null,
@@ -804,7 +804,7 @@ export const allRadioStations = {
     "Sky Radio Lovesongs": {
       "name": "Sky Radio Lovesongs",
       "url": "http://provisioning.streamtheworld.com/pls/SRGSTR03AAC.pls",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Commerciële radio",
       "bitrate": 64,
       "city": null,
@@ -906,7 +906,7 @@ export const allRadioStations = {
     "Sky Radio Lounge": {
       "name": "Sky Radio Lounge",
       "url": "http://provisioning.streamtheworld.com/pls/SRGSTR07AAC.pls",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Commerciële radio",
       "bitrate": 64,
       "city": null,
@@ -960,7 +960,7 @@ export const allRadioStations = {
     "Sky Radio Smooth Hits": {
       "name": "Sky Radio Smooth Hits",
       "url": "http://provisioning.streamtheworld.com/pls/SRGSTR15AAC.pls",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Populaire hits",
       "bitrate": 64,
       "city": null,
@@ -1428,7 +1428,7 @@ export const allRadioStations = {
     "Haarlem Shuffle": {
       "name": "Haarlem Shuffle",
       "url": "https://stream.tbmp.nl:8000/haarlemshufflehigh.mp3",
-      "logo": "http://www.haarlem105shuffle.nl/shuffle1200.png",
+      "logo": "https://www.haarlem105shuffle.nl/shuffle1200.png",
       "description": "Lokale radio",
       "bitrate": 320,
       "city": null,
@@ -1590,7 +1590,7 @@ export const allRadioStations = {
     "Den Haag Totaal": {
       "name": "Den Haag Totaal",
       "url": "https://server3.radio-streams.net:18012/denhaagtotaal",
-      "logo": "http://www.denhaagtotaal.nl/Den-Haag-Totaal-logo-Layers.gif",
+      "logo": "https://www.denhaagtotaal.nl/Den-Haag-Totaal-logo-Layers.gif",
       "description": "Lokale radio",
       "bitrate": 192,
       "city": "Zuid-Holland, Den Haag",
@@ -1628,7 +1628,7 @@ export const allRadioStations = {
     "Omroep Brabant": {
       "name": "Omroep Brabant",
       "url": "http://streaming.omroepbrabant.nl/mp3hq",
-      "logo": "http://www.omroepbrabant.nl/favicon.ico",
+      "logo": "https://www.omroepbrabant.nl/favicon.ico",
       "description": "Nieuws en informatie",
       "bitrate": 256,
       "city": "Brabant",
@@ -2206,7 +2206,7 @@ export const allRadioStations = {
     "Christelijke Omroep": {
       "name": "Christelijke Omroep",
       "url": "http://primastream1.primareclame.nl:11231/",
-      "logo": "http://cdn-profiles.tunein.com/s304951/images/logoq.jpg?t=154227",
+      "logo": "https://cdn-profiles.tunein.com/s304951/images/logoq.jpg?t=154227",
       "description": "Religieuze radio",
       "bitrate": 320,
       "city": null,
@@ -3137,7 +3137,7 @@ export const allRadioStations = {
     "Baars classic Rock": {
       "name": "Baars classic Rock",
       "url": "http://server-66.stream-server.nl:8840/",
-      "logo": "http://www.baarsclassicrock.nl/favicon.ico",
+      "logo": "https://www.baarsclassicrock.nl/favicon.ico",
       "description": "Rock muziek",
       "bitrate": 320,
       "city": null,
@@ -3263,7 +3263,7 @@ export const allRadioStations = {
     "KX Classics": {
       "name": "KX Classics",
       "url": "http://stream.kxclassikx.nl/",
-      "logo": "http://www.kxclassics.nl/images/favicon/apple-icon-120x120.png",
+      "logo": "https://www.kxclassics.nl/images/favicon/apple-icon-120x120.png",
       "description": "Nederlandse radio",
       "bitrate": 192,
       "city": null,
@@ -3407,7 +3407,7 @@ export const allRadioStations = {
     "RTV Maastricht 1075": {
       "name": "RTV Maastricht 1075",
       "url": "http://stream.rtvmaastricht.nl:8081/rtv/radio_audio/icecast.audio",
-      "logo": "http://www.rtvmaastricht.nl/rtvmaastricht_nl/images/favicon/apple-touch-icon.png",
+      "logo": "https://www.rtvmaastricht.nl/rtvmaastricht_nl/images/favicon/apple-touch-icon.png",
       "description": "Nederlandse radio",
       "bitrate": 320,
       "city": "Limburg",
@@ -3434,7 +3434,7 @@ export const allRadioStations = {
     "Tropixx FM 1055 Philipsburg": {
       "name": "Tropixx FM 1055 Philipsburg",
       "url": "http://stream.sxmradio.com:8060/channel2.mp3",
-      "logo": "http://tropixx.fm/wp-content/uploads/2021/08/cropped-tropixx-site-icon-180x180.png",
+      "logo": "https://tropixx.fm/wp-content/uploads/2021/08/cropped-tropixx-site-icon-180x180.png",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": "Sint Maarten",
@@ -3533,7 +3533,7 @@ export const allRadioStations = {
     "Laser 101 - 1011 Philipsburg": {
       "name": "Laser 101 - 1011 Philipsburg",
       "url": "http://stream.sxmradio.com:8060/channel7.mp3",
-      "logo": "http://laser101.fm/favicon.ico",
+      "logo": "https://laser101.fm/favicon.ico",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": "Sint Maarten",
@@ -3686,7 +3686,7 @@ export const allRadioStations = {
     "Extra Gold": {
       "name": "Extra Gold",
       "url": "http://extragold.stream-server.nl/stream?type=http&nocache=124795",
-      "logo": "http://www.extragold.nl/favicon.ico",
+      "logo": "https://www.extragold.nl/favicon.ico",
       "description": "Nederlandse radio",
       "bitrate": 192,
       "city": null,
@@ -3857,7 +3857,7 @@ export const allRadioStations = {
     "Hot Radio Hits": {
       "name": "Hot Radio Hits",
       "url": "http://www.hotradiohits.nl/include/stream/hotradiohits.m3u",
-      "logo": "http://www.hotradiohits.nl/favicon.ico",
+      "logo": "https://www.hotradiohits.nl/favicon.ico",
       "description": "Populaire hits",
       "bitrate": 192,
       "city": null,
@@ -3920,7 +3920,7 @@ export const allRadioStations = {
     "Apres Ski Radio": {
       "name": "Apres Ski Radio",
       "url": "https://stream-24.zeno.fm/qqbwd2x8d2zuv?zs=VzE6e4CwROOSeWMCik-I-Q",
-      "logo": "http://juraini-ferary.nl/favicon.ico",
+      "logo": "https://juraini-ferary.nl/favicon.ico",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": null,
@@ -4604,7 +4604,7 @@ export const allRadioStations = {
     "Radio 9 Oostzaan": {
       "name": "Radio 9 Oostzaan",
       "url": "http://caster01.streampakket.com:9350/;",
-      "logo": "http://www.radio9oostzaan.nl/icon.png",
+      "logo": "https://www.radio9oostzaan.nl/icon.png",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": null,
@@ -5065,7 +5065,7 @@ export const allRadioStations = {
     "Xmas Radio": {
       "name": "Xmas Radio",
       "url": "https://stream.tbmp.nl:8000/xmasradiohigh.mp3",
-      "logo": "http://www.xmasradio.nl/xmasradio.png",
+      "logo": "https://www.xmasradio.nl/xmasradio.png",
       "description": "Nederlandse radio",
       "bitrate": 320,
       "city": null,
@@ -5119,7 +5119,7 @@ export const allRadioStations = {
     "Radio Sputnik Underground!": {
       "name": "Radio Sputnik Underground!",
       "url": "http://radiosputnik.nl:8002/.m3u",
-      "logo": "http://www.radiosputnik.nl/assets/images/android-icon-192x192.png",
+      "logo": "https://www.radiosputnik.nl/assets/images/android-icon-192x192.png",
       "description": "Nederlandse radio",
       "bitrate": 192,
       "city": null,
@@ -5688,7 +5688,7 @@ export const allRadioStations = {
     "Hi online": {
       "name": "Hi online",
       "url": "http://mscp2.live-streams.nl:8100/flac.flac",
-      "logo": "http://www.rolandrispens.com/wp-content/uploads/2019/08/Schermafbeelding-2019-08-20-om-17.06.09-1024x510.png",
+      "logo": "https://www.rolandrispens.com/wp-content/uploads/2019/08/Schermafbeelding-2019-08-20-om-17.06.09-1024x510.png",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": null,
@@ -5797,7 +5797,7 @@ export const allRadioStations = {
     "Radio Beverwijk": {
       "name": "Radio Beverwijk",
       "url": "http://stream.stream.delivery/beverwijk",
-      "logo": "http://www.radiobeverwijk.nl/fileadmin/templates/images/logo-radio-beverwijk.png",
+      "logo": "https://www.radiobeverwijk.nl/fileadmin/templates/images/logo-radio-beverwijk.png",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": null,
@@ -6239,7 +6239,7 @@ export const allRadioStations = {
     "Radio Capelle": {
       "name": "Radio Capelle",
       "url": "https://live.radiocapelle.nl/radiocapelle-high.mp3",
-      "logo": "http://radiocapelle.nl/images/radiocapelle.svg",
+      "logo": "https://radiocapelle.nl/images/radiocapelle.svg",
       "description": "Nederlandse radio",
       "bitrate": 192,
       "city": "Zuid-Holland, Capelle aan den IJssel",
@@ -6311,7 +6311,7 @@ export const allRadioStations = {
     "Radio Zuyd": {
       "name": "Radio Zuyd",
       "url": "http://radiozuyd.shoutcaststream.com:8199/stream",
-      "logo": "http://radiozuyd.nl/wp-content/uploads/2018/11/Logo-Radio-Zuyd-2.png",
+      "logo": "https://radiozuyd.nl/wp-content/uploads/2018/11/Logo-Radio-Zuyd-2.png",
       "description": "Nederlandse radio",
       "bitrate": 160,
       "city": "Limburg, Heerle",
@@ -6599,7 +6599,7 @@ export const allRadioStations = {
     "DailyBaseRadio": {
       "name": "DailyBaseRadio",
       "url": "https://stream.rcast.net/63861",
-      "logo": "http://serv4.verzoeksysteem.nl/uploads/nonstop/7022/14_Afbeelding%20van%20WhatsApp%20op%202024-08-26%20om%2000.12.48_6b51dd64.jpg",
+      "logo": "https://serv4.verzoeksysteem.nl/uploads/nonstop/7022/14_Afbeelding%20van%20WhatsApp%20op%202024-08-26%20om%2000.12.48_6b51dd64.jpg",
       "description": "Nederlandse radio",
       "bitrate": 320,
       "city": null,
@@ -6743,7 +6743,7 @@ export const allRadioStations = {
     "Hit Radio Loz": {
       "name": "Hit Radio Loz",
       "url": "https://loa.beheerstream.nl:8112/stream",
-      "logo": "http://hitradioloz.nl/images/hitradiolozradio.jpg",
+      "logo": "https://hitradioloz.nl/images/hitradiolozradio.jpg",
       "description": "Nederlandse radio",
       "bitrate": 128,
       "city": "Zuid-Holland, Leiden",
@@ -7368,7 +7368,7 @@ export const allRadioStations = {
     "Sky Radio Non-Stop @ Work": {
       "name": "Sky Radio Non-Stop @ Work",
       "url": "https://22433.live.streamtheworld.com/SKYRADIO_NONSTOP_WORK.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Perfect voor op kantoor",
       "bitrate": 128,
       "city": null,
@@ -7441,7 +7441,7 @@ export const allRadioStations = {
     "Sky Radio Non-Stop": {
       "name": "Sky Radio Non-Stop",
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
-      "logo": "http://www.skyradio.nl/favicon.ico",
+      "logo": "https://www.skyradio.nl/favicon.ico",
       "description": "Commerciële radio",
       "bitrate": 128,
       "city": null,
