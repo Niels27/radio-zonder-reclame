@@ -57,7 +57,7 @@ const initialState = {
   adBreakMinute: 29,
   adBreakMinute2: 59,
   adBreakDuration: 6,
-  adBreakDuration2: 9,
+  adBreakDuration2: 10,
 
   // Community timing
   currentAdBreakUsedCommunityTiming: false,

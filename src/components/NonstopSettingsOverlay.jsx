@@ -13,6 +13,7 @@ const NonstopSettingsOverlay = ({
 }) => {
   const [nonstopSearchTerm, setNonstopSearchTerm] = useState('');
   const [nonstopRemovalError, setNonstopRemovalError] = useState('');
+  const [testingStation, setTestingStation] = useState(null);
   const [customNonstopStations, setCustomNonstopStations] = useState(() => {
     try {
       const saved = localStorage.getItem('custom_nonstop_stations');
@@ -121,10 +122,21 @@ const NonstopSettingsOverlay = ({
     setNonstopRemovalError('');
   };
 
-  const testStation = (station) => {
-    if (audioPlayer && audioPlayer.playRadio) {
-      audioPlayer.playRadio(station);
-      notify(`Test: ${station.name}`, 'info', 3000);
+  const testStation = async (station) => {
+    if (!audioPlayer?.playRadio || testingStation) return;
+
+    setTestingStation(station.name);
+    try {
+      const success = await audioPlayer.playRadio(station);
+      if (success) {
+        notify(`Test: ${station.name}`, 'info', 3000);
+      } else {
+        notify(`Kan ${station.name} niet afspelen`, 'error', 3000);
+      }
+    } catch (error) {
+      notify(`Fout bij testen ${station.name}: ${error.message}`, 'error', 3000);
+    } finally {
+      setTestingStation(null);
     }
   };
 
@@ -133,8 +145,7 @@ const NonstopSettingsOverlay = ({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-lg border border-gray-600 p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-white">Non-stop Radio Instellingen</h3>
+        <div className="flex items-center justify-end mb-6">
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
@@ -142,12 +153,11 @@ const NonstopSettingsOverlay = ({
           </button>
         </div>
 
-        <div className="mb-4 p-3 bg-blue-600/20 border border-blue-600/30 rounded-lg">
+       {/* <div className="mb-4 p-3 bg-blue-600/20 border border-blue-600/30 rounded-lg">
           <p className="text-blue-300 text-sm">
             Tijdens een reclamepauze wordt automatisch gewisseld tussen deze radio stations in willekeurige volgorde.
           </p>
-        </div>
-
+        </div>*/}
         {nonstopRemovalError && (
           <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded-lg">
             <p className="text-red-300 text-sm">{nonstopRemovalError}</p>
@@ -172,14 +182,21 @@ const NonstopSettingsOverlay = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => testStation(station)}
-                    className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
+                    disabled={!!testingStation}
+                    className={`px-2 py-1 text-white text-xs rounded transition-colors ${
+                      testingStation === station.name
+                        ? 'bg-yellow-600 cursor-wait'
+                        : testingStation
+                          ? 'bg-gray-600 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-500'
+                    }`}
                     title="Test dit station"
                   >
                     <div className="flex items-center gap-1">
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                       </svg>
-                      Test
+                      {testingStation === station.name ? 'Testen...' : 'Test'}
                     </div>
                   </button>
                   <button
@@ -222,14 +239,21 @@ const NonstopSettingsOverlay = ({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => testStation(station)}
-                        className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                        disabled={!!testingStation}
+                        className={`px-2 py-1 text-white text-xs rounded transition-colors ${
+                          testingStation === station.name
+                            ? 'bg-yellow-600 cursor-wait'
+                            : testingStation
+                              ? 'bg-gray-600 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-500'
+                        }`}
                         title="Test dit station"
                       >
                         <div className="flex items-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                           </svg>
-                          Test
+                          {testingStation === station.name ? 'Testen...' : 'Test'}
                         </div>
                       </button>
                       <button

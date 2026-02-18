@@ -1,41 +1,19 @@
 // components/AdBreakSettings.jsx - Show current ad break countdown instead of next break countdown
 // filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\AdBreakSettings.jsx
 
-import React, { useState, useEffect } from 'react';
-import PlaylistProviderSelector from './PlaylistProviderSelector';
-import YouTubeUrlInput from './YouTubeUrlInput';
-import VisualizerSettings from './VisualizerSettings';
-import NonstopSettingsOverlay from './NonstopSettingsOverlay';
-import AdBreakExpandedSettings from './AdBreakExpandedSettings';
-import eventBus, { notify, openYouTubePlayer, closeAllYouTubePlayers, registerStopAllManualModes } from '../utils/eventBus';
-
-const getInitialDaySettings = () => {
-  try {
-    const saved = localStorage.getItem('adbreak_day_settings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length === 7) {
-        // Validate each day setting has required properties
-        const validSettings = parsed.every(day =>
-          typeof day === 'object' &&
-          typeof day.enabled === 'boolean' &&
-          typeof day.startHour === 'number' &&
-          typeof day.endHour === 'number'
-        );
-        if (validSettings) return parsed;
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to load day settings:', error);
-  }
-
-  // Return default settings if loading failed
-  return Array(7).fill(0).map(() => ({
-    enabled: false,
-    startHour: 7,
-    endHour: 22
-  }));
-};
+import React, { useState, useEffect } from "react";
+import PlaylistProviderSelector from "./PlaylistProviderSelector";
+import YouTubeUrlInput from "./YouTubeUrlInput";
+// import VisualizerSettings from "./VisualizerSettings";  // commented out from UI
+import NonstopSettingsOverlay from "./NonstopSettingsOverlay";
+import AdBreakExpandedSettings from "./AdBreakExpandedSettings";
+import { isSpotifyAuthenticated } from "../utils/spotifyUtils";
+import eventBus, {
+  notify,
+  openYouTubePlayer,
+  closeAllYouTubePlayers,
+  registerStopAllManualModes,
+} from "../utils/eventBus";
 
 const AdBreakSettings = ({
   adBreakMinute,
@@ -67,32 +45,26 @@ const AdBreakSettings = ({
   onProviderChange,
   onPlaylistUrlChange,
   onPlaylistInfoChange,
-  playlistShuffle, onShuffleChange, isValidatingPlaylist,
-  isPlaylistInputHovered,  setIsPlaylistInputHovered,  // ✅ NEW: Visualizer props
-  visualizerEnabled,
-  onVisualizerToggle,  visualizerType,
-  onVisualizerTypeChange,
-  visualizerBlur,
-  onVisualizerBlurChange,
-  // ✅ NEW: Fade audio streams setting
-  fadeAudioStreams,
-  onFadeAudioStreamsChange,
+  playlistShuffle,
+  onShuffleChange,
+  isValidatingPlaylist,
+  isPlaylistInputHovered,
+  setIsPlaylistInputHovered,
+  // Visualizer & fade props - commented out from UI but still passed from parent
+  // visualizerEnabled, onVisualizerToggle, visualizerType, onVisualizerTypeChange, visualizerBlur, onVisualizerBlurChange,
+  // fadeAudioStreams, onFadeAudioStreamsChange,
   // YouTube mode props
   youtubeUrl,
   onYoutubeUrlChange,
   // Simple nonstop cycling button state
-  setIsNonstopModeManuallyActive
-
+  setIsNonstopModeManuallyActive,
 }) => {
   // ✅ INSTANT STATE TRACKING: Prevent double-clicking between timer and manual modes
   const [isTimerStarting, setIsTimerStarting] = useState(false);
-  
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [daySettings, setDaySettings] = useState(getInitialDaySettings());
-  const [selectedDay, setSelectedDay] = useState(0); // 0=Monday
+
   const [autoSkipPreroll, setAutoSkipPreroll] = useState(() => {
     try {
-      const saved = localStorage.getItem('auto_skip_preroll');
+      const saved = localStorage.getItem("auto_skip_preroll");
       return saved ? JSON.parse(saved) : false; // Default to disabled (handmatig)
     } catch {
       return false;
@@ -101,13 +73,12 @@ const AdBreakSettings = ({
 
   // Overlay states
   const [showNonstopSettings, setShowNonstopSettings] = useState(false);
-  const [showVisualizerSettings, setShowVisualizerSettings] = useState(false);
 
   // Note: useCommunityTimings is now coming from props instead of local state
 
   // Check if current mode is valid
   const isModeValid = () => {
-    if (adBreakMode === 'playlist') {
+    if (adBreakMode === "playlist") {
       return playlistUrl && playlistInfo?.isValid;
     }
     return true; // nonstop and lofi don't require configuration
@@ -120,16 +91,22 @@ const AdBreakSettings = ({
   // Save to localStorage when autoSkipPreroll changes
   useEffect(() => {
     try {
-      localStorage.setItem('auto_skip_preroll', JSON.stringify(autoSkipPreroll));
+      localStorage.setItem(
+        "auto_skip_preroll",
+        JSON.stringify(autoSkipPreroll),
+      );
 
       // ✅ CRITICAL: Update the AdSkipUtils setting immediately
       if (window.AdSkipUtils) {
         window.AdSkipUtils.setAutoSkipSetting(autoSkipPreroll);
       }
 
-      console.log('🔧 Auto skip setting saved and synced:', autoSkipPreroll ? 'Automatisch' : 'Handmatig');
+      console.log(
+        "🔧 Auto skip setting saved and synced:",
+        autoSkipPreroll ? "Automatisch" : "Handmatig",
+      );
     } catch (error) {
-      console.warn('Failed to save auto skip setting:', error);
+      console.warn("Failed to save auto skip setting:", error);
     }
   }, [autoSkipPreroll]);
 
@@ -137,17 +114,17 @@ const AdBreakSettings = ({
   const [playlistModeState, setPlaylistModeState] = useState({
     active: false,
     loading: false,
-    startTime: null
+    startTime: null,
   });
   const [nonstopModeState, setNonstopModeState] = useState({
     active: false,
     loading: false,
-    startTime: null
+    startTime: null,
   });
   const [youtubeModeState, setYoutubeModeState] = useState({
     active: false,
     loading: false,
-    startTime: null
+    startTime: null,
   });
 
   // Track which mode is currently selected for display purposes
@@ -155,23 +132,27 @@ const AdBreakSettings = ({
   // Helper to get current mode state
   const getModeState = (mode) => {
     switch (mode) {
-      case 'playlist': return playlistModeState;
-      case 'nonstop': return nonstopModeState;
-      case 'youtube': return youtubeModeState;
-      default: return { active: false, loading: false, startTime: null };
+      case "playlist":
+        return playlistModeState;
+      case "nonstop":
+        return nonstopModeState;
+      case "youtube":
+        return youtubeModeState;
+      default:
+        return { active: false, loading: false, startTime: null };
     }
   };
 
   // Helper to set mode state
   const setModeState = (mode, newState) => {
     switch (mode) {
-      case 'playlist': 
+      case "playlist":
         setPlaylistModeState(newState);
         break;
-      case 'nonstop': 
+      case "nonstop":
         setNonstopModeState(newState);
         break;
-      case 'youtube': 
+      case "youtube":
         setYoutubeModeState(newState);
         break;
       default:
@@ -180,12 +161,15 @@ const AdBreakSettings = ({
   };
 
   // ✅ NEW: Listen for external playlist stops (when overlays are closed directly)
-  useEffect(() => {    const handlePlaylistStopped = (type) => {
+  useEffect(() => {
+    const handlePlaylistStopped = (type) => {
       console.log(`🎵 External playlist stop detected: ${type}`);
-      
+
       // ✅ NEW: Handle ad break scenarios when overlays are manually closed
-      if (isAdBreakActive && adBreakMode === 'youtube' && type === 'youtube') {
-        console.log('🎵 Lofi overlay manually closed during ad break - resuming radio');
+      if (isAdBreakActive && adBreakMode === "youtube" && type === "youtube") {
+        console.log(
+          "🎵 Lofi overlay manually closed during ad break - resuming radio",
+        );
         // Resume the radio since the lofi overlay was closed during an ad break
         if (audioPlayer?.resumeRadioFromAdBreak) {
           audioPlayer.resumeRadioFromAdBreak();
@@ -195,23 +179,35 @@ const AdBreakSettings = ({
           onStopTimer();
         }
       }
-      
+
       // Reset manual mode states
       switch (type) {
-        case 'spotify':
-          setPlaylistModeState({ active: false, loading: false, startTime: null });
+        case "spotify":
+          setPlaylistModeState({
+            active: false,
+            loading: false,
+            startTime: null,
+          });
           break;
-        case 'youtube':
-          setYoutubeModeState({ active: false, loading: false, startTime: null });
+        case "youtube":
+          setYoutubeModeState({
+            active: false,
+            loading: false,
+            startTime: null,
+          });
           break;
-        case 'nonstop':
-          setNonstopModeState({ active: false, loading: false, startTime: null });
+        case "nonstop":
+          setNonstopModeState({
+            active: false,
+            loading: false,
+            startTime: null,
+          });
           break;
       }
     };
 
     // Listen for playlist stops via event bus
-    const unsub = eventBus.on('playlist:stopped', handlePlaylistStopped);
+    const unsub = eventBus.on("playlist:stopped", handlePlaylistStopped);
 
     // Cleanup
     return () => unsub();
@@ -219,61 +215,79 @@ const AdBreakSettings = ({
 
   // Check if any mode is active
   const isAnyModeActive = () => {
-    return playlistModeState.active || nonstopModeState.active || youtubeModeState.active;
+    return (
+      playlistModeState.active ||
+      nonstopModeState.active ||
+      youtubeModeState.active
+    );
   };
 
   // Check if any mode is loading
   const isAnyModeLoading = () => {
-    return playlistModeState.loading || nonstopModeState.loading || youtubeModeState.loading;
+    return (
+      playlistModeState.loading ||
+      nonstopModeState.loading ||
+      youtubeModeState.loading
+    );
   };
   // Get the currently active mode
   const getActiveMode = () => {
-    if (playlistModeState.active) return 'playlist';
-    if (nonstopModeState.active) return 'nonstop';
-    if (youtubeModeState.active) return 'youtube';
+    if (playlistModeState.active) return "playlist";
+    if (nonstopModeState.active) return "nonstop";
+    if (youtubeModeState.active) return "youtube";
     return null;
-  };  // ✅ GOLDEN RULE ENFORCEMENT: Stop all manual modes (exposed globally)
+  }; // ✅ GOLDEN RULE ENFORCEMENT: Stop all manual modes (exposed globally)
   const stopAllManualModes = async () => {
-    console.log('🛑 GOLDEN RULE: Stopping ALL active manual modes');
-    
+    console.log("🛑 GOLDEN RULE: Stopping ALL active manual modes");
+
     // ✅ CLEAR nonstop mode flag when stopping all modes
     // nonstop mode tracked via nonstopModeState.active
-    
+
     const activeModes = [];
-    if (playlistModeState.active) activeModes.push('playlist');
-    if (nonstopModeState.active) activeModes.push('nonstop');
-    if (youtubeModeState.active) activeModes.push('youtube');
-    
+    if (playlistModeState.active) activeModes.push("playlist");
+    if (nonstopModeState.active) activeModes.push("nonstop");
+    if (youtubeModeState.active) activeModes.push("youtube");
+
     // ✅ CRITICAL: Also check if the ad break timer is running any of these modes
-    if (isAdBreakActive && (adBreakMode === 'playlist' || adBreakMode === 'nonstop' || adBreakMode === 'youtube')) {
-      console.log('🛑 GOLDEN RULE: Also stopping active ad break mode:', adBreakMode);
+    if (
+      isAdBreakActive &&
+      (adBreakMode === "playlist" ||
+        adBreakMode === "nonstop" ||
+        adBreakMode === "youtube")
+    ) {
+      console.log(
+        "🛑 GOLDEN RULE: Also stopping active ad break mode:",
+        adBreakMode,
+      );
       if (onStopTimer) {
         onStopTimer(); // This will call forceExitAdBreakMode
       }
     }
-    
+
     if (activeModes.length === 0) {
-      console.log('🔧 No manual modes active to stop');
+      console.log("🔧 No manual modes active to stop");
       return;
     }
-    
-    console.log('🛑 Stopping active manual modes:', activeModes);
-      // Stop all active modes simultaneously
-    const stopPromises = activeModes.map(mode => stopSpecificMode(mode));
-    await Promise.all(stopPromises);    // Force stop all audio sources
+
+    console.log("🛑 Stopping active manual modes:", activeModes);
+    // Stop all active modes simultaneously
+    const stopPromises = activeModes.map((mode) => stopSpecificMode(mode));
+    await Promise.all(stopPromises); // Force stop all audio sources
     if (audioPlayer && audioPlayer.forceStopAllAudio) {
-      audioPlayer.forceStopAllAudio('manual modes stopped', false);
+      audioPlayer.forceStopAllAudio("manual modes stopped", false);
     }
-    
-    console.log('✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule');
-  };  // Register stopAllManualModes via event bus
+
+    console.log(
+      "✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule",
+    );
+  }; // Register stopAllManualModes via event bus
   useEffect(() => {
     registerStopAllManualModes(stopAllManualModes);
     return () => registerStopAllManualModes(null);
-  }, [stopAllManualModes, isAdBreakActive, adBreakMode, onStopTimer]);  // ✅ ISOLATED: Manual mode toggle with complete mode isolation
+  }, [stopAllManualModes, isAdBreakActive, adBreakMode, onStopTimer]); // ✅ ISOLATED: Manual mode toggle with complete mode isolation
   const handleManualModeToggle = async () => {
     const currentModeState = getModeState(adBreakMode);
-    
+
     // Prevent rapid clicking during loading
     if (currentModeState.loading) {
       console.log(`🚫 ${adBreakMode} mode is loading, ignoring click`);
@@ -286,22 +300,24 @@ const AdBreakSettings = ({
     } else {
       // ✅ INSTANT FIX: Set loading state IMMEDIATELY to prevent double-clicking
       setModeState(adBreakMode, { loading: true });
-      
+
       // ✅ CRITICAL: If switching was active, deactivate it first!
       if (isTimerRunning) {
-        console.log('🛑 Timer switching is active - stopping it first before starting manual mode');
+        console.log(
+          "🛑 Timer switching is active - stopping it first before starting manual mode",
+        );
         onStopTimer();
         // Small delay to ensure cleanup
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
-      
+
       // Start current mode (first stop any other active mode)
       const activeMode = getActiveMode();
       if (activeMode && activeMode !== adBreakMode) {
         console.log(`🔄 Stopping ${activeMode} to start ${adBreakMode}`);
         await stopSpecificMode(activeMode);
         // Brief pause to ensure cleanup
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
       await startSpecificMode(adBreakMode);
     }
@@ -309,33 +325,35 @@ const AdBreakSettings = ({
   // ✅ ISOLATED: Start a specific mode with complete isolation
   const startSpecificMode = async (mode) => {
     const currentModeState = getModeState(mode);
-    
+
     // Prevent starting if already loading or active
     if (currentModeState.loading || currentModeState.active) {
-      console.log(`🚫 ${mode} mode already loading/active, ignoring start request`);
+      console.log(
+        `🚫 ${mode} mode already loading/active, ignoring start request`,
+      );
       return;
     }
 
     try {
       console.log(`🎵 Starting isolated ${mode} mode test`);
-      
+
       // Set loading state immediately for this specific mode
       setModeState(mode, { loading: true });
-        // Stop any audio sources first
+      // Stop any audio sources first
       if (audioPlayer?.forceStopAllAudio) {
         audioPlayer.forceStopAllAudio(`starting ${mode} mode`, false);
-        await new Promise(resolve => setTimeout(resolve, 400));
+        await new Promise((resolve) => setTimeout(resolve, 400));
       }
 
       // Start the specific mode
       switch (mode) {
-        case 'playlist':
+        case "playlist":
           await startIsolatedPlaylistMode();
           break;
-        case 'nonstop':
+        case "nonstop":
           await startIsolatedNonstopMode();
           break;
-        case 'youtube':
+        case "youtube":
           await startIsolatedYouTubeMode();
           break;
         default:
@@ -343,26 +361,30 @@ const AdBreakSettings = ({
       }
 
       // Set active state only after successful start
-      setModeState(mode, { 
-        active: true, 
-        loading: false, 
-        startTime: Date.now() 
+      setModeState(mode, {
+        active: true,
+        loading: false,
+        startTime: Date.now(),
       });
       setSelectedManualMode(mode);
 
-      notify(`🎵 ${getModeDisplayName(mode)} Test Gestart`, 'success', 2000);
+      notify(`🎵 ${getModeDisplayName(mode)} Test Gestart`, "success", 2000);
     } catch (error) {
       console.error(`Failed to start ${mode} mode:`, error);
-      
+
       // Reset state on error
       setModeState(mode, { active: false, loading: false, startTime: null });
-      
-      notify(`❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`, 'error', 3000);
+
+      notify(
+        `❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`,
+        "error",
+        3000,
+      );
     }
-  };  // ✅ ISOLATED: Stop a specific mode with complete isolation
+  }; // ✅ ISOLATED: Stop a specific mode with complete isolation
   const stopSpecificMode = async (mode) => {
     const currentModeState = getModeState(mode);
-    
+
     if (!currentModeState.active && !currentModeState.loading) {
       console.log(`🚫 ${mode} mode not active, nothing to stop`);
       return;
@@ -370,33 +392,33 @@ const AdBreakSettings = ({
 
     try {
       console.log(`🛑 Stopping isolated ${mode} mode test`);
-        // ✅ CLEAR nonstop mode flag when stopping nonstop mode
-      if (mode === 'nonstop') {
+      // ✅ CLEAR nonstop mode flag when stopping nonstop mode
+      if (mode === "nonstop") {
         // nonstop mode tracked via nonstopModeState.active
         // ✅ NEW: Clear simple state for cycling button
         if (setIsNonstopModeManuallyActive) {
           setIsNonstopModeManuallyActive(false);
         }
-      }      // Stop all audio sources completely
+      } // Stop all audio sources completely
       if (audioPlayer?.forceStopAllAudio) {
         audioPlayer.forceStopAllAudio(`stopping ${mode} mode`, false);
       }
 
       // Close YouTube players when stopping lofi or playlist mode
-      if (mode === 'youtube' || mode === 'playlist') {
+      if (mode === "youtube" || mode === "playlist") {
         console.log(`✕ Closing YouTube player for ${mode} mode`);
         closeAllYouTubePlayers();
       }
 
       // Reset state for this specific mode
       setModeState(mode, { active: false, loading: false, startTime: null });
-      
+
       // Clear selected mode if this was the selected one
       if (selectedManualMode === mode) {
         setSelectedManualMode(null);
       }
 
-      notify(`🛑 ${getModeDisplayName(mode)} Test Gestopt`, 'info', 2000);
+      notify(`🛑 ${getModeDisplayName(mode)} Test Gestopt`, "info", 2000);
     } catch (error) {
       console.error(`Failed to stop ${mode} mode:`, error);
       // Force reset state even on error
@@ -405,39 +427,47 @@ const AdBreakSettings = ({
         setSelectedManualMode(null);
       }
       // ✅ FORCE CLEAR nonstop mode flag even on error
-      if (mode === 'nonstop') {
+      if (mode === "nonstop") {
         // nonstop mode tracked via nonstopModeState.active
       }
     }
-  };// ✅ ISOLATED: Individual mode start functions
+  }; // ✅ ISOLATED: Individual mode start functions
   const startIsolatedPlaylistMode = async () => {
     if (!playlistUrl) {
-      throw new Error('Geen Spotify playlist ingesteld');
+      throw new Error("Geen Spotify playlist ingesteld");
     }
 
-    console.log('🎵 Starting isolated Spotify playlist test');
+    console.log("🎵 Starting isolated Spotify playlist test");
 
     if (audioPlayer?.playSpotify) {
       await audioPlayer.playSpotify(playlistUrl, {
-        shuffle: playlistShuffle
+        shuffle: playlistShuffle,
       });
     } else {
-      throw new Error('Spotify afspelen niet beschikbaar');
+      throw new Error("Spotify afspelen niet beschikbaar");
     }
   };
   const startIsolatedNonstopMode = async () => {
-    console.log('🎵 Starting isolated nonstop radio test (no ad breaks, just nonstop radio)');
+    console.log(
+      "🎵 Starting isolated nonstop radio test (no ad breaks, just nonstop radio)",
+    );
 
-    const { getRandomNonstopStation, markStationAsFailed, getNonstopStationsCount } = await import('../utils/nonstopUtils.js');
+    const {
+      getRandomNonstopStation,
+      markStationAsFailed,
+      getNonstopStationsCount,
+    } = await import("../utils/nonstopUtils.js");
 
     const maxRetries = Math.min(getNonstopStationsCount(), 6);
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const nonstopStation = getRandomNonstopStation();
       if (!nonstopStation) {
-        throw new Error('Geen nonstop stations beschikbaar');
+        throw new Error("Geen nonstop stations beschikbaar");
       }
 
-      console.log(`🎵 Nonstop attempt ${attempt + 1}/${maxRetries}: ${nonstopStation.name}`);
+      console.log(
+        `🎵 Nonstop attempt ${attempt + 1}/${maxRetries}: ${nonstopStation.name}`,
+      );
 
       try {
         // nonstop mode tracked via nonstopModeState.active
@@ -448,11 +478,14 @@ const AdBreakSettings = ({
         await audioPlayer.playRadio(nonstopStation, {
           isManualTest: true,
           isIsolatedTest: true,
-          isNonstopMode: true
+          isNonstopMode: true,
         });
         return; // Success - exit the retry loop
       } catch (error) {
-        console.warn(`⚠️ Nonstop station "${nonstopStation.name}" failed:`, error.message);
+        console.warn(
+          `⚠️ Nonstop station "${nonstopStation.name}" failed:`,
+          error.message,
+        );
         markStationAsFailed(nonstopStation.name);
         // Continue to next station
       }
@@ -463,76 +496,66 @@ const AdBreakSettings = ({
     if (setIsNonstopModeManuallyActive) {
       setIsNonstopModeManuallyActive(false);
     }
-    throw new Error(`Geen werkende nonstop stations gevonden na ${maxRetries} pogingen`);
+    throw new Error(
+      `Geen werkende nonstop stations gevonden na ${maxRetries} pogingen`,
+    );
   };
   const startIsolatedYouTubeMode = async () => {
-    console.log('🎵 Starting isolated YouTube mode');
+    console.log("🎵 Starting isolated YouTube mode");
 
     const url = youtubeUrl;
     if (!url) {
-      throw new Error('Geen YouTube URL ingesteld');
+      throw new Error("Geen YouTube URL ingesteld");
     }
 
-    const { extractYouTubeVideoId } = await import('../utils/lofiUtils.js');
-    const { extractPlaylistId } = await import('../utils/youtubeUtils.js');
+    const { extractYouTubeVideoId } = await import("../utils/lofiUtils.js");
+    const { extractPlaylistId } = await import("../utils/youtubeUtils.js");
 
     const videoId = extractYouTubeVideoId(url);
     const playlistId = extractPlaylistId(url);
 
     if (!videoId && !playlistId) {
-      throw new Error('Ongeldige YouTube URL');
+      throw new Error("Ongeldige YouTube URL");
     }
 
     // Open the resizable YouTube player overlay
     openYouTubePlayer({
       videoId: videoId || undefined,
       playlistId: playlistId || undefined,
-      title: 'YouTube',
+      title: "YouTube",
       isAutomatic: false,
-      autoCloseSeconds: null
+      autoCloseSeconds: null,
     });
   };
 
   // Helper function to get mode display name
   const getModeDisplayName = (mode) => {
     switch (mode) {
-      case 'playlist': return 'Playlist';
-      case 'nonstop': return 'Nonstop Radio';
-      case 'youtube': return 'YouTube';
-      default: return 'Onbekend';
+      case "playlist":
+        return "Spotify";
+      case "nonstop":
+        return "Nonstop Radio";
+      case "youtube":
+        return "YouTube";
+      default:
+        return "Onbekend";
     }
-  };
-
-  // Get button text based on current isolated state
-  const getManualModeButtonText = () => {
-    const currentModeState = getModeState(adBreakMode);
-    
-    if (currentModeState.loading) {
-      return `${getModeDisplayName(adBreakMode)} Opstarten...`;
-    }
-    
-    if (currentModeState.active) {
-      return `${getModeDisplayName(adBreakMode)} Stoppen`;
-    }
-    
-   // return `Alleen ${getModeDisplayName(adBreakMode)} afspelen`;
-     return `${getModeDisplayName(adBreakMode)} afspelen`;
   };
 
   // ✅ INSTANT FIX: Wrapper for onStartTimer to set instant disable state
   const handleStartTimer = async () => {
     if (isTimerStarting || isTimerRunning) {
-      console.log('🚫 Timer already starting or running, ignoring click');
+      console.log("🚫 Timer already starting or running, ignoring click");
       return;
     }
-    
+
     // Set instant state to disable manual mode buttons immediately
     setIsTimerStarting(true);
-    
+
     try {
       await onStartTimer();
     } catch (error) {
-      console.error('Error starting timer:', error);
+      console.error("Error starting timer:", error);
     } finally {
       // Clear the loading state after a short delay (should be cleared by isTimerRunning becoming true)
       setTimeout(() => {
@@ -551,257 +574,205 @@ const AdBreakSettings = ({
   return (
     <div className="p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="space-y-4">          {/* ✅ NEW: Playlist Mode Selector at Top */}
-   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-  <label className="block text-sm font-medium mb-3 text-gray-300">
-    Switch Methode:
-  </label>
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-    {/* Spotify Mode */}
-    <div
-      className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:opacity-80 ${adBreakMode === 'playlist'
-        ? 'border-green-500 bg-green-600/20 text-green-300'
-        : 'border-gray-600 bg-gray-700 text-gray-300'
-        }`}
-      onClick={() => onAdBreakModeChange('playlist')}
-    >
-      <div className="flex items-center gap-3 mb-2">
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-        </svg>
-        <span className="font-semibold">Spotify</span>
-      </div>
-      <p className="text-xs text-gray-400">
-        Wissel naar Spotify afspeellijst tijdens reclame
-      </p>
-    </div>
+        <div className="space-y-4">
+          {" "}
+          {/* ✅ NEW: Playlist Mode Selector at Top */}
+          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <label className="block text-sm font-medium mb-3 text-gray-300">
+              Switch Methode:
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* YouTube Playlist Mode */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${
+                  adBreakMode === "youtube"
+                    ? "border-red-500 bg-red-600/20 text-red-300"
+                    : "border-gray-600 bg-gray-700 text-gray-300"
+                }`}
+                onClick={() => onAdBreakModeChange("youtube")}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M23.498 6.186a2.99 2.99 0 0 0-2.11-2.11C19.504 3.5 12 3.5 12 3.5s-7.504 0-9.388.576a2.99 2.99 0 0 0-2.11 2.11C0 8.07 0 12 0 12s0 3.93.502 5.814a2.99 2.99 0 0 0 2.11 2.11C4.496 20.5 12 20.5 12 20.5s7.504 0 9.388-.576a2.99 2.99 0 0 0 2.11-2.11C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                  </svg>
+                  <span className="font-semibold">YouTube</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Wissel naar YouTube video/playlist tijdens reclame
+                </p>
+              </div>
+              {/* Spotify Mode */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:opacity-80 ${
+                  adBreakMode === "playlist"
+                    ? "border-green-500 bg-green-600/20 text-green-300"
+                    : "border-gray-600 bg-gray-700 text-gray-300"
+                }`}
+                onClick={() => onAdBreakModeChange("playlist")}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z" />
+                  </svg>
+                  <span className="font-semibold">Spotify</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Wissel naar Spotify afspeellijst tijdens reclame
+                </p>
+              </div>
 
-    {/* Nonstop Mode */}
-    <div
-      className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${adBreakMode === 'nonstop'
-        ? 'border-blue-500 bg-blue-600/20 text-blue-300'
-        : 'border-gray-600 bg-gray-700 text-gray-300'
-        }`}
-      onClick={() => onAdBreakModeChange('nonstop')}
-    >
-      <div className="flex items-center gap-3 mb-2">
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
-        </svg>
-        <span className="font-semibold">Non-stop Radio</span>
-      </div>
-      <p className="text-xs text-gray-400">
-        Wissel naar een radio zonder reclame
-      </p>
-      {/* Gear icon */}
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowNonstopSettings(true);
-        }}
-        className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600/50 transition-colors cursor-pointer"
-        title="Non-stop radio instellingen"
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.stopPropagation();
-            e.preventDefault();
-            setShowNonstopSettings(true);
-          }
-        }}
-      >
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
-        </svg>
-      </div>
-    </div>
+              {/* Nonstop Mode */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${
+                  adBreakMode === "nonstop"
+                    ? "border-blue-500 bg-blue-600/20 text-blue-300"
+                    : "border-gray-600 bg-gray-700 text-gray-300"
+                }`}
+                onClick={() => onAdBreakModeChange("nonstop")}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
+                  </svg>
+                  <span className="font-semibold">Non-stop Radio</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Wissel naar een radio zonder reclame
+                </p>
+              </div>
+            </div>
 
-    {/* YouTube Playlist Mode */}
-    <div
-      className={`p-4 rounded-lg border-2 transition-all relative cursor-pointer hover:opacity-80 ${adBreakMode === 'youtube'
-        ? 'border-red-500 bg-red-600/20 text-red-300'
-        : 'border-gray-600 bg-gray-700 text-gray-300'
-        }`}
-      onClick={() => onAdBreakModeChange('youtube')}
-    >
-      <div className="flex items-center gap-3 mb-2">
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M23.498 6.186a2.99 2.99 0 0 0-2.11-2.11C19.504 3.5 12 3.5 12 3.5s-7.504 0-9.388.576a2.99 2.99 0 0 0-2.11 2.11C0 8.07 0 12 0 12s0 3.93.502 5.814a2.99 2.99 0 0 0 2.11 2.11C4.496 20.5 12 20.5 12 20.5s7.504 0 9.388-.576a2.99 2.99 0 0 0 2.11-2.11C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-        </svg>
-        <span className="font-semibold">YouTube</span>
-      </div>
-      <p className="text-xs text-gray-400">
-        Wissel naar YouTube video/playlist tijdens reclame
-      </p>
-    </div>
-  </div>
-
-  {/* Spotify playlist selector when playlist/spotify mode is selected */}
-  {adBreakMode === 'playlist' && (
-    <div className="mt-4 pt-4 border-t border-gray-600">
-      <PlaylistProviderSelector
-        playlistUrl={playlistUrl}
-        onPlaylistUrlChange={onPlaylistUrlChange}
-        onPlaylistInfoChange={(info) => {
-          if (onPlaylistInfoChange) {
-            onPlaylistInfoChange(info);
-          }
-        }}
-        onValidatingChange={() => {}}
-        error={audioPlayer?.error}
-        onRetry={audioPlayer?.manualInitializeSpotifyPlayer}
-      />
-    </div>
-  )}
-
-  {/* YouTube URL input + dice button when youtube mode is selected */}
-  {adBreakMode === 'youtube' && (
-    <div className="mt-4 pt-4 border-t border-gray-600">
-      <YouTubeUrlInput
-        youtubeUrl={youtubeUrl}
-        onYoutubeUrlChange={onYoutubeUrlChange}
-      />
-    </div>
-  )}
-</div>
-
-{/* ✅ IMPORTANT: Keep the existing "Instellingen" block here - don't remove this! */}
-<div className="bg-gray-800 rounded-lg border border-gray-700">
-  <div className="flex items-center justify-between p-4">
-    <div className="flex items-center gap-4">
-      <h3
-        className="text-lg font-semibold text-white cursor-pointer hover:text-gray-300 transition-colors"
-        onClick={() => setIsExpanded(!isExpanded)}
-        title={isExpanded ? 'Inklapppen' : 'Uitklappen'}
-      >
-        Instellingen
-      </h3>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="text-gray-400 hover:text-white transition-colors"
-        title={isExpanded ? 'Inklapppen' : 'Uitklappen'}
-      >
-        <svg
-          className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-    </div>
-    
-    {/* Compact Status Display and Controls */}
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2">
-        <div className={`w-3 h-3 rounded-full ${isTimerRunning
-          ? isAdBreakActive
-            ? 'bg-red-500 animate-pulse'
-            : 'bg-green-500'
-          : 'bg-gray-500'
-          }`}>
-        </div>
-        <span className="text-sm text-gray-300">
-          {isTimerRunning
-            ? isAdBreakActive
-              ? 'Reclame actief'
-              : 'Timer actief'
-            : 'Timer uit'
-          }
-        </span>
-      </div>      <div className="flex items-center gap-2">        {!isTimerRunning ? (
-          <div className="relative">
-            <button
-              onClick={handleStartTimer}
-              disabled={!isModeValid() || !isRadioSelected() || (audioPlayer && audioPlayer.isTransitioning) || isAnyModeActive() || isAnyModeLoading() || isTimerStarting}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${
-                (isAnyModeActive() || isAnyModeLoading() || isTimerStarting || !isRadioSelected()) 
-                  ? 'bg-gray-500 cursor-not-allowed text-gray-300'
-                  : 'bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
-              }`}
-              title={!isRadioSelected() ? 'Start eerst een radio' : !isModeValid() ? 'Configuratie incompleet' : 'Start automatische switching'}
-            >
-              {isTimerStarting ? 'Starten...' : 'Activeer Switching'}
-            </button>
-            {(isAnyModeActive() || isAnyModeLoading() || isTimerStarting || !isRadioSelected()) && (
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                {!isRadioSelected() ? 'Start eerst een radio' : isTimerStarting ? 'Timer wordt gestart...' : isAnyModeLoading() ? 'Manual mode start bezig...' : 'Manual mode is actief - stop eerst de manual mode'}
+            {/* Spotify playlist selector when playlist/spotify mode is selected */}
+            {adBreakMode === "playlist" && (
+              <div className="mt-4 pt-4 border-t border-gray-600">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <PlaylistProviderSelector
+                      playlistUrl={playlistUrl}
+                      onPlaylistUrlChange={onPlaylistUrlChange}
+                      onPlaylistInfoChange={(info) => {
+                        if (onPlaylistInfoChange) {
+                          onPlaylistInfoChange(info);
+                        }
+                      }}
+                      onValidatingChange={() => {}}
+                      error={audioPlayer?.error}
+                      onRetry={audioPlayer?.manualInitializeSpotifyPlayer}
+                    />
+                  </div>
+                  {isSpotifyAuthenticated() && (
+                    <button
+                      onClick={handleManualModeToggle}
+                      disabled={!isModeValid() || isAnyModeLoading() || isTimerRunning || isTimerStarting}
+                      className={`mt-6 px-3 py-[9px] rounded-lg font-medium transition-colors text-sm whitespace-nowrap flex-shrink-0 ${
+                        getModeState("playlist").loading
+                          ? "bg-yellow-600 text-white cursor-wait"
+                          : getModeState("playlist").active
+                            ? "bg-red-600 hover:bg-red-700 text-white"
+                            : isTimerRunning || isAnyModeLoading() || isTimerStarting
+                              ? "bg-gray-500 cursor-not-allowed text-gray-300"
+                              : "bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white"
+                      }`}
+                    >
+                      {getModeState("playlist").loading ? "Opstarten..." : getModeState("playlist").active ? "Stop Test" : "Test"}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        ) : (
-          <button
-            onClick={onStopTimer}            disabled={audioPlayer && audioPlayer.isTransitioning}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
-          >
-            Deactiveer Switching
-          </button>
-        )}
-        
-        <label>of</label>
-        
-        <div className="relative">
-          <button
-            onClick={handleManualModeToggle}
-            disabled={!isModeValid() || isAnyModeLoading() || isTimerRunning || isTimerStarting}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${
-              getModeState(adBreakMode).loading
-                ? 'bg-yellow-600 text-white cursor-wait'
-                : getModeState(adBreakMode).active
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : (isTimerRunning || isAnyModeLoading() || isTimerStarting)
-                    ? 'bg-gray-500 cursor-not-allowed text-gray-300'
-                    : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white'
-            }`}
-          >
-            {getManualModeButtonText()}
-          </button>
-          {(isTimerRunning || isAnyModeLoading() || isTimerStarting) && (
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-              {isTimerStarting ? 'Timer wordt gestart...' : isTimerRunning ? 'Timer switching is actief - stop eerst de timer' : 'Andere manual mode start bezig...'}
-            </div>
-          )}
-        </div>
 
-      </div>
-    </div>
-  </div>         
-              {/* Collapsible Content */}
-            {isExpanded && (
-              <AdBreakExpandedSettings
-                autoSkipPreroll={autoSkipPreroll}
-                onAutoSkipPrerollChange={setAutoSkipPreroll}
-                visualizerEnabled={visualizerEnabled}
-                onVisualizerToggle={onVisualizerToggle}
-                fadeAudioStreams={fadeAudioStreams}
-                onFadeAudioStreamsChange={onFadeAudioStreamsChange}
-                adBreakMinute={adBreakMinute}
-                adBreakMinute2={adBreakMinute2}
-                adBreakDuration={adBreakDuration}
-                adBreakDuration2={adBreakDuration2}
-                onMinuteChange={onMinuteChange}
-                onMinute2Change={onMinute2Change}
-                onDurationChange={onDurationChange}
-                onDuration2Change={onDuration2Change}
-                daySettings={daySettings}
-                onDaySettingsChange={setDaySettings}
-                selectedDay={selectedDay}
-                onSelectedDayChange={setSelectedDay}
-              />
-            )}
-          </div>
+            {/* YouTube URL input + dice button when youtube mode is selected */}
+                  {adBreakMode === "youtube" && (
+                    <div className="mt-4 pt-4 border-t border-gray-600">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <YouTubeUrlInput
+                          youtubeUrl={youtubeUrl}
+                          onYoutubeUrlChange={onYoutubeUrlChange}
+                        />
+                      </div>
+                      <button
+                        onClick={handleManualModeToggle}
+                        disabled={!isModeValid() || isAnyModeLoading() || isTimerRunning || isTimerStarting}
+                        className={`mt-7 px-3 py-[10px] rounded-lg font-medium transition-colors text-sm whitespace-nowrap flex-shrink-0 ${
+                          getModeState("youtube").loading
+                            ? "bg-yellow-600 text-white cursor-wait"
+                            : getModeState("youtube").active
+                              ? "bg-red-600 hover:bg-red-700 text-white"
+                              : isTimerRunning || isAnyModeLoading() || isTimerStarting
+                                ? "bg-gray-500 cursor-not-allowed text-gray-300"
+                                : "bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white"
+                        }`}
+                      >
+                        {getModeState("youtube").loading ? "Opstarten..." : getModeState("youtube").active ? "Stop Test" : "Test"}
+                      </button>
+                    </div>
+                    </div>
+                  )}
 
+                  {/* Nonstop mode - Radios configureren button */}
+                  {adBreakMode === "nonstop" && (
+                    <div className="mt-4 pt-4 border-t border-gray-600">
+                    <label className="block text-sm font-medium mb-3 text-gray-300">
+                      Non stop Radios configureren:
+                    </label>
+                    <button
+                      onClick={() => setShowNonstopSettings(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors font-medium text-sm"
+                    >
+                      Instellingen
+                    </button>
+                    </div>
+                  )}
+                  </div>
+                  {/* Settings bar */}
+          <div className="bg-gray-800 rounded-lg border border-gray-700">
+            <AdBreakExpandedSettings
+              autoSkipPreroll={autoSkipPreroll}
+              onAutoSkipPrerollChange={setAutoSkipPreroll}
+              adBreakMinute={adBreakMinute}
+              adBreakMinute2={adBreakMinute2}
+              adBreakDuration={adBreakDuration}
+              adBreakDuration2={adBreakDuration2}
+              onMinuteChange={onMinuteChange}
+              onMinute2Change={onMinute2Change}
+              onDurationChange={onDurationChange}
+              onDuration2Change={onDuration2Change}
+              isTimerRunning={isTimerRunning}
+              isAdBreakActive={isAdBreakActive}
+              onStartTimer={handleStartTimer}
+              onStopTimer={onStopTimer}
+              timerDisabled={
+                !isModeValid() ||
+                !isRadioSelected() ||
+                (audioPlayer && audioPlayer.isTransitioning) ||
+                isAnyModeActive() ||
+                isAnyModeLoading()
+              }
+              timerStarting={isTimerStarting}
+            />
+          </div>
           {/* Nonstop Radio Settings Overlay */}
           <NonstopSettingsOverlay
             isOpen={showNonstopSettings}
             onClose={() => setShowNonstopSettings(false)}
             audioPlayer={audioPlayer}
           />
-
         </div>
-      </div>      {/* Visualizer Settings Overlay */}
+      </div>
+      {/* Visualizer Settings Overlay - commented out
       <VisualizerSettings
         isOpen={showVisualizerSettings}
         onClose={() => setShowVisualizerSettings(false)}
@@ -810,6 +781,7 @@ const AdBreakSettings = ({
         visualizerBlur={visualizerBlur}
         onVisualizerBlurChange={onVisualizerBlurChange}
       />
+      */}
     </div>
   );
 };
