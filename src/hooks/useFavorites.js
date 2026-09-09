@@ -1,5 +1,4 @@
 // hooks/useFavorites.js - Fix favorites persistence
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\hooks\useFavorites.js
 
 import { useState, useEffect } from 'react';
 

@@ -1,5 +1,4 @@
 // components/AdBreakSettings.jsx - Show current ad break countdown instead of next break countdown
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\AdBreakSettings.jsx
 
 import React, { useState, useEffect } from "react";
 import PlaylistProviderSelector from "./PlaylistProviderSelector";

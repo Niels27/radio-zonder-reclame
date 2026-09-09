@@ -1,5 +1,4 @@
 // components/RadioGrid.jsx - Ensure proper favorites integration
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\components\RadioGrid.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, Star } from 'lucide-react';
 import LoadingIndicator from './LoadingIndicator';

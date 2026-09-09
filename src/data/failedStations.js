@@ -1,4 +1,3 @@
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\data\failedStations.js
 // Auto-generated list of failed radio stations
 // Generated on: 2026-02-16T13:29:06.012Z
 // Total failed stations: 247

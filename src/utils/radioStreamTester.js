@@ -581,7 +581,7 @@ export class RadioStreamTester {
       // Generate the new file content
       const timestamp = new Date().toISOString();
       
-      let fileContent = `// filepath: c:\\Users\\niels\\Documents\\Visual Studio Code\\no ads radio project\\src\\data\\fallbackStations.js
+      let fileContent = `// src/data/fallbackStations.js
 // Station definitions with multiple fallback URLs - AUTO-UPDATED
 // This file can be directly edited to override station URLs
 // URLs are tried in order from first to last
@@ -878,7 +878,7 @@ export const fallbackStats = {
 
       const timestamp = new Date().toISOString();
       
-      const fileContent = `// filepath: c:\\Users\\niels\\Documents\\Visual Studio Code\\no ads radio project\\src\\data\\failedStations.js
+      const fileContent = `// src/data/failedStations.js
 // Auto-generated list of failed radio stations
 // Generated on: ${timestamp}
 // Total failed stations: ${failedStationNames.length}

@@ -1,5 +1,4 @@
 // utils/logoFallback.js
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\utils\logoFallback.js
 export class LogoFallback {
   static async findWorkingLogo(radioStation) {
     const { name, url } = radioStation;

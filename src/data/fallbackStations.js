@@ -1,4 +1,3 @@
-// filepath: c:\Users\niels\Documents\Visual Studio Code\no ads radio project\src\data\fallbackStations.js
 // Station definitions with multiple fallback URLs - AUTO-UPDATED
 // This file can be directly edited to override station URLs
 // URLs are tried in order from first to last
