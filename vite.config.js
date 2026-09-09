@@ -3,6 +3,14 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 
+// Use HTTPS for the dev server only if local certs are present.
+// Generate them yourself (they are gitignored) - see README "Local HTTPS".
+const keyPath = path.resolve(__dirname, '127.0.0.1-key.pem')
+const certPath = path.resolve(__dirname, '127.0.0.1.pem')
+const httpsConfig = fs.existsSync(keyPath) && fs.existsSync(certPath)
+  ? { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }
+  : undefined
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -37,10 +45,7 @@ export default defineConfig({
     }
   },  // Development server configuration
   server: {
-    https: {
-      key: fs.readFileSync(path.resolve(__dirname, '127.0.0.1-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, '127.0.0.1.pem'))
-    },
+    ...(httpsConfig ? { https: httpsConfig } : {}),
     host: '127.0.0.1',
     port: 4178,
     strictPort: true,

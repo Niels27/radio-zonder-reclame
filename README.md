@@ -1,60 +1,54 @@
 # Radio Zonder Reclame
 
-Dutch radio streaming application with automatic ad-break switching.
+Nederlandse radio-streaming app die tijdens reclameblokken automatisch naar je eigen
+playlist (Spotify / YouTube), nonstop-radio of lofi schakelt.
 
 **Live:** https://niels27.github.io/radio-zonder-reclame/
 
-## Quick Start
-
-```bash
-npm install
-npm run dev
-```
-
 ## Features
 
-- 🎵 850+ Dutch radio stations
-- 🎧 Automatic ad-break detection and switching
-- 🎼 3 skip modes: Playlist (Spotify/YouTube), Nonstop Radio, Lofi
-- 📊 Real-time music visualizer
-- ❤️ Favorites system
-- 🔊 Smart volume normalization
-- ⚡ No audio overlap - strict single-source enforcement
+- 850+ Nederlandse radiozenders
+- Automatische reclamepauze-detectie en omschakeling
+- Skip-modi: Playlist (Spotify / YouTube), Nonstop Radio, Lofi
+- Music visualizer, favorieten, volumenormalisatie
+- Strikt één audiobron tegelijk (geen overlap)
 
-## Documentation
+## Tech stack
 
-See [`docs/`](./docs/) folder:
-- [Project Overview](./docs/PROJECT_OVERVIEW.md)
-- [Architecture](./docs/ARCHITECTURE.md)
-- [Changelog](./docs/CHANGELOG.md)
-
-## Tech Stack
-
-- React + Vite
-- TailwindCSS
-- HTML5 Audio API
-- Spotify Web Playback SDK
-- YouTube iframe API
+React 19 + Vite 6 · TailwindCSS · HTML5 Audio API · Spotify Web Playback SDK · YouTube IFrame API
 
 ## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Run dev server (localhost:4173)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+npm run dev      # https://127.0.0.1:4178/radio-zonder-reclame/
+npm run build    # production build -> dist/
+npm run preview  # serve the production build locally
 ```
 
-## Version
+### Local HTTPS (optional)
 
-**v3.3** - Complete architecture restructuring (December 2024)
+The dev server uses HTTPS when it finds `127.0.0.1.pem` and `127.0.0.1-key.pem` in the
+project root, otherwise it falls back to HTTP. These files are gitignored - generate your
+own with [mkcert](https://github.com/FiloSottile/mkcert):
+
+```bash
+mkcert 127.0.0.1
+# produces 127.0.0.1.pem and 127.0.0.1-key.pem
+```
+
+## Deployment
+
+Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds `dist/` and
+publishes it to GitHub Pages. The repo's **Settings → Pages → Source** must be set to
+**GitHub Actions**. The `base` path in `vite.config.js` (`/radio-zonder-reclame/`) must
+match the repo name.
+
+## Developer dashboard
+
+An internal panel (stream tester + debug toggles) is available by running
+`localStorage.dev_mode = 'true'` in the browser console, then triple-clicking the small
+area in the top-right of the header. It stores nothing server-side.
 
 ## License
 
