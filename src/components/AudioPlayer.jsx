@@ -7,6 +7,7 @@ const AudioPlayer = ({
   onTogglePlayPause,
   onVolumeChange,
   isAdBreakActive,
+  isTimerRunning,        // ✅ NEW: Whether auto ad break switching is active
   nextAdBreakIn,
   currentAdBreakTimeLeft, // ✅ ADD: This prop
   onCancelAdBreakTimer,   // ✅ ADD: This prop
@@ -28,8 +29,6 @@ const AudioPlayer = ({
   isNonstopModeManuallyActive, // ✅ NEW: Simple state for nonstop cycling button
   // ✅ NEW: Manual timer control functions
   onJumpToSwitchNow,
-  onSkipCurrentSwitch,
-  onAddOneMinute,
   onEndAdBreak  // ✅ NEW: Function to end ad break early
 }) => {
   // ✅ FIX: Add safety check for pausedRadioStation prop
@@ -42,16 +41,18 @@ const AudioPlayer = ({
   const volumeSliderRef = useRef(null);
   const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
 
+  const isPlaylistSource = currentSource === 'spotify' || currentSource === 'youtube';
+
   const formatStationName = () => {
-    if (currentSource === 'playlist' && playlistInfo) {
-      return playlistInfo.title || 'YouTube Playlist';
+    if (isPlaylistSource) {
+      return playlistInfo?.title || (currentSource === 'spotify' ? 'Spotify Playlist' : 'YouTube Playlist');
     }
     if (!currentStation) return 'Geen zender geselecteerd';
     return currentStation.name;
   };
 
   const getCurrentLogo = () => {
-    if (currentSource === 'playlist' && playlistInfo?.thumbnail) {
+    if (isPlaylistSource && playlistInfo?.thumbnail) {
       return playlistInfo.thumbnail;
     }
     if (currentStation?.logo) {
@@ -369,13 +370,17 @@ const AudioPlayer = ({
                   {getCurrentLogo() ? (
                     <img
                       src={getCurrentLogo()}
-                      alt={currentSource === 'playlist' ? 'Playlist thumbnail' : 'Station logo'}
+                      alt={isPlaylistSource ? 'Playlist thumbnail' : 'Station logo'}
                       className="w-full h-full object-cover"
                     />
+                  ) : isPlaylistSource ? (
+                    <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                    </svg>
                   ) : (
-                    <div className="text-gray-400 text-xs font-bold">
-                      {currentSource === 'playlist' ? '♪' : '📻'}
-                    </div>
+                    <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
+                    </svg>
                   )}
                 </div>
 
@@ -394,32 +399,14 @@ const AudioPlayer = ({
                       </span>
                     )}
 
-                    {/* ✅ NEW: Nonstop radio indicator during ad break */}
-                    {currentSource === 'radio' && isAdBreakActive && adBreakMode === 'nonstop' && (
-                      <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
-                        </svg>
-                        <span>Nonstop Radio</span>
-                      </span>
-                    )}
-
-                    {currentSource === 'playlist' && (
+                    {isPlaylistSource && (
                       <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full flex items-center space-x-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
                         </svg>
-                        <span>Afspeellijst</span>                        {playlistInfo?.videoCount && (
+                        <span>{currentSource === 'spotify' ? 'Spotify' : 'Afspeellijst'}</span>                        {playlistInfo?.videoCount && (
                           <span className="text-gray-300">({playlistInfo.videoCount})</span>
                         )}
-                      </span>
-                    )}                    {/* ✅ NEW: "Returning to" indicator during nonstop ad break */}
-                    {isAdBreakActive && adBreakMode === 'nonstop' && savedStation && (
-                      <span className="px-2 py-1 bg-green-600 text-white text-xs rounded-full flex items-center space-x-1">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                        </svg>
-                        <span>Switched terug naar: {savedStation.name}</span>
                       </span>
                     )}
 
@@ -480,97 +467,69 @@ const AudioPlayer = ({
                   </svg>
                 </button>
               </div>
-            )}            {/* Ad Break Status - ENHANCED with timer and cancel button */}
+            )}            {/* Ad Break Countdown - informational timer display, hidden on narrow screens for space */}
             {isAdBreakActive ? (
-              <div className="flex items-center space-x-3">                {/* Timer Display with Cancel Button */}
-                {currentAdBreakTimeLeft !== null ? (
-                  <div className={`hidden sm:flex flex-col items-center space-y-2 text-sm ${
-                    currentAdBreakUsedCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
-                  }`}>
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-                        <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                      </svg>                      <span>
-                        {currentAdBreakUsedCommunityTiming ? 'Community switch naar radio over:' : `Switch terug naar radio over:`}
-                      </span>
-                      <span className={`font-mono text-white px-2 py-1 rounded ${
-                        currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
-                      }`}>
-                        {formatAdBreakTimer(currentAdBreakTimeLeft)}
-                      </span>
-                    </div>
-                    
-                    {/* ✅ NEW: "Nu terug" button to end ad break immediately */}
-                    {onEndAdBreak && (
-                      <button
-                        onClick={onEndAdBreak}
-                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition-colors"
-                        title="Direct terug naar radio"
-                      >
-                        Nu terug
-                      </button>
-                    )}
-                  </div>
-
-                ) : (
-                  // Fallback display if timer is not available
-                  <div className="flex items-center space-x-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-full">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
-                    </svg>
-                    <span>Reclamepauze Actief</span>
-                  </div>
-                )}
-              </div>            ) : (              nextAdBreakIn && (                <div className={`hidden sm:flex flex-col items-center space-y-2 text-sm ${
-                  nextCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
+              currentAdBreakTimeLeft !== null && (
+                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+                  currentAdBreakUsedCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
                 }`}>
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                    </svg>                    <span>
-                      {nextCommunityTiming ? 'Community pauze wisseling in:' : `Switch naar ${adBreakMode === 'playlist' ? 'Playlist' : adBreakMode === 'nonstop' ? 'Non-Stop Radio' : 'YouTube Playlist'} over:`}
-                    </span><span className={`font-mono text-white px-2 py-1 rounded ${
-                      nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
-                    }`}>
-                      {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn) : nextAdBreakIn}
-                    </span>
-                  </div>
-                  
-                  {/* ✅ NEW: Timer Control Buttons for normal countdown */}
-                  {onJumpToSwitchNow && (
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={onJumpToSwitchNow}
-                        className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
-                        title="Direct naar reclamepauze"
-                      >
-                        Switch nu
-                      </button>
-                      {onSkipCurrentSwitch && (
-                        <button
-                          onClick={onSkipCurrentSwitch}
-                          className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors"
-                          title="Deze pauze overslaan"
-                        >
-                          Skip switch
-                        </button>
-                      )}
-                      {onAddOneMinute && (
-                        <button
-                          onClick={onAddOneMinute}
-                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                          title="1 minuut langer wachten"
-                        >
-                          +1 min
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                    <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                  </svg>
+                  <span>
+                    {currentAdBreakUsedCommunityTiming ? 'Community switch naar ' : 'Switch naar '}
+                    <span className="font-bold">{savedStation?.name || 'radio'}</span>
+                    {' over:'}
+                  </span>
+                  <span className={`font-mono text-white px-2 py-1 rounded ${
+                    currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
+                  }`}>
+                    {formatAdBreakTimer(currentAdBreakTimeLeft)}
+                  </span>
                 </div>
               )
-            )}            {/* Rotation Button for Nonstop Mode - Show during any nonstop mode */}
+            ) : (
+              // Explicit null check, not `nextAdBreakIn &&` - nextAdBreakIn is 0
+              // right when the countdown hits zero, and 0 is falsy but not a
+              // "nothing to render" value, so `&&` used to print a stray "0".
+              nextAdBreakIn != null && (
+                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
+                  nextCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
+                }`}>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                    <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                  </svg>
+                  <span>
+                    {nextCommunityTiming ? 'Community pauze wisseling in:' : `Switch naar ${adBreakMode === 'playlist' ? 'Playlist' : adBreakMode === 'nonstop' ? 'Non-Stop Radio' : 'YouTube Playlist'} over:`}
+                  </span>
+                  <span className={`font-mono text-white px-2 py-1 rounded ${
+                    nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
+                  }`}>
+                    {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn) : nextAdBreakIn}
+                  </span>
+                </div>
+              )
+            )}
+
+            {/* Manual switch control - always visible in one line whenever auto ad break
+                switching is on (or an ad break is already running), so you can jump back and
+                forth immediately without waiting for the countdown. The label always reads
+                "Switch nu" - it toggles between jumping into the ad break and ending it early
+                depending on current state, only the tooltip/title reflects which. */}
+            {(isTimerRunning || isAdBreakActive) && (onJumpToSwitchNow || onEndAdBreak) && (
+              <button
+                onClick={isAdBreakActive ? onEndAdBreak : onJumpToSwitchNow}
+                disabled={isAdBreakActive ? !onEndAdBreak : !onJumpToSwitchNow}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-medium rounded transition-colors whitespace-nowrap"
+                title={isAdBreakActive ? 'Direct terug naar radio' : 'Direct naar reclamepauze'}
+              >
+                Switch nu
+              </button>
+            )}
+
+            {/* Rotation Button for Nonstop Mode - Show during any nonstop mode */}
             {adBreakMode === 'nonstop' && onRotateNonstopStation && 
              (isNonstopModeManuallyActive || isAdBreakActive) && (
               <button
