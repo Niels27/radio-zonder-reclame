@@ -156,11 +156,11 @@ export function useAdBreak(audioManager, interruptionHandler) {
       // Start the ad break
       await adBreakControllerRef.current.start(state.adBreakMode, duration, config);
 
-      notify(`🎵 Reclamepauze gestart (${getModeLabel()})`, 'info', 3000);
+      notify(`Reclamepauze gestart (${getModeLabel()})`, 'info', 3000);
 
     } catch (error) {
       console.error('❌ useAdBreak: Failed to start ad break', error);
-      notify(`❌ Fout: ${error.message}`, 'error', 3000);
+      notify(`Fout: ${error.message}`, 'error', 3000);
     }
   }, [state.isAdBreakActive, state.adBreakMode, interruptionHandler, getDuration, getAdBreakConfig, getModeLabel]);
 
@@ -206,7 +206,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
     updateCountdown();
     timerIntervalRef.current = setInterval(updateCountdown, 1000);
 
-    notify('⏰ Automatisch wisselen geactiveerd', 'success', 2000);
+    notify('Automatisch wisselen geactiveerd', 'success', 2000);
   }, [state.isTimerRunning, state.currentStation, state.isAdBreakActive, calculateNextAdBreak, actions, startAdBreak]);
 
   /**
@@ -234,7 +234,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
       adBreakControllerRef.current.cancel();
     }
 
-    notify('⏰ Automatisch wisselen gedeactiveerd', 'success', 2000);
+    notify('Automatisch wisselen gedeactiveerd', 'success', 2000);
   }, [state.isAdBreakActive, actions]);
 
   /**
@@ -246,7 +246,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
     try {
       await adBreakControllerRef.current.end();
 
-      notify('🎵 Terug naar radio', 'success', 2000);
+      notify('Terug naar radio', 'success', 2000);
     } catch (error) {
       console.error('❌ useAdBreak: Failed to end ad break', error);
     }
@@ -279,7 +279,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
 
     adBreakControllerRef.current.extend(minutes);
 
-    notify(`⏰ +${minutes} minuut toegevoegd`, 'info', 2000);
+    notify(`+${minutes} minuut toegevoegd`, 'info', 2000);
   }, [state.isAdBreakActive]);
 
   /**
@@ -290,7 +290,7 @@ export function useAdBreak(audioManager, interruptionHandler) {
 
     adBreakControllerRef.current.cancel();
 
-    notify('🚫 Reclamepauze geannuleerd', 'info', 2000);
+    notify('Reclamepauze geannuleerd', 'info', 2000);
   }, []);
 
   /**

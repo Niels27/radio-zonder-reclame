@@ -74,7 +74,7 @@ const PlaylistSuggestions = ({ onSelectPlaylist, onClose }) => {
         </div>
 
         <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-          <h4 className="font-semibold text-white mb-2">💡 Tips voor het kiezen van playlists:</h4>
+          <h4 className="font-semibold text-white mb-2">Tips voor het kiezen van playlists:</h4>
           <ul className="text-gray-300 text-sm space-y-1">
             <li>• Kies playlists van officiële YouTube kanalen</li>
             <li>• Zoek naar playlists met veel views en likes</li>

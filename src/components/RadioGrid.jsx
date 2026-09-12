@@ -1,12 +1,14 @@
 // components/RadioGrid.jsx - Ensure proper favorites integration
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, X, Star } from 'lucide-react';
+import { Search, X, Star, ExternalLink } from 'lucide-react';
 import LoadingIndicator from './LoadingIndicator';
 import { useFavorites } from '../hooks/useFavorites';
 import { LogoFallback } from '../utils/logoFallback.js';
 import { getBestLogoUrl, getLogoFallbacks, shouldMonitorLogo, logFailedLogo, getFailedLogos } from '../utils/logoManager.js';
 import { allRadioStations, isPopularStation, getPopularStations } from '../data/allRadioStations.js';
+import { getStationDefinition } from '../data/fallbackStations.js';
 import { RadioStreamTester } from '../utils/radioStreamTester';
+import { notify } from '../utils/eventBus';
 // Import the failed stations from the codebase file
 import { isFailedStation } from '../data/failedStations.js';
 
@@ -127,7 +129,7 @@ const StationLogo = ({ station, className = "w-full h-full" }) => {
 };
 
 // Update SmartText component to better detect overflow
-const SmartText = ({ text, className, isName = false }) => {
+const SmartText = ({ text, className, isName = false, trailing = null, title = null }) => {
   const [shouldScroll, setShouldScroll] = useState(false);
   const textRef = React.useRef(null);
 
@@ -154,11 +156,13 @@ const SmartText = ({ text, className, isName = false }) => {
 
   return (
     <div className={`${isName ? 'px-2 mb-1 flex-1 flex items-center' : 'px-2 mb-2'}`}>
-      <div 
+      <div
         ref={textRef}
+        title={title || undefined}
         className={`${className} ${shouldScroll ? 'text-overflow' : ''} w-full text-center`}
       >
         {text}
+        {trailing}
       </div>
     </div>
   );
@@ -501,7 +505,20 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
         
         {/* Stations grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-          {filteredStations.map((station) => (            <div
+          {filteredStations.map((station) => {
+            // The curated fallbackStations.js entry (when there is one) carries a
+            // researched, genre/identity description; allStations only ever holds
+            // the raw Radio-Browser description otherwise (often generic, e.g.
+            // "Commerciële radio"), so prefer the curated one when available.
+            const stationDefinition = getStationDefinition(station.name);
+            const description = stationDefinition?.description || station.description;
+            // A longer, station-specific blurb for the name tooltip - distinct
+            // from the short tag shown under the card. Falls back to the short
+            // description for stations that don't have one researched yet.
+            const tooltipText = stationDefinition?.longDescription || description;
+
+            return (
+            <div
               key={station.name}
               onClick={() => handleStationSelect(station)}
               className={`radio-card relative overflow-hidden aspect-square ${
@@ -515,20 +532,40 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                 <StationLogo station={station} className="w-full h-full max-w-16 max-h-16" />
               </div>
 
-              {/* Station Name - Smart scrolling text */}
-              <SmartText 
+              {/* Station Name - Smart scrolling text, with a hover tooltip
+                  describing the station and a website icon trailing the name
+                  that only shows up on hover */}
+              <SmartText
                 text={station.name}
+                title={tooltipText}
                 className={`station-name leading-tight font-medium ${
-                  isFailedStation(station.name) 
+                  isFailedStation(station.name)
                     ? 'text-red-400'     // ✅ Red text for failed stations
                     : 'text-white'       // ✅ White text for working stations
                 }`}
                 isName={true}
+                trailing={
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const website = stationDefinition?.website;
+                      if (website) {
+                        window.open(website, '_blank', 'noopener,noreferrer');
+                      } else {
+                        notify('Site niet bekend', 'info', 2000);
+                      }
+                    }}
+                    className="hidden group-hover:inline-flex items-center align-middle ml-1 p-0.5 rounded-full hover:bg-black/30 transition-colors"
+                    title={`Website van ${station.name} openen`}
+                  >
+                    <ExternalLink className="w-3 h-3 text-gray-300" />
+                  </button>
+                }
               />
 
               {/* Station Description - Smart scrolling text */}
-              <SmartText 
-                text={station.description}
+              <SmartText
+                text={description}
                 className="station-description text-gray-400 text-xs"
                 isName={false}
               />              {/* Loading Indicator */}
@@ -541,7 +578,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                 </div>
               )}
 
-              {/* Favorite Button */}
+              {/* Favorite Button (top-right) - revealed on hover, but stays visible once favorited */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -553,12 +590,14 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                     console.log('After toggle - isFavorite status:', isFavorite(station.name));
                   }, 100);
                 }}
-                className="absolute top-1 right-1 p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+                className={`card-corner-btn absolute top-1 right-1 p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors focus:opacity-100 ${
+                  isFavorite(station.name) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
                 title={isFavorite(station.name) ? 'Uit favorieten verwijderen' : 'Aan favorieten toevoegen'}
               >
-                <svg 
-                  className={`w-3 h-3 transition-colors ${isFavorite(station.name) ? 'text-yellow-400' : 'text-gray-400'}`} 
-                  fill="currentColor" 
+                <svg
+                  className={`w-3 h-3 transition-colors ${isFavorite(station.name) ? 'text-yellow-400' : 'text-gray-400'}`}
+                  fill="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -570,7 +609,8 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
                       <div className="absolute top-1 left-1 w-2 h-2 bg-red-500 rounded-full" title="Station gerapporteerd als niet werkend"></div>
                     )} */}
                     </div>
-                    ))}
+            );
+          })}
                   </div>
 
                   {/* No results message */}

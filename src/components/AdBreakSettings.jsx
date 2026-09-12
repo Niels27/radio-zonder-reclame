@@ -390,7 +390,7 @@ const AdBreakSettings = ({
       });
       setSelectedManualMode(mode);
 
-      notify(`🎵 ${getModeDisplayName(mode)} Test Gestart`, "success", 2000);
+      notify(`${getModeDisplayName(mode)} Test Gestart`, "success", 2000);
     } catch (error) {
       console.error(`Failed to start ${mode} mode:`, error);
 
@@ -398,7 +398,7 @@ const AdBreakSettings = ({
       setModeState(mode, { active: false, loading: false, startTime: null });
 
       notify(
-        `❌ Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`,
+        `Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`,
         "error",
         3000,
       );
@@ -440,7 +440,7 @@ const AdBreakSettings = ({
         setSelectedManualMode(null);
       }
 
-      notify(`🛑 ${getModeDisplayName(mode)} Test Gestopt`, "info", 2000);
+      notify(`${getModeDisplayName(mode)} Test Gestopt`, "info", 2000);
     } catch (error) {
       console.error(`Failed to stop ${mode} mode:`, error);
       // Force reset state even on error
@@ -661,12 +661,13 @@ const AdBreakSettings = ({
                 onClick={() => onAdBreakModeChange("nonstop")}
               >
                 <div className="flex items-center gap-3 mb-2">
+                  {/* Repeat/loop icon - fits "non-stop, continuous playback" better than the generic radio tuner icon used elsewhere */}
                   <svg
                     className="w-5 h-5"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85L12 2 3.24 6.15zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
+                    <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
                   </svg>
                   <span className="font-semibold">Non-stop Radio</span>
                 </div>

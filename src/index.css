@@ -166,16 +166,18 @@
     z-index: 2;
   }
   
-  /* Ensure favorite button stays on top and fixed position */
-  .radio-card button {
+  /* Ensure the corner icon button (favorite) stays on top, above the animated
+     playing background, and unaffected by the card's hover-scale transform.
+     Scoped to .card-corner-btn specifically - the website icon next to the
+     station name is a normal inline button and must NOT be forced absolute. */
+  .radio-card .card-corner-btn {
     position: absolute !important;
     top: 0.25rem !important;
-    right: 0.25rem !important;
     z-index: 10 !important;
     transform: none !important;
   }
-  
-  .radio-card.playing button {
+
+  .radio-card.playing .card-corner-btn {
     z-index: 10 !important;
   }
 
@@ -750,14 +752,22 @@
 }
 
 @keyframes pulse-red {
-  0%, 100% { 
+  0%, 100% {
     opacity: 1;
     box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
   }
-  50% { 
+  50% {
     opacity: 0.7;
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
   }
+}
+
+/* Mini equalizer bars for the "ad break ongoing" timer status indicator -
+   three bars bouncing out of sync reads as "audio is actively switching"
+   rather than a plain pulsing dot. */
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
 }
 
 /* Enhanced volume slider styling for floating players */
