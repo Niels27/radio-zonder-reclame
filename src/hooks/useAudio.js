@@ -38,6 +38,15 @@ export function useAudio() {
 
       // Set up callbacks
       audioManagerRef.current.on('onStateChange', (newState) => {
+        // Keep audioSource in sync with AudioManager's actual active source.
+        // AudioManager.currentSource is the single source of truth for "what's
+        // playing" - some callers (e.g. AdBreakController) switch sources
+        // directly on AudioManager without going through playRadio/playSpotify/
+        // playYouTube below, which would otherwise leave state.audioSource stale
+        // and the player UI stuck showing the previous source (e.g. radio info
+        // lingering after switching to a Spotify ad break).
+        actions.setAudioSource(audioManagerRef.current.currentSource);
+
         if (newState === 'playing') {
           actions.setPlaying(true);
           actions.setPaused(false);
@@ -57,6 +66,18 @@ export function useAudio() {
 
       audioManagerRef.current.on('onError', (error) => {
         actions.setError(error.message || 'Audio afspeelfout');
+      });
+
+      // Keep currentStation in sync with whatever radio station AudioManager
+      // actually has loaded, the same way audioSource is synced above. Without
+      // this, a station switch triggered outside playRadio() (e.g. the nonstop
+      // rotation during an ad break, which calls AudioManager.play() directly)
+      // never updates state.currentStation, so the player bar keeps showing the
+      // name/logo of whichever station was playing before the switch.
+      audioManagerRef.current.on('onMetadataChange', (metadata) => {
+        if (metadata.station) {
+          actions.setStation(metadata.station);
+        }
       });
 
       audioManagerRef.current.on('onEmergency', (event) => {
@@ -330,6 +351,64 @@ export function useAudio() {
       console.error('❌ useAudio: Failed to set shuffle', error);
     }
   }, [state.audioSource, actions]);
+
+  /**
+   * Media Session API integration - lets the OS media controls (hardware/
+   * Bluetooth media keys, Windows "now playing" widget, etc.) show what's
+   * actually playing and control it correctly, whichever source is active.
+   * Without this, the OS falls back to auto-detecting a plain <audio>
+   * element, which only sees the radio stream - Spotify's Web Playback SDK
+   * plays through a hidden cross-origin iframe the OS can't discover, so its
+   * controls silently keep targeting the (paused) radio element instead.
+   */
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    const title = state.audioSource === 'spotify'
+      ? (state.playlistInfo?.title || 'Spotify Playlist')
+      : (state.currentStation?.name || 'No Ads Radio');
+    const artwork = state.audioSource === 'spotify'
+      ? state.playlistInfo?.thumbnail
+      : state.currentStation?.logo;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist: state.audioSource === 'spotify' ? 'Spotify' : 'Radio',
+      album: 'No Ads Radio',
+      artwork: artwork ? [{ src: artwork, sizes: '512x512', type: 'image/png' }] : []
+    });
+  }, [state.audioSource, state.currentStation, state.playlistInfo]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = state.isPlaying
+      ? 'playing'
+      : (state.isPaused ? 'paused' : 'none');
+  }, [state.isPlaying, state.isPaused]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    // Every handler routes through the same pause/resume/nextTrack/etc.
+    // helpers the in-app buttons use, so OS controls always match the
+    // currently active source (AudioManager.currentSource) instead of
+    // assuming radio.
+    navigator.mediaSession.setActionHandler('play', () => resume());
+    navigator.mediaSession.setActionHandler('pause', () => pause());
+    navigator.mediaSession.setActionHandler('stop', () => stop());
+    navigator.mediaSession.setActionHandler('previoustrack',
+      state.audioSource === 'spotify' ? () => previousTrack() : null);
+    navigator.mediaSession.setActionHandler('nexttrack',
+      state.audioSource === 'spotify' ? () => nextTrack() : null);
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('stop', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+    };
+  }, [pause, resume, stop, nextTrack, previousTrack, state.audioSource]);
 
   /**
    * Get audio element (for visualizer)

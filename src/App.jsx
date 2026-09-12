@@ -367,12 +367,14 @@ function App() {
               onVolumeChange={audio.setVolume}
 
               isAdBreakActive={adBreak.isAdBreakActive}
+              isTimerRunning={adBreak.isTimerRunning}
               nextAdBreakIn={adBreak.nextAdBreakIn}
               currentAdBreakTimeLeft={adBreak.adBreakTimeLeft}
               adBreakMode={adBreak.adBreakMode}
               savedStation={adBreak.savedStation} // ✅ NEW: Pass saved station for "returning to" display
 
               currentSource={state.audioSource}
+              playlistInfo={state.playlistInfo}
 
               playlistShuffle={state.playlistShuffle}
               onToggleShuffle={audio.setShuffle}

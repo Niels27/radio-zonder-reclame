@@ -63,9 +63,12 @@ export class AdBreakController {
       if (!success) {
         console.error(`❌ AdBreakController: Failed to start ${mode} mode - cancelling ad break`);
         this._cleanup();
+        this.isActive = false;
+        this.savedStation = null;
+        this.actions.endAdBreak();
 
         // Show user-friendly notification
-        notify(`❌ Kon ${mode} niet starten - probeer het opnieuw`, 'error', 4000);
+        notify(`Kon ${mode} niet starten - probeer het opnieuw`, 'error', 4000);
 
         return false;
       }
@@ -81,9 +84,12 @@ export class AdBreakController {
     } catch (error) {
       console.error('❌ AdBreakController: Failed to start ad break', error);
       this._cleanup();
+      this.isActive = false;
+      this.savedStation = null;
+      this.actions.endAdBreak();
 
       // Show user-friendly notification
-      notify(`❌ Fout bij starten reclamepauze: ${error.message}`, 'error', 4000);
+      notify(`Fout bij starten reclamepauze: ${error.message}`, 'error', 4000);
 
       return false;
     }
@@ -294,7 +300,12 @@ export class AdBreakController {
   }
 
   /**
-   * Cleanup timers and state
+   * Cleanup timers only. Deliberately does NOT touch React state - callers
+   * always follow up with actions.endAdBreak(), which clears isAdBreakActive
+   * and adBreakTimeLeft together in one reducer update. Clearing the timer
+   * here early used to leave a window where isAdBreakActive was still true
+   * but adBreakTimeLeft had already gone null, which briefly showed a
+   * confusing "ad break active, no timer" state in the player UI.
    */
   _cleanup() {
     if (this.timer) {
@@ -306,8 +317,6 @@ export class AdBreakController {
       clearInterval(this.countdownInterval);
       this.countdownInterval = null;
     }
-
-    this.actions.setAdBreakTimeLeft(null);
   }
 
   /**

@@ -223,7 +223,11 @@ export class RadioSource {
             return true;
           }
         } catch (err) {
-          if (err.message === 'Cancelled') throw err;
+          // A newer play() call already took over this.audio - bail out quietly
+          // like the URL loops below do, instead of throwing. Throwing here used
+          // to propagate out to the outer catch and fire a spurious "kan niet
+          // starten" error toast even though the newer attempt was loading fine.
+          if (err.message === 'Cancelled') return false;
           console.log(`⚡ RadioService: Cached URL failed, trying full list...`);
           clearCachedUrl(station.name);
         }

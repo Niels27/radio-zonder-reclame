@@ -35,6 +35,10 @@ class AudioManager {
     this.volume = 0.5;
     this.isTransitioning = false;
 
+    // Incremented on every play() call so a superseded (cancelled) attempt can
+    // recognize it's no longer the latest one and stay silent - see play().
+    this._playAttemptId = 0;
+
     // Fade settings
     this.fadeEnabled = false;
     this.fadeDuration = 500; // milliseconds
@@ -124,6 +128,14 @@ class AudioManager {
       }
     }
 
+    // Mark this call as the latest play() request. A slower, superseded call
+    // (e.g. a station the user already switched away from) recognizes itself
+    // as stale below and stays silent instead of surfacing a "failed to start"
+    // error for playback nobody is waiting on anymore.
+    this._playAttemptId++;
+    const myAttemptId = this._playAttemptId;
+    const isStale = () => this._playAttemptId !== myAttemptId;
+
     try {
       this.isTransitioning = true;
       this._setState('transitioning');
@@ -135,6 +147,11 @@ class AudioManager {
       if (shouldCrossfade) {
         console.log(`🔀 AudioManager: Crossfading ${this.currentSource} → ${sourceType}`);
         await this._crossfade(sourceType, config);
+
+        if (isStale()) {
+          console.log(`⚡ AudioManager: ${sourceType} attempt superseded during crossfade, ignoring its result`);
+          return false;
+        }
       } else {
         // NO FADE: Immediate stop (same source type or no fade)
         if (this.currentSource === sourceType) {
@@ -143,12 +160,23 @@ class AudioManager {
         console.log('🛑 AudioManager: FORCING STOP OF ALL AUDIO SOURCES');
         await this.stopAll();
 
+        if (isStale()) {
+          console.log(`⚡ AudioManager: ${sourceType} attempt superseded while stopping other sources, bailing out`);
+          return false;
+        }
+
         // Update current source
         this.currentSource = sourceType;
 
         // Play the new source
         this._setState('loading');
         const success = await this.sources[sourceType].play(config);
+
+        if (isStale()) {
+          // A newer play() call took over mid-load - let it report the outcome instead.
+          console.log(`⚡ AudioManager: ${sourceType} attempt superseded while loading, ignoring its result`);
+          return false;
+        }
 
         if (success) {
           this._setState('playing');
@@ -164,13 +192,21 @@ class AudioManager {
       return true;
 
     } catch (error) {
+      if (isStale()) {
+        // This attempt was cancelled/superseded - not a real failure, so don't
+        // touch shared state or surface an error toast for it.
+        console.log(`⚡ AudioManager: Ignoring error from superseded ${sourceType} play attempt`, error.message);
+        return false;
+      }
       console.error('❌ AudioManager: Play failed', error);
       this._setState('idle');
       this.currentSource = null;
       this._triggerError(error);
       return false;
     } finally {
-      this.isTransitioning = false;
+      if (!isStale()) {
+        this.isTransitioning = false;
+      }
     }
   }
 
