@@ -30,4 +30,9 @@ export default [
       ],
     },
   },
+  {
+    // Build config and maintenance scripts run in Node, not the browser.
+    files: ['*.config.js', 'scripts/**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
 ]
