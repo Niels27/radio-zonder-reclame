@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// components/NotificationSystem.jsx - Renders in-app notifications.
+// Anything in the app can show one via notify() from utils/eventBus ('notification' event).
+
+import { useState, useEffect, useCallback } from 'react';
 import eventBus from '../utils/eventBus';
 
 const NotificationSystem = () => {
@@ -27,16 +30,6 @@ const NotificationSystem = () => {
       addNotification(message, type, duration);
     };
     return eventBus.on('notification', handler);
-  }, [addNotification]);
-
-  // Keep window.addNotification as a thin shim for backwards compat during migration
-  useEffect(() => {
-    window.showNotification = addNotification;
-    window.addNotification = addNotification;
-    return () => {
-      delete window.showNotification;
-      delete window.addNotification;
-    };
   }, [addNotification]);
 
   const getNotificationIcon = (type) => {

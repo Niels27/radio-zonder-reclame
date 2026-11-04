@@ -6,10 +6,9 @@ import {
   saveDicePlaylists,
   getRandomDicePlaylist,
   removeDicePlaylist,
-  DEFAULT_YOUTUBE_PLAYLISTS
+  resetDicePlaylists
 } from '../utils/youtubePlaylistDefaults.js';
-import { extractPlaylistId } from '../utils/youtubeUtils.js';
-import { extractYouTubeVideoId } from '../utils/lofiUtils.js';
+import { extractPlaylistId, extractYouTubeVideoId } from '../utils/youtubeUtils.js';
 import { notify } from '../utils/eventBus';
 
 const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
@@ -76,9 +75,7 @@ const YouTubeUrlInput = ({ youtubeUrl, onYoutubeUrlChange }) => {
   };
 
   const handleResetDefaults = () => {
-    const defaults = [...DEFAULT_YOUTUBE_PLAYLISTS];
-    saveDicePlaylists(defaults);
-    setDicePlaylists(defaults);
+    setDicePlaylists(resetDicePlaylists());
     notify('Lijst gereset naar standaard', 'info', 2000);
   };
 

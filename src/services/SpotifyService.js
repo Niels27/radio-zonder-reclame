@@ -1,5 +1,6 @@
-// services/SpotifyService.js - Spotify Web Playback SDK integration
-// Handles Spotify playlist playback
+// services/SpotifyService.js - Spotify playback source for AudioManager.
+// Wraps the Spotify Web Playback SDK (browser device) plus the Web API calls it needs.
+// Authentication is handled by utils/spotifyUtils.js, which stores the token in localStorage.
 
 export class SpotifySource {
   constructor() {
@@ -12,41 +13,29 @@ export class SpotifySource {
   }
 
   /**
-   * Initialize Spotify Web Playback SDK
+   * Load the SDK and connect the browser player. Returns false when not logged in or on failure.
    */
   async initialize() {
     if (this.isReady) return true;
 
     try {
-      console.log('🎵 SpotifyService: Initializing...');
-
-      // Check if user is authenticated
       this.accessToken = localStorage.getItem('spotify_access_token');
       if (!this.accessToken) {
-        console.warn('⚠️ SpotifyService: No access token found');
         return false;
       }
 
-      // Load Spotify SDK if not already loaded
       if (!window.Spotify) {
         await this._loadSpotifySDK();
       }
 
-      // Initialize player
       await this._initializePlayer();
-
-      console.log('✅ SpotifyService: Initialized');
       return true;
-
     } catch (error) {
-      console.error('❌ SpotifyService: Initialization failed', error);
+      console.error('SpotifyService: initialization failed', error);
       return false;
     }
   }
 
-  /**
-   * Load Spotify Web Playback SDK
-   */
   async _loadSpotifySDK() {
     return new Promise((resolve, reject) => {
       if (window.Spotify) {
@@ -55,17 +44,13 @@ export class SpotifySource {
       }
 
       // Must set callback BEFORE loading the script - the SDK calls it during execution
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        console.log('✅ SpotifyService: SDK loaded');
-        resolve();
-      };
+      window.onSpotifyWebPlaybackSDKReady = () => resolve();
 
       const script = document.createElement('script');
       script.src = 'https://sdk.scdn.co/spotify-player.js';
       script.async = true;
-
       script.onerror = (error) => {
-        console.error('❌ SpotifyService: Failed to load SDK', error);
+        console.error('SpotifyService: failed to load SDK', error);
         reject(error);
       };
 
@@ -74,7 +59,7 @@ export class SpotifySource {
   }
 
   /**
-   * Initialize Spotify player
+   * Create the SDK player; resolves once Spotify reports the browser device as ready.
    */
   async _initializePlayer() {
     return new Promise((resolve, reject) => {
@@ -84,46 +69,41 @@ export class SpotifySource {
         volume: this.volume
       });
 
-      // Ready event
       this.player.addListener('ready', ({ device_id }) => {
-        console.log('✅ SpotifyService: Player ready with Device ID', device_id);
         this.deviceId = device_id;
         this.isReady = true;
         resolve();
       });
 
-      // Not Ready event
       this.player.addListener('not_ready', ({ device_id }) => {
-        console.warn('⚠️ SpotifyService: Device ID has gone offline', device_id);
+        console.warn('SpotifyService: device went offline', device_id);
       });
 
-      // Error events
       this.player.addListener('initialization_error', ({ message }) => {
-        console.error('❌ SpotifyService: Initialization error', message);
+        console.error('SpotifyService: initialization error', message);
         reject(new Error(message));
       });
 
       this.player.addListener('authentication_error', ({ message }) => {
-        console.error('❌ SpotifyService: Authentication error', message);
+        console.error('SpotifyService: authentication error', message);
         reject(new Error(message));
       });
 
       this.player.addListener('account_error', ({ message }) => {
-        console.error('❌ SpotifyService: Account error', message);
+        console.error('SpotifyService: account error', message);
         reject(new Error(message));
       });
 
       this.player.addListener('playback_error', ({ message }) => {
-        console.error('❌ SpotifyService: Playback error', message);
+        console.error('SpotifyService: playback error', message);
       });
 
-      // Connect to the player
       this.player.connect();
     });
   }
 
   /**
-   * Play a Spotify playlist
+   * Play a Spotify playlist on the browser device.
    * @param {object} config - { playlist: playlistId, shuffle: boolean }
    */
   async play(config) {
@@ -139,10 +119,7 @@ export class SpotifySource {
       throw new Error('No playlist specified');
     }
 
-    console.log(`🎵 SpotifyService: Playing playlist ${playlist}`);
-
     try {
-      // Start playback on the device
       const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`, {
         method: 'PUT',
         headers: {
@@ -159,62 +136,47 @@ export class SpotifySource {
         throw new Error(`Spotify API error: ${response.status}`);
       }
 
-      // Set shuffle if requested
       if (shuffle) {
         await this.setShuffle(true);
       }
 
       this.currentPlaylist = playlist;
-      console.log('✅ SpotifyService: Playback started');
       return true;
-
     } catch (error) {
-      console.error('❌ SpotifyService: Play failed', error);
+      console.error('SpotifyService: play failed', error);
       throw error;
     }
   }
 
-  /**
-   * Pause playback
-   */
   async pause() {
     if (!this.player) return;
 
     try {
       await this.player.pause();
-      console.log('⏸️ SpotifyService: Paused');
     } catch (error) {
-      console.error('❌ SpotifyService: Pause failed', error);
+      console.error('SpotifyService: pause failed', error);
     }
   }
 
-  /**
-   * Resume playback
-   */
   async resume() {
     if (!this.player) return;
 
     try {
       await this.player.resume();
-      console.log('▶️ SpotifyService: Resumed');
     } catch (error) {
-      console.error('❌ SpotifyService: Resume failed', error);
+      console.error('SpotifyService: resume failed', error);
       throw error;
     }
   }
 
-  /**
-   * Stop playback
-   */
   async stop() {
     if (!this.player) return;
 
     try {
       await this.player.pause();
       this.currentPlaylist = null;
-      console.log('🛑 SpotifyService: Stopped');
     } catch (error) {
-      console.error('❌ SpotifyService: Stop failed', error);
+      console.error('SpotifyService: stop failed', error);
     }
   }
 
@@ -228,74 +190,55 @@ export class SpotifySource {
     }
   }
 
-  /**
-   * Set shuffle mode
-   */
   async setShuffle(enabled) {
     if (!this.isReady) return;
 
     try {
-      const response = await fetch(`https://api.spotify.com/v1/me/player/shuffle?state=${enabled}&device_id=${this.deviceId}`, {
+      await fetch(`https://api.spotify.com/v1/me/player/shuffle?state=${enabled}&device_id=${this.deviceId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`
         }
       });
-
-      if (response.ok) {
-        console.log(`🔀 SpotifyService: Shuffle ${enabled ? 'enabled' : 'disabled'}`);
-      }
     } catch (error) {
-      console.error('❌ SpotifyService: Failed to set shuffle', error);
+      console.error('SpotifyService: failed to set shuffle', error);
     }
   }
 
-  /**
-   * Skip to next track
-   */
   async nextTrack() {
     if (!this.player) return;
 
     try {
       await this.player.nextTrack();
-      console.log('⏭️ SpotifyService: Next track');
     } catch (error) {
-      console.error('❌ SpotifyService: Failed to skip track', error);
+      console.error('SpotifyService: failed to skip track', error);
     }
   }
 
-  /**
-   * Skip to previous track
-   */
   async previousTrack() {
     if (!this.player) return;
 
     try {
       await this.player.previousTrack();
-      console.log('⏮️ SpotifyService: Previous track');
     } catch (error) {
-      console.error('❌ SpotifyService: Failed to go back', error);
+      console.error('SpotifyService: failed to go back', error);
     }
   }
 
   /**
-   * Get current playback state
+   * Current SDK playback state, or null when unavailable.
    */
   async getState() {
     if (!this.player) return null;
 
     try {
-      const state = await this.player.getCurrentState();
-      return state;
+      return await this.player.getCurrentState();
     } catch (error) {
-      console.error('❌ SpotifyService: Failed to get state', error);
+      console.error('SpotifyService: failed to get state', error);
       return null;
     }
   }
 
-  /**
-   * Cleanup
-   */
   destroy() {
     if (this.player) {
       this.player.disconnect();
@@ -306,5 +249,3 @@ export class SpotifySource {
     this.currentPlaylist = null;
   }
 }
-
-export default SpotifySource;

@@ -1,7 +1,29 @@
 // components/overlays/ResizableYouTubePlayer.jsx - Resizable YouTube mini-player
 // Shows "Sluit in: XX:XX" timer for automatic closures, stays open for manual opens
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+// Embed approaches the user can switch between when one is blocked (ad blockers,
+// privacy settings, embedding restrictions). Index is persisted in localStorage.
+const FALLBACK_METHODS = [
+  'full_player',      // YouTube IFrame API player (default)
+  'nocookie_embed',   // youtube-nocookie.com embed
+  'regular_embed',    // Regular YouTube embed
+  'youtube_music',    // YouTube Music
+  'direct_playlist',  // Direct playlist link
+  'mobile_embed'      // Mobile YouTube
+];
+
+const METHOD_DISPLAY_NAMES = {
+  full_player: 'Standaard',
+  nocookie_embed: 'Privacy',
+  regular_embed: 'Basis',
+  youtube_music: 'Music',
+  direct_playlist: 'Direct',
+  mobile_embed: 'Mobiel'
+};
+
+const getMethodDisplayName = (method) => METHOD_DISPLAY_NAMES[method] || method;
 
 const ResizableYouTubePlayer = ({
   isVisible,
@@ -25,40 +47,17 @@ const ResizableYouTubePlayer = ({
   const [timeRemaining, setTimeRemaining] = useState(autoCloseSeconds);
   const [timerCancelled, setTimerCancelled] = useState(false);
 
-  // YouTube fallback methods
+  // Embed method selection (defaults to index 0 = full_player)
   const [showSettings, setShowSettings] = useState(false);
-  const [currentMethod, setCurrentMethod] = useState(() => {
-    // Default to full_player (index 0) = Standaard
-    return parseInt(localStorage.getItem('youtube_embed_method') || '0');
-  });
+  const [currentMethod, setCurrentMethod] = useState(
+    () => parseInt(localStorage.getItem('youtube_embed_method') || '0')
+  );
 
   const playerRef = useRef(null);
   const containerRef = useRef(null);
 
   // YouTube player instance
   const [player, setPlayer] = useState(null);
-
-  // YouTube fallback methods - 6 different embed approaches
-  const fallbackMethods = [
-    'full_player',      // Full YouTube player (default)
-    'nocookie_embed',   // YouTube no-cookie embed
-    'regular_embed',    // Regular YouTube embed
-    'youtube_music',    // YouTube Music
-    'direct_playlist',  // Direct playlist link
-    'mobile_embed'      // Mobile YouTube
-  ];
-
-  const getMethodDisplayName = (method) => {
-    const names = {
-      'full_player': 'Standaard',
-      'nocookie_embed': 'Privacy',
-      'regular_embed': 'Basis',
-      'youtube_music': 'Music',
-      'direct_playlist': 'Direct',
-      'mobile_embed': 'Mobiel'
-    };
-    return names[method] || method;
-  };
 
   // Load YouTube iframe API
   useEffect(() => {
@@ -72,8 +71,7 @@ const ResizableYouTubePlayer = ({
 
   // Get embed URL based on selected method
   const getEmbedUrl = () => {
-    const method = fallbackMethods[currentMethod];
-    const id = videoId || playlistId;
+    const method = FALLBACK_METHODS[currentMethod];
 
     switch (method) {
       case 'nocookie_embed':
@@ -109,24 +107,21 @@ const ResizableYouTubePlayer = ({
     }
   };
 
-  // Initialize YouTube player when visible or method changes
+  // Read by onReady without making volume a dependency of the effect below:
+  // rebuilding the player on every volume change would restart the video.
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+
+  // (Re)create the player when it becomes visible or the source/method changes.
   useEffect(() => {
     if (!isVisible) return;
 
-    // Clean up existing player/iframe first
-    if (player) {
-      console.log('🔄 Destroying existing player for reload');
-      player.destroy();
-      setPlayer(null);
-    }
-
     if (playerRef.current) {
-      // Clear any existing content
       playerRef.current.innerHTML = '';
     }
+    let ytPlayer = null;
 
-    const method = fallbackMethods[currentMethod];
-    console.log(`✅ Loading player with method: ${method}`);
+    const method = FALLBACK_METHODS[currentMethod];
 
     // For full_player method, use YouTube IFrame API
     if (method === 'full_player' && window.YT) {
@@ -141,7 +136,7 @@ const ResizableYouTubePlayer = ({
         },
         events: {
           onReady: (event) => {
-            event.target.setVolume(volume);
+            event.target.setVolume(volumeRef.current);
           }
         }
       };
@@ -152,12 +147,12 @@ const ResizableYouTubePlayer = ({
       } else if (videoId) {
         playerConfig.videoId = videoId;
       } else {
-        console.error('❌ ResizableYouTubePlayer: Neither videoId nor playlistId provided');
+        console.error('ResizableYouTubePlayer: neither videoId nor playlistId provided');
         return;
       }
 
-      const newPlayer = new window.YT.Player(playerRef.current, playerConfig);
-      setPlayer(newPlayer);
+      ytPlayer = new window.YT.Player(playerRef.current, playerConfig);
+      setPlayer(ytPlayer);
     } else {
       // For all other methods, use direct iframe embed
       const iframe = document.createElement('iframe');
@@ -168,17 +163,15 @@ const ResizableYouTubePlayer = ({
       if (playerRef.current) {
         playerRef.current.appendChild(iframe);
       }
-
-      console.log(`✅ Created iframe with URL: ${iframe.src}`);
     }
 
     return () => {
-      if (player) {
-        player.destroy();
-        setPlayer(null);
-      }
+      ytPlayer?.destroy();
+      setPlayer(null);
     };
-  }, [isVisible, currentMethod, playlistId, videoId, volume]);
+    // getEmbedUrl only depends on the props listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible, currentMethod, playlistId, videoId]);
 
   // Update volume when changed
   useEffect(() => {
@@ -194,7 +187,6 @@ const ResizableYouTubePlayer = ({
     }
 
     if (timeRemaining <= 0) {
-      console.log('⏰ ResizableYouTubePlayer: Auto-close timer reached 0, closing');
       onClose();
       return;
     }
@@ -258,11 +250,7 @@ const ResizableYouTubePlayer = ({
     setIsResizing(true);
   };
 
-  // Cancel auto-close timer
-  const handleCancelTimer = () => {
-    setTimerCancelled(true);
-    console.log('🚫 ResizableYouTubePlayer: Auto-close timer cancelled by user');
-  };
+  const handleCancelTimer = () => setTimerCancelled(true);
 
   // Format time remaining
   const formatTime = (seconds) => {
@@ -335,14 +323,13 @@ const ResizableYouTubePlayer = ({
       {showSettings && (
         <div className="absolute top-12 right-3 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-xl z-10">
           <div className="text-xs text-gray-300 mb-2">
-            Methode: <span className="font-medium text-blue-400">{getMethodDisplayName(fallbackMethods[currentMethod])}</span>
+            Methode: <span className="font-medium text-blue-400">{getMethodDisplayName(FALLBACK_METHODS[currentMethod])}</span>
           </div>
           <div className="grid grid-cols-2 gap-1">
-            {fallbackMethods.map((method, index) => (
+            {FALLBACK_METHODS.map((method, index) => (
               <button
                 key={method}
                 onClick={() => {
-                  console.log(`⚙️ Switching to method: ${method}`);
                   setCurrentMethod(index);
                   localStorage.setItem('youtube_embed_method', index.toString());
                   setShowSettings(false);
@@ -375,7 +362,7 @@ const ResizableYouTubePlayer = ({
         }}
       />
 
-      {/* Volume control (optional) */}
+      {/* Volume control */}
       <div className="absolute bottom-2 left-2 bg-gray-900/80 px-2 py-1 rounded flex items-center gap-2">
         <svg className="w-3.5 h-3.5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
           <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />

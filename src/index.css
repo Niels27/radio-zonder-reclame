@@ -96,7 +96,9 @@
   }
 
   #search-icon:hover {
-    transform: scale(1.2);  }
+    transform: scale(1.2);
+  }
+
   /* Playing radio card animation - continuous color flow */
   .radio-card.playing {
     position: relative;
@@ -160,6 +162,7 @@
       filter: brightness(1.2) saturate(1.3);
     }
   }
+
   /* Ensure content stays above animated background and favorite button is visible */
   .radio-card.playing > * {
     position: relative;
@@ -181,22 +184,7 @@
     z-index: 10 !important;
   }
 
-  /* Line clamp utilities */
-  .line-clamp-1 {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  /* ✅ ENHANCED: Super Smooth Custom Volume Slider - FIXED VERSION */
+  /* Custom volume slider (AudioPlayer) */
   .volume-slider {
     height: 8px;
     width: 150px;
@@ -207,7 +195,6 @@
     background: #374151;
     -webkit-user-select: none;
     user-select: none;
-    /* ✅ FIX: Prevent page scrolling when using mouse wheel */
   }
 
   .volume-slider:hover {
@@ -380,7 +367,7 @@
     transform: translateX(-50%) translateY(-12px);
   }
 
-  /* ✅ NEW: Drag indicator for tooltip */
+  /* Drag indicator for tooltip */
   .tooltip-drag-indicator {
     display: inline-block;
     margin-left: 4px;
@@ -394,7 +381,7 @@
     50% { opacity: 1; }
   }
 
-  /* Banner Wave Animation - Updated for slower, text-preserving effects */
+  /* Banner wave animation */
   .banner-container {
     position: relative;
     overflow: hidden;
@@ -497,17 +484,13 @@
     }
   }
 
-  /* Banner Text Effects - REMOVED hover animations to preserve text */
+  /* Banner text stays above the wave animations and is not animated itself */
   .banner-text {
     position: relative;
     z-index: 2;
   }
 
-  .banner-title {
-    /* Text remains static and unaffected by wave animations */
-  }
-
-  /* Enhanced Background Animation - Slower timing */
+  /* Animated banner background */
   .banner-background {
     position: absolute;
     top: 0;
@@ -551,7 +534,7 @@
     }
   }
 
-  /* Shimmer Effect - Slower timing */
+  /* Shimmer effect */
   .banner-shimmer {
     position: absolute;
     top: 0;
@@ -592,7 +575,9 @@
       left: 100%;
       opacity: 0;
     }
-  }  /* Music Visualizer Styles */
+  }
+
+  /* Music visualizer (the class is on the <canvas> itself) */
   .music-visualizer {
     position: absolute;
     top: 0;
@@ -605,10 +590,7 @@
     transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .music-visualizer canvas {
-    filter: blur(0.5px) brightness(1.1);
-  }
-  /* Footer visualizer specific styles with configurable blur */
+  /* Footer visualizer */
   .music-visualizer.footer {
     mix-blend-mode: overlay;
     opacity: 0.7;
@@ -621,72 +603,18 @@
     transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .music-visualizer.footer canvas {
-    filter: blur(var(--visualizer-blur, 2px)) brightness(1.3) contrast(1.1);
-  }
-
-  /* Bottom visualizer specific styles (legacy) */
-  .music-visualizer.bottom {
-    mix-blend-mode: overlay;
-    opacity: 0.8;
-    z-index: 0;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
   /* Ensure footer visualizer is visible */
   .sticky .music-visualizer.footer {
     display: block !important;
     visibility: visible !important;
   }
 
-  /* Enhanced banner container for visualizer */
-  .banner-container {
-    overflow: hidden;
-  }
-
   .banner-container .music-visualizer {
     opacity: 0.8;
   }
-
-  /* Visualizer gear icon animation */
-  .visualizer-gear {
-    transition: transform 0.3s ease;
-  }
-
-  .visualizer-gear:hover {
-    transform: rotate(90deg);
-  }
-
-  /* ...existing code... */
 }
 
-@layer utilities {
-    .radio-accent {
-      @apply bg-blue-600;
-    }
-
-    .radio-accent-hover {
-      @apply bg-blue-500;
-    }
-
-    .radio-secondary {
-      @apply text-gray-400;
-    }
-
-    .radio-dark {
-      @apply bg-gray-800;
-    }
-
-    .radio-hover {
-      @apply bg-gray-700;
-    }
-  }
-
-/* Enhanced pre-roll skip button styles */
+/* Pre-roll skip button (created in utils/adSkipUtils.js) */
 .preroll-skip-button {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
@@ -705,20 +633,6 @@
   transform: translateX(-50%) scale(0.98) translateY(1px);
 }
 
-.preroll-skip-button.auto-click {
-  animation: autoPulse 0.8s ease-in-out;
-}
-
-@keyframes autoPulse {
-  0%, 100% { 
-    transform: translateX(-50%) scale(1); 
-  }
-  50% { 
-    transform: translateX(-50%) scale(1.02); 
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
-  }
-}
-
 /* Responsive sizing */
 @media (max-width: 640px) {
   .preroll-skip-button {
@@ -728,7 +642,7 @@
   }
 }
 
-/* Pulse animation for status indicators */
+/* Pulse animation for the status indicator (AdBreakExpandedSettings) */
 @keyframes pulse-green {
   0%, 100% { 
     opacity: 1;
@@ -740,28 +654,6 @@
   }
 }
 
-@keyframes pulse-yellow {
-  0%, 100% { 
-    opacity: 1;
-    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
-  }
-  50% { 
-    opacity: 0.7;
-    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0);
-  }
-}
-
-@keyframes pulse-red {
-  0%, 100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-  }
-  50% {
-    opacity: 0.7;
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
-  }
-}
-
 /* Mini equalizer bars for the "ad break ongoing" timer status indicator -
    three bars bouncing out of sync reads as "audio is actively switching"
    rather than a plain pulsing dot. */
@@ -770,7 +662,7 @@
   50% { transform: scaleY(1); }
 }
 
-/* Enhanced volume slider styling for floating players */
+/* Range input styling (VisualizerSettings) */
 .slider {
   background: #4b5563;
   outline: none;
@@ -807,18 +699,4 @@
 .slider::-moz-range-thumb:hover {
   background: #2563eb;
   transform: scale(1.1);
-}
-
-/* Button hover effects for floating players */
-.player-button {
-  transition: all 0.2s ease;
-}
-
-.player-button:hover {
-  transform: scale(1.05);
-  filter: brightness(1.1);
-}
-
-.player-button:active {
-  transform: scale(0.95);
 }

@@ -1,4 +1,5 @@
-// utils/toastNotifications.js - Toast notification system
+// utils/toastNotifications.js - Lightweight DOM toasts (bottom-right), independent of React.
+// Used from non-React code such as RadioService.
 
 class ToastManager {
   constructor() {
@@ -8,7 +9,6 @@ class ToastManager {
   }
 
   initializeContainer() {
-    // Create toast container if it doesn't exist
     if (!this.container) {
       this.container = document.createElement('div');
       this.container.id = 'toast-container';
@@ -160,22 +160,14 @@ class ToastManager {
   }
 }
 
-// Create singleton instance
 const toastManager = new ToastManager();
 
-// Export convenience functions
-export const showToast = (message, options) => toastManager.show(message, options);
-export const toast = {
+const toast = {
   success: (message, duration) => toastManager.success(message, duration),
   info: (message, duration) => toastManager.info(message, duration),
   warning: (message, duration) => toastManager.warning(message, duration),
   error: (message, duration) => toastManager.error(message, duration),
   clear: () => toastManager.clearAll()
 };
-
-// Expose globally for debugging
-if (typeof window !== 'undefined') {
-  window.toast = toast;
-}
 
 export default toast;

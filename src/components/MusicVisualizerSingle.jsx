@@ -1,10 +1,14 @@
-// components/MusicVisualizerSingle.jsx - Single instance music visualizer with DOM movement
-import React, { useEffect, useRef } from 'react';
+// components/MusicVisualizerSingle.jsx - Canvas music visualizer.
+// Draws real frequency bars for radio (via a shared Web Audio analyser) and falls back to
+// a generated wave + particle animation when no analysable audio is available
+// (YouTube/Spotify, or radio streams without CORS).
+import { useEffect, useRef } from 'react';
 import eventBus from '../utils/eventBus';
 import { getAudioManager } from '../core/AudioManager';
 
-// Global singleton audio manager - only one instance across the entire app
-// Handles createMediaElementSource for visualizer, with reconnect support
+// Module-level singleton: createMediaElementSource() can only be called once per <audio>
+// element, so all visualizer instances share one analyser. Reconnects when RadioService
+// swaps the audio element.
 const globalAudioManager = {
   audioContext: null,
   analyser: null,
@@ -25,7 +29,7 @@ const globalAudioManager = {
       this.connectedElement = null;
       // Close old context - we need a fresh one for a new element
       if (this.audioContext && this.audioContext.state !== 'closed') {
-        try { this.audioContext.close(); } catch (e) { /* ignore */ }
+        try { this.audioContext.close(); } catch { /* ignore */ }
       }
       this.audioContext = null;
       this.analyser = null;
@@ -35,8 +39,8 @@ const globalAudioManager = {
     if (this.isSetup) return true;
 
     // Don't connect if RadioService is in non-CORS mode
+    // Without CORS the analyser would only see silence (and could mute the stream)
     if (this._corsEnabled === false) {
-      console.log('🎵 Visualizer: Skipping setup - stream has no CORS support');
       return false;
     }
 
@@ -62,7 +66,6 @@ const globalAudioManager = {
       }
 
       if (!targetElement) {
-        console.log('🎵 No suitable audio element found');
         return false;
       }
 
@@ -70,8 +73,6 @@ const globalAudioManager = {
       if (this.connectedElement === targetElement && this.isSetup) {
         return true;
       }
-
-      console.log('✅ Found audio element for visualizer:', targetElement);
 
       // Create audio context
       if (!this.audioContext || this.audioContext.state === 'closed') {
@@ -98,10 +99,9 @@ const globalAudioManager = {
       this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
 
       this.isSetup = true;
-      console.log('✅ Global audio manager setup complete');
       return true;
     } catch (error) {
-      console.error('❌ Global audio manager setup failed:', error);
+      console.error('Visualizer audio setup failed:', error);
       return false;
     }
   },
@@ -119,7 +119,7 @@ const globalAudioManager = {
     this.isSetup = false;
     this.connectedElement = null;
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      try { this.audioContext.close(); } catch (e) { /* ignore */ }
+      try { this.audioContext.close(); } catch { /* ignore */ }
     }
     this.audioContext = null;
     this.analyser = null;
@@ -128,25 +128,14 @@ const globalAudioManager = {
   }
 };
 
-// Visualizer settings
-const VISUALIZER_SETTINGS = {
-  bars: {
-    count: 64,
-    minHeight: 3,
-    maxHeight: 80,
-    colors: {
-      low: '#34d399',
-      mid: '#60a5fa',
-      high: '#a78bfa'
-    }
-  },
-  wavy: {
-    amplitude: 35,
-    colors: ['#34d399', '#60a5fa', '#a78bfa', '#f472b6']
-  },
-  electric: {
-    amplitude: 45,
-    colors: ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
+const BAR_SETTINGS = {
+  count: 64,
+  minHeight: 3,
+  maxHeight: 80,
+  colors: {
+    low: '#34d399',
+    mid: '#60a5fa',
+    high: '#a78bfa'
   }
 };
 
@@ -156,12 +145,14 @@ const MusicVisualizerSingle = ({
   visualizerType = 'bars',
   position = 'header',
   currentSource = 'radio'
-}) => {  const canvasRef = useRef(null);
+}) => {
+  const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const smoothingDataRef = useRef([]);
   const setupAttemptedRef = useRef(false);
   const animationStartTimeRef = useRef(null); // For fake streaming visualization timing
   const particlesRef = useRef([]); // For dust particles in fake visualization
+
   // Setup audio context when audio is playing (only for radio)
   // Also handles reconnection when RadioService swaps audio elements
   useEffect(() => {
@@ -246,10 +237,10 @@ const MusicVisualizerSingle = ({
       const frequencyData = globalAudioManager.getFrequencyData();
 
       if (frequencyData) {
-        // REAL VISUALIZATION with bars (always prefer real data when available)
+        // Real frequency data available: draw bars
         renderBarsVisualizer(ctx, width, height, frequencyData);
       } else {
-        // FAKE VISUALIZATION: Use screensaver-style waves with dust particles for YouTube/Spotify
+        // No analysable audio: draw generated waves with dust particles
         const elapsedTime = (Date.now() - animationStartTimeRef.current) / 1000;
         renderFakeStreamingVisualizer(ctx, width, height, elapsedTime);
       }
@@ -261,14 +252,15 @@ const MusicVisualizerSingle = ({
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      if (animationRef.current) {        cancelAnimationFrame(animationRef.current);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
   }, [isPlaying, isEnabled, visualizerType, currentSource]);
 
   // Bars visualizer
   const renderBarsVisualizer = (ctx, width, height, frequencyData) => {
-    const settings = VISUALIZER_SETTINGS.bars;
+    const settings = BAR_SETTINGS;
     const barCount = Math.min(settings.count, Math.floor(width / 8));
     const barWidth = width / barCount;
     const barSpacing = barWidth * 0.1;
@@ -309,95 +301,6 @@ const MusicVisualizerSingle = ({
     }
   };
 
-  // Wavy visualizer
-  const renderWavyVisualizer = (ctx, width, height, frequencyData) => {
-    const settings = VISUALIZER_SETTINGS.wavy;
-    const centerY = height / 2;
-    
-    const getFrequencyRanges = (data) => {
-      const bassEnd = Math.floor(data.length * 0.15);
-      const midEnd = Math.floor(data.length * 0.6);
-      
-      const bass = data.slice(0, bassEnd).reduce((a, b) => a + b, 0) / bassEnd / 255;
-      const mid = data.slice(bassEnd, midEnd).reduce((a, b) => a + b, 0) / (midEnd - bassEnd) / 255;
-      const treble = data.slice(midEnd).reduce((a, b) => a + b, 0) / (data.length - midEnd) / 255;
-      
-      return { bass, mid, treble };
-    };
-    
-    const { bass, mid, treble } = getFrequencyRanges(frequencyData);
-    
-    const ranges = [
-      { freq: bass, color: settings.colors[0], offset: -20 },
-      { freq: mid, color: settings.colors[1], offset: 0 },
-      { freq: treble, color: settings.colors[2], offset: 20 }
-    ];
-    
-    ranges.forEach((range) => {
-      ctx.strokeStyle = range.color;
-      ctx.lineWidth = 3;
-      ctx.globalAlpha = 0.8;
-      ctx.beginPath();
-      
-      for (let i = 0; i <= 100; i++) {
-        const x = (i / 100) * width;
-        const xNorm = i / 100;
-        const freqIndex = Math.floor(xNorm * frequencyData.length);
-        const localFreq = (frequencyData[freqIndex] || 0) / 255;
-        const waveHeight = localFreq * settings.amplitude * range.freq;
-        const y = centerY + range.offset + (Math.random() * 2 - 1) * waveHeight;
-        
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      
-      ctx.stroke();
-    });
-    
-    ctx.globalAlpha = 1;
-  };
-
-  // Electric visualizer
-  const renderElectricVisualizer = (ctx, width, height, frequencyData) => {
-    const settings = VISUALIZER_SETTINGS.electric;
-    const centerY = height / 2;
-    
-    ctx.strokeStyle = '#00ffff';
-    ctx.lineWidth = 2;
-    
-    // Upper spikes
-    ctx.beginPath();
-    const points = Math.floor(width / 5);
-    
-    for (let i = 0; i < points; i++) {
-      const x = (i / points) * width;
-      const freqIndex = Math.floor((i / points) * frequencyData.length * 0.7);
-      const amplitude = (frequencyData[freqIndex] || 0) / 255;
-      const spikeHeight = amplitude * settings.amplitude;
-      const y = centerY - spikeHeight;
-      
-      if (i === 0) ctx.moveTo(x, centerY);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + 2, centerY);
-    }
-    
-    ctx.stroke();
-    
-    // Lower spikes (mirrored)
-    ctx.beginPath();
-    for (let i = 0; i < points; i++) {
-      const x = (i / points) * width;
-      const freqIndex = Math.floor((i / points) * frequencyData.length * 0.7);
-      const amplitude = (frequencyData[freqIndex] || 0) / 255;
-      const spikeHeight = amplitude * settings.amplitude;
-      const y = centerY + spikeHeight;
-      
-      if (i === 0) ctx.moveTo(x, centerY);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + 2, centerY);
-    }
-      ctx.stroke();
-  };
   // Fake streaming visualizer - 3 smooth waves with long-period fake music data + dust particles
   const renderFakeStreamingVisualizer = (ctx, width, height, elapsedTime) => {
     const centerY = height / 2;
@@ -490,7 +393,7 @@ const MusicVisualizerSingle = ({
 
     // Update and render dust particles
     ctx.globalAlpha = 1;
-    particlesRef.current.forEach((particle, index) => {
+    particlesRef.current.forEach((particle) => {
       // Update particle position
       particle.x += particle.vx * 0.016; // ~60fps timing
       particle.y += particle.vy * 0.016;
@@ -522,7 +425,9 @@ const MusicVisualizerSingle = ({
     });
 
     ctx.globalAlpha = 1;
-  };  // Reset animation timer when source changes
+  };
+
+  // Reset animation timer when source changes
   useEffect(() => {
     animationStartTimeRef.current = null;
     // Reset setup attempt when switching sources

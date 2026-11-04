@@ -1,10 +1,10 @@
-// Default YouTube playlists for the dice/random button
-// Users can add/remove entries; stored in localStorage
+// src/utils/youtubePlaylistDefaults.js - YouTube playlists for the dice/random button.
+// Users can add/remove entries; the list is stored in localStorage.
 
 const STORAGE_KEY = 'youtube_dice_playlists';
 
 // Built-in defaults (always available as reset option)
-export const DEFAULT_YOUTUBE_PLAYLISTS = [
+const DEFAULT_YOUTUBE_PLAYLISTS = [
   {
     url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
     name: 'Lofi Girl - Study Stream'
@@ -41,32 +41,17 @@ export function loadDicePlaylists() {
       }
     }
   } catch {
-    // corrupt data - reset
+    // corrupt data - fall back to defaults
   }
   return [...DEFAULT_YOUTUBE_PLAYLISTS];
 }
 
-/**
- * Save the dice playlist list to localStorage
- */
 export function saveDicePlaylists(playlists) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(playlists));
   } catch {
-    // localStorage full
+    // localStorage full or unavailable
   }
-}
-
-/**
- * Add a playlist to the dice list
- */
-export function addDicePlaylist(url, name) {
-  const list = loadDicePlaylists();
-  // Avoid duplicates by URL
-  if (list.some(p => p.url === url)) return list;
-  list.push({ url, name: name || url });
-  saveDicePlaylists(list);
-  return list;
 }
 
 /**
@@ -80,16 +65,13 @@ export function removeDicePlaylist(url) {
   return filtered;
 }
 
-/**
- * Get a random playlist from the dice list
- */
 export function getRandomDicePlaylist() {
   const list = loadDicePlaylists();
   return list[Math.floor(Math.random() * list.length)];
 }
 
 /**
- * Reset dice playlists to defaults
+ * Reset dice playlists to defaults and return the new list
  */
 export function resetDicePlaylists() {
   const defaults = [...DEFAULT_YOUTUBE_PLAYLISTS];
