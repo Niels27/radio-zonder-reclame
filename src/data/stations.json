@@ -2395,7 +2395,8 @@
     "location": "Noord-Holland",
     "streams": [
       {
-        "url": "https://ice.cr6.streamzilla.xlcdn.com:8000/sz=nhnieuws=NHRadio_mp3"
+        "url": "https://ice.cr6.streamzilla.xlcdn.com:8000/sz=nhnieuws=NHRadio_mp3",
+        "cors": true
       }
     ]
   },
@@ -2874,7 +2875,8 @@
     "location": "Overijssel",
     "streams": [
       {
-        "url": "https://stream.and-stuff.nl:8443/live-airplay_320"
+        "url": "https://stream.and-stuff.nl:8443/live-airplay_320",
+        "cors": true
       }
     ]
   },
@@ -2906,23 +2908,8 @@
     "location": "Zwijndrecht",
     "streams": [
       {
-        "url": "https://stream.atosrtv.nl:5000/streamhq"
-      }
-    ]
-  },
-  {
-    "id": "beat-fm",
-    "name": "Beat FM",
-    "category": "local",
-    "genre": "mixed",
-    "description": "Lokale omroep Heiloo",
-    "about": "Lokale publieke omroep voor Heiloo (Noord-Holland).",
-    "website": "https://beatfm.nl/",
-    "logo": "https://beatfm.nl/tenants/beatfm/favicons/apple-touch-icon.png?v=1793730112",
-    "location": "Heiloo",
-    "streams": [
-      {
-        "url": "https://radioheiloo.nl:7443/bfm1"
+        "url": "https://stream.atosrtv.nl:5000/streamhq",
+        "cors": true
       }
     ]
   },
@@ -3055,10 +3042,12 @@
     "location": "Overijssel",
     "streams": [
       {
-        "url": "https://stream.deventerrtv.nl:8443/stream"
+        "url": "https://stream.deventerrtv.nl:8443/stream",
+        "cors": true
       },
       {
-        "url": "https://stream.deventerrtv.nl:8443/mp3"
+        "url": "https://stream.deventerrtv.nl:8443/mp3",
+        "cors": true
       }
     ]
   },
@@ -3078,7 +3067,8 @@
         "cors": true
       },
       {
-        "url": "https://azura01.nuxnova.io:8030/radio.mp3"
+        "url": "https://azura01.nuxnova.io:8030/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -3181,7 +3171,8 @@
     "location": "Valkenburg aan de Geul",
     "streams": [
       {
-        "url": "https://falconradio.stream-server.nl:18926/stream.mp3"
+        "url": "https://falconradio.stream-server.nl:18926/stream.mp3",
+        "cors": true
       }
     ]
   },
@@ -3332,7 +3323,8 @@
     "location": "ZH",
     "streams": [
       {
-        "url": "https://mediaserv33.live-streams.nl:8056/stream"
+        "url": "https://mediaserv33.live-streams.nl:8056/stream",
+        "cors": true
       }
     ]
   },
@@ -3397,7 +3389,8 @@
     "location": "Noord-Holland, Hoorn",
     "streams": [
       {
-        "url": "https://server-23.stream-server.nl:18382/;"
+        "url": "https://server-23.stream-server.nl:18382/;",
+        "cors": true
       }
     ]
   },
@@ -3417,8 +3410,8 @@
     ]
   },
   {
-    "id": "hotradiohits-dab",
-    "name": "Hotradiohits Dab",
+    "id": "hotradiohits",
+    "name": "Hotradiohits",
     "category": "local",
     "genre": "talk",
     "description": "Actuele hits, Oost-Nederland",
@@ -3428,10 +3421,12 @@
     "location": "Overijssel, Borne",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8400/listen.mp3?sid=1"
+        "url": "https://server-67.stream-server.nl:8400/listen.mp3?sid=1",
+        "cors": true
       },
       {
-        "url": "https://server-67.stream-server.nl:8400/listen.pls?sid=1"
+        "url": "https://server-67.stream-server.nl:8400/stream",
+        "cors": true
       }
     ]
   },
@@ -3478,7 +3473,8 @@
     "location": "Bladel",
     "streams": [
       {
-        "url": "https://mediacp.audiostreamen.nl:2000/stream/8136"
+        "url": "https://mediacp.audiostreamen.nl:2000/stream/8136",
+        "cors": true
       }
     ]
   },
@@ -3498,7 +3494,8 @@
         "cors": true
       },
       {
-        "url": "https://klokradio.beheerstream.nl:8014/stream"
+        "url": "https://klokradio.beheerstream.nl:8014/stream",
+        "cors": true
       }
     ]
   },
@@ -3513,7 +3510,8 @@
     "location": "Overijssel, Deventer, Zutphenseweg 4-A",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8788/stream"
+        "url": "https://server-67.stream-server.nl:8788/stream",
+        "cors": true
       }
     ]
   },
@@ -3535,8 +3533,8 @@
     ]
   },
   {
-    "id": "l-o-v-e-lokale-omroep-volendam-edam-dab",
-    "name": "L.O.V.E. (Lokale Omroep Volendam Edam) DAB",
+    "id": "l-o-v-e-lokale-omroep-volendam-edam",
+    "name": "L.O.V.E. (Lokale Omroep Volendam Edam)",
     "category": "local",
     "genre": "talk",
     "description": "Community radio, local news",
@@ -3614,7 +3612,8 @@
     "location": "Oldebroek",
     "streams": [
       {
-        "url": "https://takeoff.jetstre.am/?account=LocoMedia&file=LocoFM&type=live&service=icecast&protocol=https&port=8000&output=pls"
+        "url": "https://takeoff.jetstre.am/?account=LocoMedia&file=LocoFM&type=live&service=icecast&protocol=https&port=8000&output=pls",
+        "cors": true
       }
     ]
   },
@@ -3714,23 +3713,12 @@
     "location": "Dronten",
     "streams": [
       {
-        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/drontenhigh"
+        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/drontenhigh",
+        "cors": true
       },
       {
-        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/drontennormal"
-      }
-    ]
-  },
-  {
-    "id": "lokale-omroep-leek-lol-fm",
-    "name": "Lokale Omroep Leek (LOL FM)",
-    "category": "local",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.lolfm.nl/",
-    "streams": [
-      {
-        "url": "https://server6.radio-streams.net:2199/tunein/stichti2.pls"
+        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/drontennormal",
+        "cors": true
       }
     ]
   },
@@ -3767,10 +3755,12 @@
     "location": "Zeewolde",
     "streams": [
       {
-        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/high"
+        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/high",
+        "cors": true
       },
       {
-        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/normal"
+        "url": "https://icecast.lokaleomroepzeewolde.nl:8443/normal",
+        "cors": true
       }
     ]
   },
@@ -3857,7 +3847,8 @@
         "cors": true
       },
       {
-        "url": "https://radlqowi.beheerstream.nl:8034/stream"
+        "url": "https://radlqowi.beheerstream.nl:8034/stream",
+        "cors": true
       }
     ]
   },
@@ -3873,7 +3864,8 @@
     "location": "Leudal",
     "streams": [
       {
-        "url": "https://mediacp.audiostreamen.nl:2000/stream/8182"
+        "url": "https://mediacp.audiostreamen.nl:2000/stream/8182",
+        "cors": true
       }
     ]
   },
@@ -3904,7 +3896,8 @@
     "location": "Hilversum",
     "streams": [
       {
-        "url": "https://stream.nhgooi.nl:8001/mp3live"
+        "url": "https://stream.nhgooi.nl:8001/mp3live",
+        "cors": true
       }
     ]
   },
@@ -3940,13 +3933,12 @@
     "location": "Limburg",
     "streams": [
       {
-        "url": "https://a7.asurahosting.com:7550/radio.mp3"
+        "url": "https://a7.asurahosting.com:7550/radio.mp3",
+        "cors": true
       },
       {
-        "url": "https://mscp2.live-streams.nl:8172/nuradio"
-      },
-      {
-        "url": "https://mscp2.live-streams.nl:2197/play/play.cgi?url=https://mscp2.live-streams.nl:8172/nuradio&type=.xspf"
+        "url": "https://mscp2.live-streams.nl:8172/nuradio",
+        "cors": true
       }
     ]
   },
@@ -3978,7 +3970,8 @@
     "location": "Assen",
     "streams": [
       {
-        "url": "https://i1.cdn.jetstre.am:8000/sz=OmroepAssen=RadioOmroepAssen"
+        "url": "https://i1.cdn.jetstre.am:8000/sz=OmroepAssen=RadioOmroepAssen",
+        "cors": true
       }
     ]
   },
@@ -4162,7 +4155,8 @@
         "cors": true
       },
       {
-        "url": "https://stream06.dotpoint.nl:8065/stream"
+        "url": "https://stream06.dotpoint.nl:8065/stream",
+        "cors": true
       }
     ]
   },
@@ -4291,6 +4285,14 @@
     "streams": [
       {
         "url": "https://server-67.stream-server.nl/8734/stream",
+        "cors": true
+      },
+      {
+        "url": "https://server-67.stream-server.nl:8738/",
+        "cors": true
+      },
+      {
+        "url": "https://server-67.stream-server.nl:8734/",
         "cors": true
       }
     ]
@@ -4505,7 +4507,8 @@
     "location": "Noord-Holland",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8774/rbij.mp3"
+        "url": "https://server-67.stream-server.nl:8774/rbij.mp3",
+        "cors": true
       }
     ]
   },
@@ -4554,7 +4557,8 @@
     "location": "Hattem",
     "streams": [
       {
-        "url": "https://rtvhattem.nl/live-radio-stream"
+        "url": "https://rtvhattem.nl/live-radio-stream",
+        "cors": true
       }
     ]
   },
@@ -4677,19 +4681,6 @@
     ]
   },
   {
-    "id": "radio-oranje-interbationaal",
-    "name": "Radio Oranje Interbationaal",
-    "category": "local",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.radiooranjeinternationaal.com/",
-    "streams": [
-      {
-        "url": "https://server-51.stream-server.nl:18310/"
-      }
-    ]
-  },
-  {
     "id": "radio-purmerend",
     "name": "Radio Purmerend",
     "category": "local",
@@ -4703,20 +4694,6 @@
       {
         "url": "https://radiostream.rtvpurmerend.nl/radiopurmerend_bb",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "radio-purmerend-dab",
-    "name": "Radio Purmerend (DAB)",
-    "category": "local",
-    "genre": "talk",
-    "description": "Community radio, local news",
-    "website": "https://www.rtvpurmerend.nl/",
-    "location": "Noord-Holland, Purmerend",
-    "streams": [
-      {
-        "url": "https://stream.zxp.nl:8000/radiopurmerend_dab"
       }
     ]
   },
@@ -4831,7 +4808,8 @@
     "location": "Veldhoven",
     "streams": [
       {
-        "url": "https://radio.omroepveldhoven.nl:8001/Veldhoven"
+        "url": "https://radio.omroepveldhoven.nl:8001/Veldhoven",
+        "cors": true
       }
     ]
   },
@@ -4930,7 +4908,8 @@
     "location": "Wageningen",
     "streams": [
       {
-        "url": "https://stream.rtvrijnstreek.nl:1973/rtvrstreek"
+        "url": "https://stream.rtvrijnstreek.nl:1973/rtvrstreek",
+        "cors": true
       }
     ]
   },
@@ -4980,35 +4959,6 @@
       {
         "url": "https://stream.roulettefm.nl/",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "rozo-radio",
-    "name": "Rozo Radio",
-    "category": "local",
-    "genre": "mixed",
-    "description": "Hospital radio",
-    "website": "https://www.rozoradio.nl/",
-    "location": "Noord-Brabant, Oosterhout",
-    "streams": [
-      {
-        "url": "https://server3.radio-streams.net:8007/live"
-      }
-    ]
-  },
-  {
-    "id": "rpl",
-    "name": "RPL",
-    "category": "local",
-    "genre": "talk",
-    "description": "Local news, news, various music",
-    "website": "https://rtvmiddenholland.nl/rpl-woerden/",
-    "logo": "https://rtvmiddenholland.nl/wp-content/uploads/2023/11/RPL-logo-Retina-e1706562916453.png",
-    "location": "Utrecht, Midden Holland, Woerden, Rubensstraat 1 ",
-    "streams": [
-      {
-        "url": "https://qxjr001.digiplay.nl:9101/stream"
       }
     ]
   },
@@ -5078,7 +5028,8 @@
     "location": "Nieuwkoop",
     "streams": [
       {
-        "url": "https://securestream2.digipal.nl:1805/stream"
+        "url": "https://securestream2.digipal.nl:1805/stream",
+        "cors": true
       }
     ]
   },
@@ -5111,21 +5062,6 @@
       {
         "url": "https://nlpo.stream.vip/rtvkrimp/mp3-192/nlpo.stream.vip/",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "rtv-maastricht-1075",
-    "name": "RTV Maastricht 1075",
-    "category": "local",
-    "genre": "hits",
-    "description": "Lokale omroep voor Maastricht",
-    "about": "Lokale publieke omroep voor de stad Maastricht.",
-    "website": "http://www.rtvmaastricht.nl/radio/",
-    "location": "Limburg",
-    "streams": [
-      {
-        "url": "https://stream.rtvmaastricht.nl:8081/rtv/radio_audio/icecast.audio"
       }
     ]
   },
@@ -5344,7 +5280,8 @@
     "location": "Gelderland, Apeldoorn",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8752/stream"
+        "url": "https://server-67.stream-server.nl:8752/stream",
+        "cors": true
       }
     ]
   },
@@ -5376,7 +5313,8 @@
     "location": "Geertruidenberg",
     "streams": [
       {
-        "url": "https://rrr.sz.xlcdn.com/?account=Geertruidenberg2&file=SLOGFM&type=live&service=icecast&protocol=https&port=8000&output=pls"
+        "url": "https://rrr.sz.xlcdn.com/?account=Geertruidenberg2&file=SLOGFM&type=live&service=icecast&protocol=https&port=8000&output=pls",
+        "cors": true
       }
     ]
   },
@@ -5391,7 +5329,8 @@
     "location": "Steenbergen",
     "streams": [
       {
-        "url": "https://rrr.sz.xlcdn.com/?account=SLOSteenbergen&file=SLOS&type=live&service=icecast&protocol=https&output=pls"
+        "url": "https://rrr.sz.xlcdn.com/?account=SLOSteenbergen&file=SLOS&type=live&service=icecast&protocol=https&output=pls",
+        "cors": true
       }
     ]
   },
@@ -5407,7 +5346,8 @@
     "location": "De Bevelanden",
     "streams": [
       {
-        "url": "https://stream.sobfm.nl:8443/stream"
+        "url": "https://stream.sobfm.nl:8443/stream",
+        "cors": true
       }
     ]
   },
@@ -5445,21 +5385,6 @@
     ]
   },
   {
-    "id": "src-fm-2-rivierenland-en-vijfheerenlanden",
-    "name": "SRC FM 2 - Rivierenland en Vijfheerenlanden",
-    "category": "local",
-    "genre": "talk",
-    "description": "Local news, various music",
-    "website": "https://www.src.fm/",
-    "logo": "https://www.src.fm/images/logo_social.png",
-    "location": "Gelderland, Culemborg, Stationsplein 11A",
-    "streams": [
-      {
-        "url": "https://loa.beheerstream.nl:8126/stream"
-      }
-    ]
-  },
-  {
     "id": "stadsfm",
     "name": "StadsFM",
     "category": "local",
@@ -5476,21 +5401,6 @@
     ]
   },
   {
-    "id": "stichting-streekomroep-de-bevelanden-sob-fm",
-    "name": "Stichting Streekomroep de Bevelanden SOB FM",
-    "category": "local",
-    "genre": "talk",
-    "description": "Classics, local news, pop",
-    "website": "https://streekomroepdebevelanden.nl/radio/",
-    "logo": "https://cdn.onlineradiobox.com/img/l/8/76738.v5.png",
-    "location": "Zeeland",
-    "streams": [
-      {
-        "url": "https://stream.sobfm.nl:8686/stream"
-      }
-    ]
-  },
-  {
     "id": "streekstad-centraal",
     "name": "Streekstad Centraal",
     "category": "local",
@@ -5501,7 +5411,8 @@
     "location": "Alkmaar",
     "streams": [
       {
-        "url": "https://radiostreams.streekstadcentraal.nl:9443/01"
+        "url": "https://radiostreams.streekstadcentraal.nl:9443/01",
+        "cors": true
       }
     ]
   },
@@ -5550,7 +5461,8 @@
     "location": "Diemen",
     "streams": [
       {
-        "url": "https://stream.it-facilities.be:9006/stream;"
+        "url": "https://stream.it-facilities.be:9006/stream;",
+        "cors": true
       }
     ]
   },
@@ -5619,10 +5531,8 @@
     "location": "Overijssel, Deventer",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8806/stream"
-      },
-      {
-        "url": "https://loa.beheerstream.nl:8110/stream"
+        "url": "https://server-28.stream-server.nl:8806/stream",
+        "cors": true
       }
     ]
   },
@@ -5870,7 +5780,8 @@
         "cors": true
       },
       {
-        "url": "https://takeoff.jetstre.am/?account=weeff&file=weeffradio&type=live&service=icecast&protocol=https&port=8000&output=pls"
+        "url": "https://takeoff.jetstre.am/?account=weeff&file=weeffradio&type=live&service=icecast&protocol=https&port=8000&output=pls",
+        "cors": true
       }
     ]
   },
@@ -5989,18 +5900,6 @@
     ]
   },
   {
-    "id": "076-radio",
-    "name": "076 Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://live.hostingbudget.nl:1220/stream"
-      }
-    ]
-  },
-  {
     "id": "192-radio",
     "name": "192 Radio",
     "category": "online",
@@ -6009,21 +5908,8 @@
     "website": "https://www.192radio.nl/",
     "streams": [
       {
-        "url": "https://server-27.stream-server.nl:8192/stream"
-      }
-    ]
-  },
-  {
-    "id": "192-radio-veronica",
-    "name": "192 Radio Veronica",
-    "category": "online",
-    "genre": "gold",
-    "description": "Oldies, pirate radio",
-    "website": "https://www.192radio.nl/192radio/",
-    "logo": "https://cdn-radiotime-logos.tunein.com/s178298g.png",
-    "streams": [
-      {
-        "url": "https://server-14.stream-server.nl:8030/"
+        "url": "https://server-27.stream-server.nl:8192/stream",
+        "cors": true
       }
     ]
   },
@@ -6055,18 +5941,6 @@
     ]
   },
   {
-    "id": "2tunes-tunebot",
-    "name": "2Tunes TuneBot",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server6.radio-streams.net:8023/stream"
-      }
-    ]
-  },
-  {
     "id": "40rock-radio",
     "name": "40ROCK Radio",
     "category": "online",
@@ -6082,8 +5956,8 @@
     ]
   },
   {
-    "id": "40up-stream",
-    "name": "40UP ( stream)",
+    "id": "40up",
+    "name": "40UP",
     "category": "online",
     "genre": "mixed",
     "description": "Various music",
@@ -6097,7 +5971,7 @@
   },
   {
     "id": "40up-kbc",
-    "name": "40UP KBC ()",
+    "name": "40UP KBC",
     "category": "online",
     "genre": "mixed",
     "description": "Gevarieerde muziek",
@@ -6194,7 +6068,8 @@
     "logo": "https://hardstyleradio.nu/images/sitelogo.png",
     "streams": [
       {
-        "url": "https://kathy.torontocast.com:2450/stream"
+        "url": "https://kathy.torontocast.com:2450/stream",
+        "cors": true
       }
     ]
   },
@@ -6222,7 +6097,8 @@
     "logo": "https://www.aalburg-fm.nl/wp-content/uploads/2023/09/LOGO-2-2-1.png",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8808/stream"
+        "url": "https://server-28.stream-server.nl:8808/stream",
+        "cors": true
       }
     ]
   },
@@ -6255,19 +6131,6 @@
     ]
   },
   {
-    "id": "abtt",
-    "name": "ABTT",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://abtt.nl/site/",
-    "streams": [
-      {
-        "url": "https://server-06.stream-server.nl:8600/"
-      }
-    ]
-  },
-  {
     "id": "afm-alblasserdam",
     "name": "AFM Alblasserdam",
     "category": "online",
@@ -6276,10 +6139,12 @@
     "website": "https://alblasserdamfm.nl/",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8042/live"
+        "url": "https://mscp3.live-streams.nl:8042/live",
+        "cors": true
       },
       {
-        "url": "https://mscp3.live-streams.nl:8042/low"
+        "url": "https://mscp3.live-streams.nl:8042/low",
+        "cors": true
       }
     ]
   },
@@ -6336,7 +6201,8 @@
         "cors": true
       },
       {
-        "url": "https://a7.asurahosting.com:8050/radio.mp3"
+        "url": "https://a7.asurahosting.com:8050/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -6351,18 +6217,6 @@
     "streams": [
       {
         "url": "https://airstationplus.nl/woerden.mp3"
-      }
-    ]
-  },
-  {
-    "id": "airplay-fm",
-    "name": "Airplay FM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://s1.citrus3.com:2000/stream/airplayfm"
       }
     ]
   },
@@ -6394,7 +6248,8 @@
     "website": "https://www.alldayjazz.co.uk/",
     "streams": [
       {
-        "url": "https://mediaserv73.live-streams.nl:8027/stream"
+        "url": "https://mediaserv73.live-streams.nl:8027/stream",
+        "cors": true
       }
     ]
   },
@@ -6412,7 +6267,8 @@
         "cors": true
       },
       {
-        "url": "https://radio.alloldieschannel.com:8000/stream"
+        "url": "https://radio.alloldieschannel.com:8000/stream",
+        "cors": true
       }
     ]
   },
@@ -6475,18 +6331,6 @@
     ]
   },
   {
-    "id": "altijd-hitradio",
-    "name": "Altijd Hitradio",
-    "category": "online",
-    "genre": "hits",
-    "description": "Pop en hits",
-    "streams": [
-      {
-        "url": "https://mscp2.live-streams.nl:8170/altijdhits"
-      }
-    ]
-  },
-  {
     "id": "american-forces-network-benelux-the-eagle",
     "name": "American Forces Network Benelux-The Eagle",
     "category": "online",
@@ -6511,9 +6355,6 @@
     "streams": [
       {
         "url": "https://amorfm_192.streampartner.nl/stream"
-      },
-      {
-        "url": "https://media155.streampartner.nl:8068/live"
       }
     ]
   },
@@ -6545,9 +6386,6 @@
       {
         "url": "https://live.afc.fm/",
         "cors": true
-      },
-      {
-        "url": "https://stream.afc.fm:8504/;stream.mp3"
       }
     ]
   },
@@ -6611,21 +6449,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://arabnights-prod.live-streams.nl:18020/live"
-      }
-    ]
-  },
-  {
-    "id": "atlanticabreda",
-    "name": "Atlanticabreda",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.atlanticabreda.nl/",
-    "logo": "https://www.atlanticabreda.nl/229v.png",
-    "streams": [
-      {
-        "url": "https://caster05.streampakket.com:2199/tunein/atlantica.pls"
+        "url": "https://arabnights-prod.live-streams.nl:18020/live",
+        "cors": true
       }
     ]
   },
@@ -6638,7 +6463,8 @@
     "website": "https://radio.audiomaze.com/",
     "streams": [
       {
-        "url": "https://s81.radiolize.com:8000/radio.mp3"
+        "url": "https://s81.radiolize.com:8000/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -6667,9 +6493,6 @@
       {
         "url": "https://stream.iceradio.nl/baarsclassicrock",
         "cors": true
-      },
-      {
-        "url": "https://server-66.stream-server.nl:8840/"
       }
     ]
   },
@@ -6714,18 +6537,6 @@
     ]
   },
   {
-    "id": "beats-from-amsterdam",
-    "name": "Beats from Amsterdam",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream.legendhits.nl:8017/stream"
-      }
-    ]
-  },
-  {
     "id": "beats2dance-techno",
     "name": "Beats2dance Techno",
     "category": "online",
@@ -6749,7 +6560,8 @@
     "logo": "https://www.beatstad-radio.nl/wp-content/uploads/2021/02/cropped-beatstad-radio-final-rondje-tiny-192x192.png",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8042/live.mp3"
+        "url": "https://mscp2.live-streams.nl:8042/live.mp3",
+        "cors": true
       }
     ]
   },
@@ -6769,19 +6581,6 @@
     ]
   },
   {
-    "id": "bigb21",
-    "name": "BigB21",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://www.bigb21.nl/img/favicon.png",
-    "streams": [
-      {
-        "url": "https://stream.b21fm.nl:9010/"
-      }
-    ]
-  },
-  {
     "id": "blackwood-fm",
     "name": "Blackwood FM",
     "category": "online",
@@ -6792,21 +6591,6 @@
       {
         "url": "https://server-27.stream-server.nl/stream/Blackwood_FM",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "blackwwod-fm",
-    "name": "Blackwwod FM",
-    "category": "online",
-    "genre": "hits",
-    "description": "Classic pop, rock en alternative voor liefhebbers van cassettes en vinyl",
-    "about": "Classic pop, rock en alternative voor luisteraars die opgroeiden met cassettebandjes en vinyl.",
-    "website": "https://blackwoodfm.com/",
-    "logo": "https://i0.wp.com/blackwoodfm.com/wp-content/uploads/2020/04/cropped-favicon.png?fit=180%2c180&#038;ssl=1",
-    "streams": [
-      {
-        "url": "https://server-24.stream-server.nl:8326/stream"
       }
     ]
   },
@@ -6833,35 +6617,8 @@
     "website": "https://www.dedraaiorgel.nl/",
     "streams": [
       {
-        "url": "https://dedraaiorgel.ddohosting.nl:8000/listen.mp3"
-      }
-    ]
-  },
-  {
-    "id": "c-dance-retro",
-    "name": "C-Dance RETRO",
-    "category": "online",
-    "genre": "dance",
-    "description": "Dance, house, retro",
-    "website": "http://retro.c-dance.fm/",
-    "logo": "https://retro.c-dance.fm/assets/img/logo.jpg",
-    "streams": [
-      {
-        "url": "https://s45.myradiostream.com:18304/"
-      }
-    ]
-  },
-  {
-    "id": "calypso-am-675",
-    "name": "Calypso AM 675",
-    "category": "online",
-    "genre": "dutch",
-    "description": "Polka, schlager",
-    "website": "https://calypso675.com/",
-    "logo": "https://calypso675.com/wp-content/uploads/2020/10/cropped-Logo-Calypso-01-180x180.png",
-    "streams": [
-      {
-        "url": "https://178.19.116.3:8016/stream"
+        "url": "https://dedraaiorgel.ddohosting.nl:8000/listen.mp3",
+        "cors": true
       }
     ]
   },
@@ -6935,19 +6692,6 @@
     ]
   },
   {
-    "id": "centraal-hits",
-    "name": "Centraal Hits",
-    "category": "online",
-    "genre": "hits",
-    "description": "Pop en hits",
-    "website": "https://centraalhits.eu/",
-    "streams": [
-      {
-        "url": "https://server-26.stream-server.nl:18738/"
-      }
-    ]
-  },
-  {
     "id": "century-radio-ni-mom",
     "name": "Century Radio NI mom",
     "category": "online",
@@ -6970,7 +6714,8 @@
     "website": "https://chathotelradio.com/",
     "streams": [
       {
-        "url": "https://a5.asurahosting.com:7410/radio.mp3"
+        "url": "https://a5.asurahosting.com:7410/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -6997,7 +6742,8 @@
     "website": "https://www.christmashits.net/",
     "streams": [
       {
-        "url": "https://stream06.dotpoint.nl:8006/stream"
+        "url": "https://stream06.dotpoint.nl:8006/stream",
+        "cors": true
       }
     ]
   },
@@ -7011,7 +6757,8 @@
     "logo": "https://classichits106.nl/LOGO/300x300.png",
     "streams": [
       {
-        "url": "https://server-23.stream-server.nl:18102/stream"
+        "url": "https://server-23.stream-server.nl:18102/stream",
+        "cors": true
       }
     ]
   },
@@ -7090,7 +6837,6 @@
     "genre": "dance",
     "description": "Dance, pop, rock",
     "website": "https://www.classicsradio.eu/",
-    "logo": "https://assets.clrd.net/uploads/logos/autodj/01a05f14-231e-7ac4-aed3-f08903412573/0f4fa891-f337-49ae-9dc5-e03fdfa759b5.webp",
     "streams": [
       {
         "url": "https://icy.cloudrad.io/03412573",
@@ -7108,7 +6854,8 @@
     "logo": "https://www.closfm.nl/uploads/closfm.nl/1710176731-cd5b8381-b9f5-4419-a050-4b0225356c15.jpeg",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8864/stream"
+        "url": "https://server-28.stream-server.nl:8864/stream",
+        "cors": true
       }
     ]
   },
@@ -7122,7 +6869,8 @@
     "logo": "https://cobrateam.nl/wp-content/uploads/2022/11/Cobra-Logo-Website.png",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8496/stream"
+        "url": "https://server-67.stream-server.nl:8496/stream",
+        "cors": true
       }
     ]
   },
@@ -7150,298 +6898,8 @@
     "logo": "https://www.concertgebouworkest.nl/favicon.ico",
     "streams": [
       {
-        "url": "https://i2.cdn.jetstre.am:8000/sz=RCOLiveWebradio=mp3-192?token=574b9ab1904fb5420aa2eaeae31feff2&time=6703887c"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-hard-bop",
-    "name": "Concertzender - Hard Bop",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Hard bop",
-    "website": "https://www.concertzender.nl/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/hardbop"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-baroque",
-    "name": "Concertzender Baroque",
-    "category": "online",
-    "genre": "classical",
-    "description": "Classical",
-    "website": "https://www.concertzender.nl/programma_genre/oude-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/barok"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-crosslinks",
-    "name": "Concertzender Crosslinks",
-    "category": "online",
-    "genre": "hits",
-    "description": "Pop",
-    "website": "https://www.concertzender.nl/programma_genre/crosslinks/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/pop"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-de-gehoorde-stilte",
-    "name": "Concertzender De Gehoorde Stilte",
-    "category": "online",
-    "genre": "chill",
-    "description": "Ambient, misc",
-    "website": "https://www.concertzender.nl/programma_genre/hedendaagse-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/gehoordestilte"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-de-muzikant",
-    "name": "Concertzender De Muzikant",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.concertzender.nl/programma_genre/culturele-raakvlakken/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/amateurmuziek"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-filmmuziek",
-    "name": "Concertzender Filmmuziek",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Soundtrack",
-    "website": "https://www.concertzender.nl/programma_genre/culturele-raakvlakken/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/film"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-folk-it",
-    "name": "Concertzender Folk it!",
-    "category": "online",
-    "genre": "world",
-    "description": "Folk, world music",
-    "website": "https://www.concertzender.nl/programma_genre/wereldmuziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/folkit"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-geen-dag-zonder-bach",
-    "name": "Concertzender Geen dag zonder Bach",
-    "category": "online",
-    "genre": "classical",
-    "description": "Classical",
-    "website": "https://www.concertzender.nl/programma_genre/oude-muziek/",
-    "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRyGVlusKpxzHZ6EAQRaFX5MHiYqVGjkeC3Ww&usqp=CAU",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/bach"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-gregoriaans",
-    "name": "Concertzender Gregoriaans",
-    "category": "online",
-    "genre": "classical",
-    "description": "Classical",
-    "website": "https://www.concertzender.nl/programma_genre/oude-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/gregoriaans"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-jazz",
-    "name": "Concertzender Jazz",
-    "category": "online",
-    "genre": "jazz-soul",
-    "description": "Jazz",
-    "website": "https://www.concertzender.nl/programma_genre/jazz/",
-    "logo": "https://www.concertzender.nl/wp-content/uploads/2024/04/WoJ-logo_zwart_verticaal_RGB.jpg",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/jazz"
-      },
-      {
-        "url": "https://streams.greenhost.nl:8080/live"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-jazznotjazz",
-    "name": "Concertzender Jazznotjazz",
-    "category": "online",
-    "genre": "jazz-soul",
-    "description": "Jazz",
-    "website": "https://www.concertzender.nl/programma_genre/jazz/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/jazznotjazz"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-klassieke-muziek",
-    "name": "ConcertZender Klassieke Muziek",
-    "category": "online",
-    "genre": "classical",
-    "description": "Klassieke muziek",
-    "website": "https://concertzender.nl/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/klassiek"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-nieuwe-muziek",
-    "name": "Concertzender Nieuwe Muziek",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Contemporary",
-    "website": "https://www.concertzender.nl/programma_genre/hedendaagse-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/nieuwemuziek"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-november-music",
-    "name": "Concertzender November Music",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.concertzender.nl/programma_genre/hedendaagse-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/novembermusic"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-orient-express",
-    "name": "Concertzender Oriënt Express",
-    "category": "online",
-    "genre": "world",
-    "description": "World music",
-    "website": "https://www.concertzender.nl/programma_genre/wereldmuziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/orientexpress"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-oude-muziek",
-    "name": "Concertzender Oude Muziek",
-    "category": "online",
-    "genre": "classical",
-    "description": "Baroque, classical, early music",
-    "website": "https://www.concertzender.nl/programma_genre/oude-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/oudemuziek"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-raakvlakken",
-    "name": "Concertzender Raakvlakken",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.concertzender.nl/programma_genre/culturele-raakvlakken/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/raakvlakken"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-radiophonics",
-    "name": "Concertzender Radiophonics",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.concertzender.nl/programma_genre/crosslinks/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/radiophonics"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-solta-a-franga",
-    "name": "Concertzender Solta a Franga",
-    "category": "online",
-    "genre": "world",
-    "description": "World music",
-    "website": "https://www.concertzender.nl/programma_genre/wereldmuziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/slotaafranga"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-utrecht-muziek",
-    "name": "Concertzender Utrecht Muziek",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.concertzender.nl/programma_genre/hedendaagse-muziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/vredenburg"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-wereldmuziek",
-    "name": "Concertzender Wereldmuziek",
-    "category": "online",
-    "genre": "world",
-    "description": "World music",
-    "website": "https://www.concertzender.nl/programma_genre/wereldmuziek/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/wereldmuziek"
-      }
-    ]
-  },
-  {
-    "id": "concertzender-x-rated",
-    "name": "Concertzender X-Rated",
-    "category": "online",
-    "genre": "chill",
-    "description": "Ambient, avant-garde",
-    "website": "https://www.concertzender.nl/programma_genre/crosslinks/",
-    "streams": [
-      {
-        "url": "https://streams.greenhost.nl:8080/concertzenderlive"
+        "url": "https://i2.cdn.jetstre.am:8000/sz=RCOLiveWebradio=mp3-192?token=574b9ab1904fb5420aa2eaeae31feff2&time=6703887c",
+        "cors": true
       }
     ]
   },
@@ -7544,7 +7002,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://server2.inetcast.nl:3265/stream?x=1742631938077"
+        "url": "https://server2.inetcast.nl:3265/stream?x=1742631938077",
+        "cors": true
       }
     ]
   },
@@ -7559,19 +7018,6 @@
       {
         "url": "https://radio.d-tales.nl/listen/dtalesradio/radio-hq.aac",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "d2bs",
-    "name": "D2BS",
-    "category": "online",
-    "genre": "chill",
-    "description": "Easy listening, electronica, pop",
-    "website": "https://d2bs.nl/",
-    "streams": [
-      {
-        "url": "https://solid1.streamupsolutions.com:8041/d2bs"
       }
     ]
   },
@@ -7614,9 +7060,6 @@
     "streams": [
       {
         "url": "https://icecast.bytesheep.net/danceradio.mp3"
-      },
-      {
-        "url": "https://stream.danceradio.nl:9920/"
       }
     ]
   },
@@ -7644,10 +7087,12 @@
     "website": "https://myradiostream.com/station/flashplayer.php?s=s14&p=19580",
     "streams": [
       {
-        "url": "https://s14.myradiostream.com:19580/listen.mp3?sid=1"
+        "url": "https://s14.myradiostream.com:19580/listen.mp3?sid=1",
+        "cors": true
       },
       {
-        "url": "https://s14.myradiostream.com:19580/listen.pls?sid=1"
+        "url": "https://s14.myradiostream.com:19580/stream",
+        "cors": true
       }
     ]
   },
@@ -7661,7 +7106,8 @@
     "logo": "https://danceclassic.eu/wp-content/uploads/2024/06/DC.EU_.png",
     "streams": [
       {
-        "url": "https://mediaserv21.live-streams.nl:8011/stream/;type=v2"
+        "url": "https://mediaserv21.live-streams.nl:8011/stream/;type=v2",
+        "cors": true
       }
     ]
   },
@@ -7693,19 +7139,8 @@
         "cors": true
       },
       {
-        "url": "https://server7.streamserver24.com:8080/proxy/marasalf?mp=/stream"
-      }
-    ]
-  },
-  {
-    "id": "danceradio-den-haag",
-    "name": "Danceradio Den Haag",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server5.radio-streams.net:8065/"
+        "url": "https://server7.streamserver24.com:8080/proxy/marasalf?mp=/stream",
+        "cors": true
       }
     ]
   },
@@ -7719,19 +7154,8 @@
     "logo": "https://dancevibesradio.eu/wp-content/uploads/2021/11/DANCEVIBES-LOGO-2.png",
     "streams": [
       {
-        "url": "https://everestcast.live-streams.nl:8025/stream"
-      }
-    ]
-  },
-  {
-    "id": "das-radio",
-    "name": "Das radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream2.mfmstreaming.nl:7001/stream"
+        "url": "https://everestcast.live-streams.nl:8025/stream",
+        "cors": true
       }
     ]
   },
@@ -7747,20 +7171,6 @@
       {
         "url": "https://radio.dastotalerlebnis.com/listen/main/hifi.aac",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "db962-amsterdam",
-    "name": "dB962 Amsterdam",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "http://www.db962.nl/",
-    "logo": "https://db962.nl/wp-content/uploads/2023/07/image-2.png",
-    "streams": [
-      {
-        "url": "https://stream.db962.nl:8030/listen.pls"
       }
     ]
   },
@@ -7787,7 +7197,8 @@
     "website": "http://www.demuziekgigant.nl/",
     "streams": [
       {
-        "url": "https://streaming1.djpaneel.com:5378/stream"
+        "url": "https://streaming1.djpaneel.com:5378/stream",
+        "cors": true
       }
     ]
   },
@@ -7801,10 +7212,12 @@
     "logo": "https://www.devrolijkesnuiters.nl/uploads/devrolijkesnuiters.nl/1703461960-My%20Post.jpg",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8794/"
+        "url": "https://server-67.stream-server.nl:8794/",
+        "cors": true
       },
       {
-        "url": "https://server-67.stream-server.nl:8794/stream"
+        "url": "https://server-67.stream-server.nl:8794/stream",
+        "cors": true
       }
     ]
   },
@@ -7817,7 +7230,8 @@
     "website": "https://www.deepdanceradio.nl/",
     "streams": [
       {
-        "url": "https://cast1.torontocast.com:2205/stream"
+        "url": "https://cast1.torontocast.com:2205/stream",
+        "cors": true
       }
     ]
   },
@@ -7833,60 +7247,6 @@
       {
         "url": "https://stream.deep.radio/hd",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "delta-piraat",
-    "name": "Delta Piraat",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Delta fm, piraat",
-    "website": "http://deltafm.nl/deltapiraat/",
-    "streams": [
-      {
-        "url": "https://stream.deltafm.nl:8125/listen.pls"
-      }
-    ]
-  },
-  {
-    "id": "delta-radio-nijmegen",
-    "name": "Delta Radio Nijmegen",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Nijmeegse hits en gouwe ouwe uit de jaren 80",
-    "about": "Voortzetting van de populaire Nijmeegse piratenzender Delta 90 (1983-1989), nu online met hits en gouwe ouwe uit de jaren 80.",
-    "website": "https://www.deltaradio90.nl/",
-    "streams": [
-      {
-        "url": "https://streamdelta.lokaalradio.nl:9005/download.mp3"
-      }
-    ]
-  },
-  {
-    "id": "den-haag-totaal",
-    "name": "Den Haag Totaal",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://www.denhaagtotaal.nl/Den-Haag-Totaal-logo-Layers.gif",
-    "streams": [
-      {
-        "url": "https://server3.radio-streams.net:18012/denhaagtotaal"
-      }
-    ]
-  },
-  {
-    "id": "deurne-media-groep",
-    "name": "Deurne Media Groep",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://dmgdeurne.nl/",
-    "logo": "https://dmgdeurne.nl/favicon.ico",
-    "streams": [
-      {
-        "url": "https://s22.myradiostream.com:13628/"
       }
     ]
   },
@@ -7967,20 +7327,6 @@
     ]
   },
   {
-    "id": "dizgo-radio-fm",
-    "name": "dizgo radio fm",
-    "category": "online",
-    "genre": "dance",
-    "description": "Italo-disco",
-    "website": "http://www.dizgoradio.fm/",
-    "logo": "https://www.dizgoradio.fm/wp-content/uploads/2022/07/dizgo-radio-logo1.png",
-    "streams": [
-      {
-        "url": "https://mediaserv30.live-streams.nl:8079/stream"
-      }
-    ]
-  },
-  {
     "id": "double-z",
     "name": "Double Z",
     "category": "online",
@@ -8008,10 +7354,8 @@
     "logo": "https://drentsepiraten.nl/wp-content/themes/dp/images/logo.png",
     "streams": [
       {
-        "url": "https://server1.streamgigant.nl:9214/drentsepiraten192"
-      },
-      {
-        "url": "https://server1.streamgigant.nl:2020/tunein/drentsepiraten-1/drentsepiraten192/pls"
+        "url": "https://server1.streamgigant.nl:9214/drentsepiraten192",
+        "cors": true
       }
     ]
   },
@@ -8059,20 +7403,6 @@
     ]
   },
   {
-    "id": "echte-piratenhits",
-    "name": "Echte Piratenhits",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://echtepiratenhits.com/",
-    "logo": "https://echtepiratenhits.com/assets/images/logo-400x110.png",
-    "streams": [
-      {
-        "url": "https://quincy.torontocast.com:2390/"
-      }
-    ]
-  },
-  {
     "id": "echtepiraten-nl",
     "name": "Echtepiraten.nl",
     "category": "online",
@@ -8081,7 +7411,8 @@
     "website": "http://echtepiraten.nl/",
     "streams": [
       {
-        "url": "https://azuraserv3.live-streams.nl:8040/stream.mp3"
+        "url": "https://azuraserv3.live-streams.nl:8040/stream.mp3",
+        "cors": true
       }
     ]
   },
@@ -8126,19 +7457,6 @@
     ]
   },
   {
-    "id": "enschede-fm",
-    "name": "Enschede FM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://media.1twente.nl/logos/favicon/apple-touch-icon.png",
-    "streams": [
-      {
-        "url": "https://stream1.icehosting.nl:8126/"
-      }
-    ]
-  },
-  {
     "id": "epic-prog-radio",
     "name": "Epic Prog Radio",
     "category": "online",
@@ -8147,10 +7465,8 @@
     "website": "https://epicprogradio.com/",
     "streams": [
       {
-        "url": "https://fra-pioneer08.dedicateware.com:3255/stream"
-      },
-      {
-        "url": "https://fra-pioneer08.dedicateware.com:2310/ncaffuup/1/wmp.asx"
+        "url": "https://fra-pioneer08.dedicateware.com:3255/stream",
+        "cors": true
       }
     ]
   },
@@ -8198,18 +7514,6 @@
     ]
   },
   {
-    "id": "extra-am",
-    "name": "Extra AM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://caster04.streampakket.com:8047/stream"
-      }
-    ]
-  },
-  {
     "id": "fantasy-italo-dance-90s-radio",
     "name": "Fantasy Italo Dance 90s radio",
     "category": "online",
@@ -8219,7 +7523,8 @@
     "logo": "https://jplayer-generator.live-streams.nl/upload/96142657.jpg",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8152/italodance"
+        "url": "https://mscp2.live-streams.nl:8152/italodance",
+        "cors": true
       }
     ]
   },
@@ -8237,33 +7542,8 @@
         "cors": true
       },
       {
-        "url": "https://italo.live-streams.nl:8000/stream"
-      }
-    ]
-  },
-  {
-    "id": "feel-good-radio-1076-fm",
-    "name": "Feel Good Radio 1076 FM",
-    "category": "online",
-    "genre": "gold",
-    "description": "Feelgood muziek, non-stop",
-    "about": "Kleinschalige internetzender met feelgood- en easy-listeningmuziek.",
-    "website": "https://feelgoodradio.nl/",
-    "streams": [
-      {
-        "url": "https://live.feelgoodradio.eu:8344/stream"
-      }
-    ]
-  },
-  {
-    "id": "fidelio-radio",
-    "name": "Fidelio Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server3.radio-streams.net:2199/tunein/fidelios-stream.pls"
+        "url": "https://italo.live-streams.nl:8000/stream",
+        "cors": true
       }
     ]
   },
@@ -8297,8 +7577,8 @@
     ]
   },
   {
-    "id": "flevoziekenomroep-fzo-aacplus-stream",
-    "name": "FlevoZiekenOmroep (FZO) AACPLUS stream",
+    "id": "flevoziekenomroep-fzo",
+    "name": "FlevoZiekenOmroep (FZO)",
     "category": "online",
     "genre": "dutch",
     "description": "Nederlandstalig",
@@ -8307,33 +7587,10 @@
       {
         "url": "https://stream1.fzo.nu/studio.aac",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "flevoziekenomroep-fzo-stream",
-    "name": "FlevoZiekenOmroep (FZO) stream",
-    "category": "online",
-    "genre": "dutch",
-    "description": "Nederlandstalig",
-    "website": "https://www.flevoziekenomroep.nl/",
-    "streams": [
+      },
       {
         "url": "https://stream1.fzo.nu/studio.mp3",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "flitsradio-van-willem",
-    "name": "flitsradio van willem",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://www.flitsradio.nl/wp-content/uploads/2025/01/logo-flitsradio.jpg",
-    "streams": [
-      {
-        "url": "https://streamer.hosting078.nl:1835/stream"
       }
     ]
   },
@@ -8408,18 +7665,6 @@
     ]
   },
   {
-    "id": "foute-radio",
-    "name": "Foute Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream.dotpoint.nl:8000/fouteradio"
-      }
-    ]
-  },
-  {
     "id": "foutfm",
     "name": "FoutFM",
     "category": "online",
@@ -8450,34 +7695,6 @@
     ]
   },
   {
-    "id": "freak31",
-    "name": "Freak31",
-    "category": "online",
-    "genre": "dance",
-    "description": "Deep & soulful house, nu-disco en funk",
-    "about": "Amsterdamse internetzender met deep & soulful house, nu-disco en klassiekers uit soul en funk.",
-    "website": "http://www.freak31.com/",
-    "logo": "https://static.wixstatic.com/media/f13c33_866969d6fd224cf59eb44f47a88fc300.png",
-    "streams": [
-      {
-        "url": "https://stream.freak31.com:8322/"
-      }
-    ]
-  },
-  {
-    "id": "free-musi-radio",
-    "name": "Free Musi Radio",
-    "category": "online",
-    "genre": "hits",
-    "description": "Hits",
-    "website": "https://freemusicradio.nl/",
-    "streams": [
-      {
-        "url": "https://stream.freemusicradio.nl:8100/stream.oga"
-      }
-    ]
-  },
-  {
     "id": "free-music-radio",
     "name": "Free Music Radio",
     "category": "online",
@@ -8500,7 +7717,8 @@
     "website": "https://www.freeradiorotterdam.nl/2020/site/",
     "streams": [
       {
-        "url": "https://streams.freeradiorotterdam.nl:9443/freeradiorotterdam"
+        "url": "https://streams.freeradiorotterdam.nl:9443/freeradiorotterdam",
+        "cors": true
       }
     ]
   },
@@ -8528,7 +7746,8 @@
     "logo": "https://www.frenchcore24fm-radio.nl/apple-touch-icon.png",
     "streams": [
       {
-        "url": "https://a8.asurahosting.com:7890/radio.mp3"
+        "url": "https://a8.asurahosting.com:7890/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -8541,7 +7760,8 @@
     "website": "http://friendtastic.nl/",
     "streams": [
       {
-        "url": "https://server-26.stream-server.nl:8652/stream"
+        "url": "https://server-26.stream-server.nl:8652/stream",
+        "cors": true
       }
     ]
   },
@@ -8573,30 +7793,6 @@
     ]
   },
   {
-    "id": "geheime-zender-stream",
-    "name": "Geheime Zender Stream",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://mediacp.audiostreamen.nl:2000/stream/8160/stream"
-      }
-    ]
-  },
-  {
-    "id": "gewoonpiraten-altijd-gezellig",
-    "name": "Gewoonpiraten altijd gezellig",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-67.stream-server.nl:8802/stream"
-      }
-    ]
-  },
-  {
     "id": "girlpower-radio",
     "name": "GirlPower Radio",
     "category": "online",
@@ -8621,7 +7817,8 @@
     "logo": "https://glassrock.nl/grlogo.png",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8092/stream"
+        "url": "https://mscp3.live-streams.nl:8092/stream",
+        "cors": true
       }
     ]
   },
@@ -8700,19 +7897,6 @@
     ]
   },
   {
-    "id": "goud-van-oud",
-    "name": "Goud van Oud",
-    "category": "online",
-    "genre": "gold",
-    "description": "Gold en oldies",
-    "website": "http://www.radiogoudvanoud.nl/",
-    "streams": [
-      {
-        "url": "https://server-23.stream-server.nl:8118/stream"
-      }
-    ]
-  },
-  {
     "id": "grand-prix-radio-classics",
     "name": "Grand Prix Radio Classics",
     "category": "online",
@@ -8743,21 +7927,6 @@
     ]
   },
   {
-    "id": "groeistad-radio",
-    "name": "Groeistad Radio",
-    "category": "online",
-    "genre": "hits",
-    "description": "Voormalig vrije radio uit Zoetermeer",
-    "about": "Voormalige vrije radiozender uit Zoetermeer, actief van 1982 tot 1986 en later teruggekeerd op de middengolf.",
-    "website": "https://www.groeistad.com/",
-    "logo": "https://www.groeistad.com/images/logo_groeistad.png",
-    "streams": [
-      {
-        "url": "https://213.202.241.176:8564/stream"
-      }
-    ]
-  },
-  {
     "id": "grolloo-radio",
     "name": "Grolloo Radio",
     "category": "online",
@@ -8782,9 +7951,6 @@
     "streams": [
       {
         "url": "https://mediaserv68.live-streams.nl:18053/stream"
-      },
-      {
-        "url": "https://mediaserv68.live-streams.nl:8053/stream"
       }
     ]
   },
@@ -8824,7 +7990,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://stream.happy.radio:8000/320"
+        "url": "https://stream.happy.radio:8000/320",
+        "cors": true
       }
     ]
   },
@@ -8835,7 +8002,6 @@
     "genre": "gold",
     "description": "Gold en oldies",
     "website": "https://www.radiomonique.nl/",
-    "logo": "https://www.radiomonique.nl/images/Happy%20Oldies%20Radio%20Monique%20963%20Gold%20.jpg",
     "streams": [
       {
         "url": "https://server-10.rcgoldserver.nl/listen/happy_oldies/radio320.mp3",
@@ -8850,23 +8016,10 @@
     "genre": "rock",
     "description": "Rock",
     "website": "https://radiocaroline259.nl/",
-    "logo": "https://radiocaroline259.nl/images/happy%20rock%20radio%20caroline-259%20gold.jpg",
     "streams": [
       {
         "url": "https://happy.rcgoldserver.nl/listen/classic_rock/radio320.mp3",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "happy-sound-music",
-    "name": "Happy Sound Music",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:8918/stream"
       }
     ]
   },
@@ -8879,19 +8032,8 @@
     "website": "https://happy.radio/",
     "streams": [
       {
-        "url": "https://stream.happy.radio:8000/192"
-      }
-    ]
-  },
-  {
-    "id": "happyhits",
-    "name": "HappyHits",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://mediacp.audiostreamen.nl:8150/stream"
+        "url": "https://stream.happy.radio:8000/192",
+        "cors": true
       }
     ]
   },
@@ -8907,9 +8049,6 @@
       {
         "url": "https://hardcorepower.beheerstream.nl/8012/stream",
         "cors": true
-      },
-      {
-        "url": "https://loa.beheerstream.nl:8012/stream"
       }
     ]
   },
@@ -8943,20 +8082,6 @@
     ]
   },
   {
-    "id": "hardrock",
-    "name": "Hardrock",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Hard rock",
-    "about": "Non-stop hardrock.",
-    "website": "http://server-23.stream-server.nl:8326/stream",
-    "streams": [
-      {
-        "url": "https://server-23.stream-server.nl:8326/stream"
-      }
-    ]
-  },
-  {
     "id": "hardstyle-fm",
     "name": "Hardstyle FM",
     "category": "online",
@@ -8968,22 +8093,6 @@
       {
         "url": "https://stream.laut.fm/hardstylefm",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "hardzone-radio",
-    "name": "Hardzone Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Hardstyle en hardcore",
-    "about": "Non-stop hardstyle en hardcore, met de bekendste artiesten uit de Nederlandse harde-stijlenscene.",
-    "streams": [
-      {
-        "url": "https://s40.myradiostream.com:23504/listen.mp3"
-      },
-      {
-        "url": "https://s40.myradiostream.com:23504/listen.pls"
       }
     ]
   },
@@ -9012,7 +8121,8 @@
     "logo": "https://www.henksplace.nl/hsa/skin/HSABanner1376x768.jpg",
     "streams": [
       {
-        "url": "https://home.henksplace.nl:8443/HSA"
+        "url": "https://home.henksplace.nl:8443/HSA",
+        "cors": true
       }
     ]
   },
@@ -9026,7 +8136,8 @@
     "logo": "https://cdn-profiles.tunein.com/s260759/images/logog.png?t=154771",
     "streams": [
       {
-        "url": "https://mcp-2.mm-stream.nl:8000/stream"
+        "url": "https://mcp-2.mm-stream.nl:8000/stream",
+        "cors": true
       }
     ]
   },
@@ -9039,7 +8150,8 @@
     "website": "https://www.heuvelland-express.nl/",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8840/stream"
+        "url": "https://server-28.stream-server.nl:8840/stream",
+        "cors": true
       }
     ]
   },
@@ -9056,44 +8168,6 @@
     ]
   },
   {
-    "id": "hi-on-line-world",
-    "name": "Hi On Line - World",
-    "category": "online",
-    "genre": "world",
-    "description": "Wereldmuziek",
-    "streams": [
-      {
-        "url": "https://mediaserv38.live-streams.nl:18027/stream"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-jazz-radio",
-    "name": "Hi On Line Jazz Radio",
-    "category": "online",
-    "genre": "jazz-soul",
-    "description": "320kbps, jazz",
-    "website": "http://www.hionline.eu/",
-    "streams": [
-      {
-        "url": "https://mediaserv38.live-streams.nl:8006/"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-latin-radio",
-    "name": "Hi On Line Latin Radio",
-    "category": "online",
-    "genre": "world",
-    "description": "320kbps, latin",
-    "website": "http://www.hionline.eu/",
-    "streams": [
-      {
-        "url": "https://mediaserv33.live-streams.nl:8034/"
-      }
-    ]
-  },
-  {
     "id": "hi-on-line-lounge-radio",
     "name": "Hi On Line Lounge Radio",
     "category": "online",
@@ -9102,72 +8176,8 @@
     "website": "http://www.hionline.eu/lounge/",
     "streams": [
       {
-        "url": "https://mediaserv33.live-streams.nl:8036/live"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-radio",
-    "name": "Hi On Line Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://mscp2.live-streams.nl:8100/flac.flac"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-radio-classical",
-    "name": "Hi On Line Radio - Classical",
-    "category": "online",
-    "genre": "classical",
-    "description": "Classical",
-    "website": "https://www.hionline.eu/",
-    "logo": "https://cdn-radiotime-logos.tunein.com/s207157d.png",
-    "streams": [
-      {
-        "url": "https://mediaserv30.live-streams.nl:8088/live"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-radio-france",
-    "name": "Hi On Line Radio - France",
-    "category": "online",
-    "genre": "mixed",
-    "description": "France",
-    "website": "https://www.hionline.eu/",
-    "streams": [
-      {
-        "url": "https://mediaserv21.live-streams.nl:8000/live"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-radio-jazz",
-    "name": "Hi On Line Radio - Jazz",
-    "category": "online",
-    "genre": "jazz-soul",
-    "description": "Jazz",
-    "website": "https://www.hionline.eu/",
-    "streams": [
-      {
-        "url": "https://mediaserv38.live-streams.nl:8006/live"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-radio-latin",
-    "name": "Hi On Line Radio - Latin",
-    "category": "online",
-    "genre": "world",
-    "description": "Latin",
-    "website": "https://www.hionline.eu/",
-    "streams": [
-      {
-        "url": "https://mediaserv33.live-streams.nl:8034/live"
+        "url": "https://mediaserv33.live-streams.nl:8036/live",
+        "cors": true
       }
     ]
   },
@@ -9180,46 +8190,8 @@
     "website": "https://www.hionline.eu/lounge/",
     "streams": [
       {
-        "url": "https://mediaserv33.live-streams.nl:2199/tunein/hionlinelounge.pls"
-      }
-    ]
-  },
-  {
-    "id": "hi-on-line-world-radio",
-    "name": "Hi On Line World Radio",
-    "category": "online",
-    "genre": "world",
-    "description": "320kbps, african, ethnic",
-    "website": "http://www.hionline.eu/",
-    "streams": [
-      {
-        "url": "https://mediaserv38.live-streams.nl:8027/live"
-      }
-    ]
-  },
-  {
-    "id": "hit-radio-loz",
-    "name": "Hit Radio Loz",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "http://hitradioloz.nl/",
-    "logo": "https://hitradioloz.nl/images/hitradiolozradio.jpg",
-    "streams": [
-      {
-        "url": "https://loa.beheerstream.nl:8112/stream"
-      }
-    ]
-  },
-  {
-    "id": "hitradio-centraal-fm",
-    "name": "Hitradio Centraal FM",
-    "category": "online",
-    "genre": "hits",
-    "description": "Pop en hits",
-    "streams": [
-      {
-        "url": "https://server-hostingexpert.eu:1040/stream.mp3"
+        "url": "https://mediaserv33.live-streams.nl:8036/stream",
+        "cors": true
       }
     ]
   },
@@ -9233,7 +8205,8 @@
     "logo": "https://thumbs.dreamstime.com/b/de-uitstekende-oranje-draagbare-radio-van-fm-d-107762044.jpg",
     "streams": [
       {
-        "url": "https://everestcast.live-streams.nl:8556/stream"
+        "url": "https://everestcast.live-streams.nl:8556/stream",
+        "cors": true
       }
     ]
   },
@@ -9289,7 +8262,8 @@
     "logo": "https://hollandcountry.com/gallery_gen/1efc21f438e549068f4c10a47ea7276c_162x172_fit.jpg?ts=1787926232",
     "streams": [
       {
-        "url": "https://caster.hosting078.nl:1405/stream"
+        "url": "https://caster.hosting078.nl:1405/stream",
+        "cors": true
       }
     ]
   },
@@ -9316,7 +8290,8 @@
     "website": "https://hollandsopzijnbest.nl/",
     "streams": [
       {
-        "url": "https://mediaserv33.live-streams.nl:8009/stream"
+        "url": "https://mediaserv33.live-streams.nl:8009/stream",
+        "cors": true
       }
     ]
   },
@@ -9344,7 +8319,8 @@
     "logo": "https://www.hoppa-music-holland.nl/images/news/logo-icon.png",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8822/stream"
+        "url": "https://server-28.stream-server.nl:8822/stream",
+        "cors": true
       }
     ]
   },
@@ -9357,7 +8333,8 @@
     "website": "http://hopparadio.nl/",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8132/radio"
+        "url": "https://mscp3.live-streams.nl:8132/radio",
+        "cors": true
       }
     ]
   },
@@ -9386,7 +8363,8 @@
     "logo": "https://www.hotjamz.nl/wp-content/uploads/2018/03/cropped-hotjamz.png",
     "streams": [
       {
-        "url": "https://stream02.dotpoint.nl:8030/stream"
+        "url": "https://stream02.dotpoint.nl:8030/stream",
+        "cors": true
       }
     ]
   },
@@ -9398,7 +8376,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://everestcast.live-streams.nl:8171/api/links/?t=winamp&l=hotrodradio&c=1"
+        "url": "https://everestcast.live-streams.nl:8186/stream",
+        "cors": true
       }
     ]
   },
@@ -9409,7 +8388,6 @@
     "genre": "dance",
     "description": "Dance, house, oldskool",
     "website": "https://www.houseclassics.eu/",
-    "logo": "https://assets.clrd.net/uploads/logos/autodj/01a087a1-c80e-7966-ae65-d5eeef63ee57/8399a720-0d10-4b3f-90b1-1d8d39d4c7cf.webp",
     "streams": [
       {
         "url": "https://icy.cloudrad.io/ef63ee57",
@@ -9426,20 +8404,6 @@
     "streams": [
       {
         "url": "https://mediaserv38.live-streams.nl:18048/stream"
-      }
-    ]
-  },
-  {
-    "id": "https-www-openstageradio-eu",
-    "name": "https://www.openstageradio.eu/",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.openstageradio.eu/",
-    "logo": "https://www.openstageradio.eu/uploads/openstageradio.eu/1678666345-OSR%20banner%202.jpg",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:8834/stream"
       }
     ]
   },
@@ -9501,28 +8465,8 @@
     "logo": "https://www.ijsselstreekradio.nl/icon.png",
     "streams": [
       {
-        "url": "https://mediaserv38.live-streams.nl:18029/radio"
-      },
-      {
-        "url": "https://mediaserv38.live-streams.nl:8029/radio"
-      }
-    ]
-  },
-  {
-    "id": "indiexl",
-    "name": "IndieXL",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Indie muziek",
-    "about": "Internetzender volledig gewijd aan indiemuziek.",
-    "website": "http://www.indiexl.nl/",
-    "logo": "https://www.indiexl.nl/wp-content/themes/indiexl.nl/includes/img/logo-trans.png",
-    "streams": [
-      {
-        "url": "https://server-23.stream-server.nl:8438/;listen.pls_"
-      },
-      {
-        "url": "https://server-11.stream-server.nl:18438/"
+        "url": "https://mediaserv38.live-streams.nl:18029/radio",
+        "cors": true
       }
     ]
   },
@@ -9544,7 +8488,8 @@
         "cors": true
       },
       {
-        "url": "https://intenseradio.live-streams.nl:8000/main"
+        "url": "https://intenseradio.live-streams.nl:8000/main",
+        "cors": true
       }
     ]
   },
@@ -9558,7 +8503,8 @@
     "logo": "https://intercityradio.nl/wp-content/uploads/2020/05/Main-Logo-intercity-radio.jpg",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8804/stream"
+        "url": "https://server-28.stream-server.nl:8804/stream",
+        "cors": true
       }
     ]
   },
@@ -9615,7 +8561,8 @@
     "logo": "https://i0.wp.com/iskcrocks.com/wp-content/uploads/2019/09/blues-cafe-740.jpg?w=720&ssl=1",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/BluesCafe"
+        "url": "https://mediaserv68.live-streams.nl:8012/BluesCafe",
+        "cors": true
       }
     ]
   },
@@ -9628,7 +8575,8 @@
     "website": "https://iskcrocks.com/",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/ExtremeMetal"
+        "url": "https://mediaserv68.live-streams.nl:8012/ExtremeMetal",
+        "cors": true
       }
     ]
   },
@@ -9642,7 +8590,8 @@
     "logo": "https://i0.wp.com/iskcrocks.com/wp-content/uploads/2014/10/cropped-Baloon720.jpg?fit=192%2C192&ssl=1",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/HardRockChannel"
+        "url": "https://mediaserv68.live-streams.nl:8012/HardRockChannel",
+        "cors": true
       }
     ]
   },
@@ -9660,7 +8609,8 @@
         "cors": true
       },
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/OldMenRock"
+        "url": "https://mediaserv68.live-streams.nl:8012/OldMenRock",
+        "cors": true
       }
     ]
   },
@@ -9674,7 +8624,8 @@
     "logo": "https://i0.wp.com/iskcrocks.com/wp-content/uploads/2014/10/cropped-Baloon720.jpg?fit=192%2C192&ssl=1",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:18012/OnlyLive"
+        "url": "https://mediaserv68.live-streams.nl:18012/OnlyLive",
+        "cors": true
       }
     ]
   },
@@ -9688,7 +8639,8 @@
     "logo": "https://i0.wp.com/iskcrocks.com/wp-content/uploads/2014/10/cropped-Baloon720.jpg?fit=192%2C192&ssl=1",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/RadioActive"
+        "url": "https://mediaserv68.live-streams.nl:8012/RadioActive",
+        "cors": true
       }
     ]
   },
@@ -9706,7 +8658,8 @@
         "cors": true
       },
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/RockRadio2"
+        "url": "https://mediaserv68.live-streams.nl:8012/RockRadio2",
+        "cors": true
       }
     ]
   },
@@ -9719,7 +8672,8 @@
     "website": "https://iskcrocks.com/?page_id=6411",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:8012/XXL"
+        "url": "https://mediaserv68.live-streams.nl:8012/XXL",
+        "cors": true
       }
     ]
   },
@@ -9738,33 +8692,6 @@
     ]
   },
   {
-    "id": "italo-power",
-    "name": "Italo Power",
-    "category": "online",
-    "genre": "dance",
-    "description": "Dance",
-    "website": "https://www.italopower.com/",
-    "logo": "https://www.italopower.com/assets/img/apple-touch-icon.png",
-    "streams": [
-      {
-        "url": "https://stream.radioitalopower.com:10018/italopower"
-      }
-    ]
-  },
-  {
-    "id": "italoradio-fm",
-    "name": "Italoradio.fm",
-    "category": "online",
-    "genre": "dance",
-    "description": "Eirodance, italo disco",
-    "website": "https://italoradio.fm/",
-    "streams": [
-      {
-        "url": "https://cc6.beheerstream.com:8102/stream"
-      }
-    ]
-  },
-  {
     "id": "jan-schaaik-van",
     "name": "Jan Schaaik van",
     "category": "online",
@@ -9773,7 +8700,8 @@
     "website": "https://jouradio.fm/",
     "streams": [
       {
-        "url": "https://streaming1.djpaneel.com:6974/stream"
+        "url": "https://streaming1.djpaneel.com:6974/stream",
+        "cors": true
       }
     ]
   },
@@ -9950,7 +8878,8 @@
     "logo": "https://jinglegek.nl/assets/images/icon-200x154.png",
     "streams": [
       {
-        "url": "https://server-26.stream-server.nl:8632/stream"
+        "url": "https://server-26.stream-server.nl:8632/stream",
+        "cors": true
       }
     ]
   },
@@ -10047,19 +8976,6 @@
     ]
   },
   {
-    "id": "keizerstad-radio-80s",
-    "name": "Keizerstad Radio 80s",
-    "category": "online",
-    "genre": "gold",
-    "description": "80s, pop",
-    "website": "http://www.keizerstad.nl/",
-    "streams": [
-      {
-        "url": "https://server-06.stream-server.nl:8800/"
-      }
-    ]
-  },
-  {
     "id": "kerstradio-nl",
     "name": "Kerstradio.nl",
     "category": "online",
@@ -10068,7 +8984,8 @@
     "website": "https://www.kerstradio.nl/",
     "streams": [
       {
-        "url": "https://mediacp.audiostreamen.nl:8168/stream"
+        "url": "https://mediacp.audiostreamen.nl:8168/stream",
+        "cors": true
       }
     ]
   },
@@ -10084,31 +9001,6 @@
       {
         "url": "https://live.onlineradiostreaming.nl/kick",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "kilrock",
-    "name": "KilRock",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.kilrock.nl/",
-    "streams": [
-      {
-        "url": "https://mediaserv30.live-streams.nl:8013/low"
-      }
-    ]
-  },
-  {
-    "id": "kingfm",
-    "name": "KingFM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:8870/"
       }
     ]
   },
@@ -10148,7 +9040,8 @@
     "website": "http://www.kromhoutradio.nl/",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8784/stream"
+        "url": "https://server-67.stream-server.nl:8784/stream",
+        "cors": true
       }
     ]
   },
@@ -10162,7 +9055,8 @@
     "logo": "https://cdn-profiles.tunein.com/s104489/images/logog.png?t=152102",
     "streams": [
       {
-        "url": "https://mcp-1.streampanel.nl:8020/kxclassics_mp3"
+        "url": "https://mcp-1.streampanel.nl:8020/kxclassics_mp3",
+        "cors": true
       }
     ]
   },
@@ -10176,7 +9070,8 @@
     "logo": "https://l-fm.nl/images/logos/logogroen.png",
     "streams": [
       {
-        "url": "https://stream.l-fm.nl:8443/;"
+        "url": "https://stream.l-fm.nl:8443/;",
+        "cors": true
       }
     ]
   },
@@ -10192,31 +9087,6 @@
       {
         "url": "https://a1.asurahosting.com/listen/lachende_piraat/radio.mp3",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "laser-101-101-1-fm-philipsburg",
-    "name": "Laser 101 - 101.1 FM Philipsburg",
-    "category": "online",
-    "genre": "urban",
-    "description": "Hiphop, philipsburg, rnb",
-    "website": "https://laser101.fm/",
-    "streams": [
-      {
-        "url": "https://201.220.14.41:8060/channel7.mp3"
-      }
-    ]
-  },
-  {
-    "id": "laser-101-1011-philipsburg",
-    "name": "Laser 101 - 1011 Philipsburg",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream.sxmradio.com:8060/channel7.mp3"
       }
     ]
   },
@@ -10274,7 +9144,8 @@
     "website": "https://www.lichtstad-radio.nl/systeem.php",
     "streams": [
       {
-        "url": "https://securestream.digipal.nl:1687/;luister.mp3?1734446627077"
+        "url": "https://securestream.digipal.nl:1687/;luister.mp3?1734446627077",
+        "cors": true
       }
     ]
   },
@@ -10303,21 +9174,8 @@
     "logo": "https://lomp.nl/wp-content/uploads/2025/12/logo-header.png",
     "streams": [
       {
-        "url": "https://streams.lomp.nl:9007/sonica"
-      }
-    ]
-  },
-  {
-    "id": "loostad-radio",
-    "name": "Loostad Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.loostadradio.nl/",
-    "logo": "https://static.wixstatic.com/media/a8cb68_ac167ab2f4c84bf987b7e79ca89b04c0~mv2.png/v1/crop/x_3,y_0,w_708,h_714/fill/w_254,h_258,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logov2.png",
-    "streams": [
-      {
-        "url": "https://server-23.stream-server.nl:18476/;&type=mp3"
+        "url": "https://streams.lomp.nl:9007/sonica",
+        "cors": true
       }
     ]
   },
@@ -10345,19 +9203,8 @@
     "website": "http://www.lxclassics.com/",
     "streams": [
       {
-        "url": "https://mcp-1.streampanel.nl:8020/lxclassics_mp3"
-      }
-    ]
-  },
-  {
-    "id": "maasbach-radio",
-    "name": "Maasbach Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream.maasbachradio.com:8064/stream"
+        "url": "https://mcp-1.streampanel.nl:8020/lxclassics_mp3",
+        "cors": true
       }
     ]
   },
@@ -10369,20 +9216,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://server2.inetcast.nl:3265/stream?x=1742631873630"
-      }
-    ]
-  },
-  {
-    "id": "maasland-radio",
-    "name": "Maasland Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Limburg",
-    "website": "http://www.maaslandradio.nl/",
-    "streams": [
-      {
-        "url": "https://panel.beheerstream.com:2199/tunein/maaslandradio.pls"
+        "url": "https://server2.inetcast.nl:3265/stream?x=1742631873630",
+        "cors": true
       }
     ]
   },
@@ -10396,7 +9231,8 @@
     "logo": "https://www.magic-powerradio.nl/uploads/magic-powerradio.nl/1689545823-02%20logo.png",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8904/stream"
+        "url": "https://server-28.stream-server.nl:8904/stream",
+        "cors": true
       }
     ]
   },
@@ -10410,7 +9246,8 @@
     "logo": "https://maibus.eu/wp-content/uploads/2023/03/De-Ultiem41.gif",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8818/stream"
+        "url": "https://server-67.stream-server.nl:8818/stream",
+        "cors": true
       }
     ]
   },
@@ -10453,10 +9290,12 @@
     "logo": "https://mbhitradio.weebly.com/uploads/1/4/4/4/144462044/published/d22c38598f0697218feb8b5bc2931bfe2d442647.jpg?1743930525",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8022/mbhitradio"
+        "url": "https://mscp2.live-streams.nl:8022/mbhitradio",
+        "cors": true
       },
       {
-        "url": "https://everestcast.live-streams.nl:18116/stream"
+        "url": "https://everestcast.live-streams.nl:18116/stream",
+        "cors": true
       }
     ]
   },
@@ -10469,19 +9308,8 @@
     "website": "https://mcbradio.nl/",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8002/live.mp3"
-      }
-    ]
-  },
-  {
-    "id": "md-radio",
-    "name": "MD Radio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://vps2.sandoz.cloud:8630/radio.mp3"
+        "url": "https://mscp2.live-streams.nl:8002/live.mp3",
+        "cors": true
       }
     ]
   },
@@ -10495,7 +9323,8 @@
     "logo": "https://radiostationfriendsforlife.nl/templates/tsc_stargate_violett/header4.png?version=1793369824",
     "streams": [
       {
-        "url": "https://stream.rschosting.nl:8004/stream"
+        "url": "https://stream.rschosting.nl:8004/stream",
+        "cors": true
       }
     ]
   },
@@ -10509,7 +9338,8 @@
     "logo": "https://mixperfectradio.nl/mixperfect-radio-logo-transparant.png",
     "streams": [
       {
-        "url": "https://mixperfectradio.nl:9443/stream"
+        "url": "https://mixperfectradio.nl:9443/stream",
+        "cors": true
       }
     ]
   },
@@ -10731,7 +9561,8 @@
     "website": "https://www.moonlight-radio.nl/",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8780/stream"
+        "url": "https://server-67.stream-server.nl:8780/stream",
+        "cors": true
       }
     ]
   },
@@ -10760,45 +9591,8 @@
     "logo": "https://primary.jwwb.nl/public/z/j/u/temp-bqzsjohodqbdickmvoew/84461044_2851346148220645_8198702108292153344_n-high.jpg?enable-io=true&amp;enable=upscale&amp;width=186",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8922/stream"
-      }
-    ]
-  },
-  {
-    "id": "musicvaria",
-    "name": "MusicVaria",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://musicvaria.nl/afbeedingen/218.gif",
-    "streams": [
-      {
-        "url": "https://server-67.stream-server.nl:2000/tunein/MusicVaria/stream/pls"
-      }
-    ]
-  },
-  {
-    "id": "nashville-fm",
-    "name": "Nashville FM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Country",
-    "website": "http://www.nashvillefm.nl/",
-    "streams": [
-      {
-        "url": "https://server-10.stream-server.nl:8300/"
-      }
-    ]
-  },
-  {
-    "id": "nautic-radio-groningen",
-    "name": "Nautic Radio Groningen",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream.nauticradio.net:14260/"
+        "url": "https://server-28.stream-server.nl:8922/stream",
+        "cors": true
       }
     ]
   },
@@ -10840,20 +9634,8 @@
     "about": "Nederlandstalige hits en piratenhits, dag en nacht non-stop.",
     "streams": [
       {
-        "url": "https://audiostreamen.nl:8400/stream"
-      }
-    ]
-  },
-  {
-    "id": "niederlande-radio-erasmus",
-    "name": "Niederlande - Radio Erasmus",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Top 40 en popmuziek, Rotterdam",
-    "about": "Rotterdamse zender met Top 40 en popmuziek voor de regio.",
-    "streams": [
-      {
-        "url": "https://caster02.streampakket.com:8636/stream"
+        "url": "https://audiostreamen.nl:8400/stream",
+        "cors": true
       }
     ]
   },
@@ -10881,7 +9663,8 @@
     "website": "https://www.nixxfm.nl/",
     "streams": [
       {
-        "url": "https://mediacp.shoutcastradio.nl:8002/NixxFM.m3u"
+        "url": "https://mediacp.shoutcastradio.nl:8002/NixxFM.m3u",
+        "cors": true
       }
     ]
   },
@@ -10923,13 +9706,16 @@
     "website": "https://noise-radio.com/",
     "streams": [
       {
-        "url": "https://a5.asurahosting.com:7640/radio.mp3"
+        "url": "https://a5.asurahosting.com:7640/radio.mp3",
+        "cors": true
       },
       {
-        "url": "https://a2.asurahosting.com:7890/radio.mp3?refresh=1769858154192"
+        "url": "https://a2.asurahosting.com:7890/radio.mp3?refresh=1769858154192",
+        "cors": true
       },
       {
-        "url": "https://a2.asurahosting.com:7890/radio.mp3"
+        "url": "https://a2.asurahosting.com:7890/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -10968,7 +9754,8 @@
     "nonstop": true,
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8496/relay"
+        "url": "https://server-67.stream-server.nl:8496/relay",
+        "cors": true
       }
     ]
   },
@@ -10982,7 +9769,8 @@
     "logo": "https://www.northseagroove.nl/favicon-32x32.png",
     "streams": [
       {
-        "url": "https://server-26.stream-server.nl:8604/stream"
+        "url": "https://server-26.stream-server.nl:8604/stream",
+        "cors": true
       }
     ]
   },
@@ -10996,33 +9784,8 @@
     "logo": "https://veluwsepiratenstream.nl/uploads/station/weblogo_6781148ce64327.49082342.png",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8292/veluwsepiraten"
-      }
-    ]
-  },
-  {
-    "id": "oasis-963-fm-philipsburg",
-    "name": "Oasis 963 FM Philipsburg",
-    "category": "online",
-    "genre": "gold",
-    "description": "Oldies, philipsburg, soft pop",
-    "website": "http://oasis963.fm/",
-    "streams": [
-      {
-        "url": "https://stream.sxmradio.com:8060/channel5.mp3"
-      }
-    ]
-  },
-  {
-    "id": "old-men-s-radio",
-    "name": "Old Men's Radio",
-    "category": "online",
-    "genre": "gold",
-    "description": "60s, 70s",
-    "website": "http://www.oldmensradio.nl/",
-    "streams": [
-      {
-        "url": "https://server-10.stream-server.nl:8140/"
+        "url": "https://mscp2.live-streams.nl:8292/veluwsepiraten",
+        "cors": true
       }
     ]
   },
@@ -11101,20 +9864,6 @@
     ]
   },
   {
-    "id": "onlinepiraat-nl",
-    "name": "Onlinepiraat.NL",
-    "category": "online",
-    "genre": "gold",
-    "description": "Classic hits, country, german",
-    "website": "https://onlinepiraat.nl/",
-    "logo": "https://onlinepiraat.nl/wp-content/uploads/2024/08/Opvullogo_wallpaper-2048x513.jpg",
-    "streams": [
-      {
-        "url": "https://loa.beheerstream.nl:8016/stream"
-      }
-    ]
-  },
-  {
     "id": "only-80-s-radio",
     "name": "Only 80's Radio",
     "category": "online",
@@ -11124,10 +9873,8 @@
     "logo": "https://www.only80sradio.nl/favicon.ico",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8850/stream"
-      },
-      {
-        "url": "https://server-28.stream-server.nl:2000/tunein/Only80sRadio/stream/pls"
+        "url": "https://server-28.stream-server.nl:8850/stream",
+        "cors": true
       }
     ]
   },
@@ -11146,16 +9893,17 @@
     ]
   },
   {
-    "id": "onverantwoord-com",
-    "name": "onverantwoord.com",
+    "id": "openstageradio-eu",
+    "name": "openstageradio.eu",
     "category": "online",
     "genre": "mixed",
-    "description": "24/7, various music",
-    "website": "https://onverantwoord.com/",
-    "logo": "https://onverantwoord.com/wp-content/uploads/2023/01/onverantwoord.svg",
+    "description": "Gevarieerde muziek",
+    "website": "https://www.openstageradio.eu/",
+    "logo": "https://www.openstageradio.eu/uploads/openstageradio.eu/1678666345-OSR%20banner%202.jpg",
     "streams": [
       {
-        "url": "https://loa.beheerstream.nl:8008/stream"
+        "url": "https://server-28.stream-server.nl:8834/stream",
+        "cors": true
       }
     ]
   },
@@ -11183,7 +9931,8 @@
     "website": "https://radiooptimaalfm.nl/wp-content/themes/Radio2/streams/Live-player-pop-out.php",
     "streams": [
       {
-        "url": "https://stream-10.pmteurope.com:8002/stream"
+        "url": "https://stream-10.pmteurope.com:8002/stream",
+        "cors": true
       }
     ]
   },
@@ -11197,23 +9946,8 @@
     "logo": "https://oudepiratenhits.nl/wp-content/uploads/2020/09/logo-27.png",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8910/stream"
-      },
-      {
-        "url": "https://server-67.stream-server.nl:2000/l/?listen.Oude_Piratenhits.pls"
-      }
-    ]
-  },
-  {
-    "id": "pearl-fm-981-philipsburg",
-    "name": "Pearl FM 981 Philipsburg",
-    "category": "online",
-    "genre": "hits",
-    "description": "Philipsburg, pop, top 40",
-    "website": "https://pearlfmradio.sx/",
-    "streams": [
-      {
-        "url": "https://stream.sxmradio.com:8060/channel6.mp3"
+        "url": "https://server-67.stream-server.nl:8910/stream",
+        "cors": true
       }
     ]
   },
@@ -11226,7 +9960,8 @@
     "website": "http://www.pepperbox.nl/",
     "streams": [
       {
-        "url": "https://stream.pepperboxradio.nl:8000/radio.mp3"
+        "url": "https://stream.pepperboxradio.nl:8000/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -11320,20 +10055,8 @@
     "website": "https://piratenfamilie.nl/",
     "streams": [
       {
-        "url": "https://server-27.stream-server.nl:18726/stream"
-      }
-    ]
-  },
-  {
-    "id": "piraten-stream-twente",
-    "name": "Piraten Stream Twente",
-    "category": "online",
-    "genre": "dutch",
-    "description": "Nederlandstalig",
-    "website": "https://www.piratentwente.com/",
-    "streams": [
-      {
-        "url": "https://stream.piratentwente.com:8020/live"
+        "url": "https://server-27.stream-server.nl:18726/stream",
+        "cors": true
       }
     ]
   },
@@ -11726,19 +10449,6 @@
     ]
   },
   {
-    "id": "piratenhits-fm",
-    "name": "Piratenhits.fm",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.piratenhits.fm/",
-    "streams": [
-      {
-        "url": "https://mscp3.live-streams.nl:8330/live.ogg"
-      }
-    ]
-  },
-  {
     "id": "piratenkanjers",
     "name": "Piratenkanjers",
     "category": "online",
@@ -11762,7 +10472,8 @@
     "logo": "https://mlgl1docz7l0.i.optimole.com/w:738/h:738/q:mauto/ig:avif/https://piratenkanon.nl/wp-content/uploads/2025/06/cropped-PiratenKanonSuriname_740x740.webp",
     "streams": [
       {
-        "url": "https://streams.piratenkanon.nl:10100/MP3-320"
+        "url": "https://streams.piratenkanon.nl:10100/MP3-320",
+        "cors": true
       }
     ]
   },
@@ -11775,7 +10486,8 @@
     "website": "https://www.piratenpower.nl/",
     "streams": [
       {
-        "url": "https://stream.piratenpower.nl:8010/stream"
+        "url": "https://stream.piratenpower.nl:8010/stream",
+        "cors": true
       }
     ]
   },
@@ -11790,20 +10502,6 @@
       {
         "url": "https://stream.piratenradio.nl/listen/piratenradio/prradio",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "piratenteam",
-    "name": "piratenteam",
-    "category": "online",
-    "genre": "gold",
-    "description": "Folk, golden oldies",
-    "website": "https://www.piratenteam.nl/",
-    "logo": "https://cdn.phototourl.com/member/2026-07-01-9cda863f-3aed-425e-84af-bada99d32bc1.png",
-    "streams": [
-      {
-        "url": "https://stream.hostinggold.nl:8012/"
       }
     ]
   },
@@ -11823,59 +10521,6 @@
     ]
   },
   {
-    "id": "pjd2-the-voice-of-sint-maarten-1027-fm",
-    "name": "PJD2 The Voice of Sint Maarten 1027 FM",
-    "category": "online",
-    "genre": "hits",
-    "description": "Nieuws en muziek, Sint Maarten",
-    "about": "Radiozender uit Philipsburg op Sint Maarten, al meer dan 35 jaar nieuws en muziek voor het eiland.",
-    "website": "http://pjd2radiosxm.com/",
-    "streams": [
-      {
-        "url": "https://142.4.219.8:8181/stream"
-      }
-    ]
-  },
-  {
-    "id": "pjd2-the-voice-of-sint-maarten-1300-am",
-    "name": "PJD2 The Voice of Sint Maarten 1300 AM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Nieuws en muziek, Sint Maarten",
-    "about": "Radiozender uit Philipsburg op Sint Maarten, al meer dan 35 jaar nieuws en muziek voor het eiland.",
-    "streams": [
-      {
-        "url": "https://142.4.219.8:8193/stream"
-      }
-    ]
-  },
-  {
-    "id": "pjd3-power-102-7-fm-philipsburg",
-    "name": "PJD3 Power 102.7 FM Philipsburg",
-    "category": "online",
-    "genre": "hits",
-    "description": "Philipsburg, pop, soft music",
-    "website": "http://fb.com/Power1027FM",
-    "logo": "https://dpi4fupzvxbqq.cloudfront.net/rfm/uploads/rlogo/300/300_1583322900.gif",
-    "streams": [
-      {
-        "url": "https://201.220.14.41:8060/channel3.mp3"
-      }
-    ]
-  },
-  {
-    "id": "pjd3-power-1027-philipsburg",
-    "name": "PJD3 Power 1027 Philipsburg",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://stream.sxmradio.com:8060/channel3.mp3"
-      }
-    ]
-  },
-  {
     "id": "planet-90",
     "name": "Planet 90",
     "category": "online",
@@ -11888,55 +10533,6 @@
       {
         "url": "https://cc6.beheerstream.com/proxy/shradio?mp=/stream;listen.pls",
         "cors": true
-      },
-      {
-        "url": "https://loa.beheerstream.nl:8080/stream"
-      },
-      {
-        "url": "https://loa.beheerstream.nl:8010/"
-      },
-      {
-        "url": "https://loa.beheerstream.nl:8058/stream"
-      }
-    ]
-  },
-  {
-    "id": "platinum-radio-hardstyle",
-    "name": "Platinum Radio HardStyle",
-    "category": "online",
-    "genre": "dance",
-    "description": "Dance",
-    "streams": [
-      {
-        "url": "https://live.platinumradio.nl:8030/radio.mp3"
-      }
-    ]
-  },
-  {
-    "id": "polder-radio-stream-2",
-    "name": "Polder Radio (stream 2)",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://polderradio.nl/",
-    "logo": "https://polderradio.nl/wp-content/uploads/2023/04/cropped-Polder-Radio-logo.png",
-    "streams": [
-      {
-        "url": "https://server-67.stream-server.nl:8738/"
-      }
-    ]
-  },
-  {
-    "id": "polder-radio-stream-3",
-    "name": "Polder Radio (stream 3)",
-    "category": "online",
-    "genre": "dutch",
-    "description": "Nederlandstalig",
-    "website": "https://polderradio.nl/",
-    "logo": "https://polderradio.nl/wp-content/uploads/2023/04/cropped-Polder-Radio-logo.png",
-    "streams": [
-      {
-        "url": "https://server-67.stream-server.nl:8734/"
       }
     ]
   },
@@ -11949,7 +10545,8 @@
     "website": "https://powerfmbreda.x10.mx/",
     "streams": [
       {
-        "url": "https://mpc1.mediacp.eu:8036/stream"
+        "url": "https://mpc1.mediacp.eu:8036/stream",
+        "cors": true
       }
     ]
   },
@@ -11962,7 +10559,8 @@
     "website": "https://powersoundradio.com/",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8112/"
+        "url": "https://mscp2.live-streams.nl:8112/",
+        "cors": true
       }
     ]
   },
@@ -11980,7 +10578,8 @@
         "cors": true
       },
       {
-        "url": "https://a11.asurahosting.com:7110/radio.mp3"
+        "url": "https://a11.asurahosting.com:7110/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -12008,10 +10607,12 @@
     "logo": "https://www.pureloungeradio.com/images/Pureloungeradio-achtergrond.jpg",
     "streams": [
       {
-        "url": "https://mscp4.live-streams.nl:8142/lounge.ogg"
+        "url": "https://mscp4.live-streams.nl:8142/lounge.ogg",
+        "cors": true
       },
       {
-        "url": "https://mscp4.live-streams.nl:8142/lounge.mp3"
+        "url": "https://mscp4.live-streams.nl:8142/lounge.mp3",
+        "cors": true
       }
     ]
   },
@@ -12084,39 +10685,6 @@
       {
         "url": "https://streamserver.pure-isp.eu/radio/8070/flac",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "pure-twenty-four-pure-24",
-    "name": "Pure Twenty Four Pure 24",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://c32.radioboss.fm:8775/stream"
-      }
-    ]
-  },
-  {
-    "id": "pureclassix",
-    "name": "PureClassix",
-    "category": "online",
-    "genre": "gold",
-    "description": "Klassiekers in lossless FLAC-kwaliteit",
-    "about": "Klassieke hits uitgezonden in lossless FLAC-kwaliteit.",
-    "website": "https://www.pureclassix.com/",
-    "logo": "https://cdn-profiles.tunein.com/s206043/images/logod.png?t=637460687100000000",
-    "streams": [
-      {
-        "url": "https://mscp4.live-streams.nl:8140/flac.ogg"
-      },
-      {
-        "url": "https://server5.radio-streams.net:8001/live"
-      },
-      {
-        "url": "https://mscp4.live-streams.nl:8140/live.mp3"
       }
     ]
   },
@@ -12194,21 +10762,8 @@
     "logo": "https://questradio.nl/promoman.ico",
     "streams": [
       {
-        "url": "https://ams-pioneer02.dedicateware.com:1735/stream"
-      }
-    ]
-  },
-  {
-    "id": "radio-078-synth",
-    "name": "Radio 078 Synth",
-    "category": "online",
-    "genre": "dance",
-    "description": "Berlin school, electronic, synth",
-    "website": "https://radio078.fm/radio-078-synth/",
-    "logo": "https://radio078.fm/favicon.ico",
-    "streams": [
-      {
-        "url": "https://panel.beheerstream.com:2199/tunein/ujogqmho.pls"
+        "url": "https://ams-pioneer02.dedicateware.com:1735/stream",
+        "cors": true
       }
     ]
   },
@@ -12243,9 +10798,6 @@
       {
         "url": "https://player.streamforce.nl/listen/radio182/stream",
         "cors": true
-      },
-      {
-        "url": "https://player.streamforce.nl:8306/stream"
       }
     ]
   },
@@ -12259,21 +10811,8 @@
     "logo": "https://www.radio4brainport.org/site2019/wp-content/uploads/2019/07/cropped-Logo-Radio4Brainport-320x240.png",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8770/listen"
-      }
-    ]
-  },
-  {
-    "id": "radio-9-oostzaan",
-    "name": "Radio 9 Oostzaan",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Lokale omroep voor Oostzaan en de Zaanstreek",
-    "about": "Lokale omroep voor Oostzaan en de Zaanstreek, on air sinds 1998.",
-    "logo": "https://www.radio9oostzaan.nl/icon.png",
-    "streams": [
-      {
-        "url": "https://caster01.streampakket.com:9350/;"
+        "url": "https://server-67.stream-server.nl:8770/listen",
+        "cors": true
       }
     ]
   },
@@ -12287,7 +10826,8 @@
     "logo": "https://playerservices.digipal.nl/acacia/playerlogo.jpg",
     "streams": [
       {
-        "url": "https://securestream3.digipal.nl:2259/;192kbs.mp3"
+        "url": "https://securestream3.digipal.nl:2259/;192kbs.mp3",
+        "cors": true
       }
     ]
   },
@@ -12335,19 +10875,6 @@
     ]
   },
   {
-    "id": "radio-amersfoort",
-    "name": "Radio Amersfoort",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Lokale omroep voor Amersfoort en Leusden",
-    "about": "Archief-livestream van de voormalige lokale omroep van Amersfoort (1986-2010), tegenwoordig voortgezet als EVA.",
-    "streams": [
-      {
-        "url": "https://qxjr001.digiplay.nl:9180/stream"
-      }
-    ]
-  },
-  {
     "id": "radio-atlantis-rotterdam",
     "name": "Radio Atlantis Rotterdam",
     "category": "online",
@@ -12357,7 +10884,8 @@
     "logo": "https://radioatlantisrotterdam.nl/images/RARlogo523x523.png",
     "streams": [
       {
-        "url": "https://mpc1.mediacp.eu:8740/;.mp3"
+        "url": "https://mpc1.mediacp.eu:8740/;.mp3",
+        "cors": true
       }
     ]
   },
@@ -12371,20 +10899,8 @@
     "logo": "https://radioatletico.nl/images/logo1.png",
     "streams": [
       {
-        "url": "https://mediaserv38.live-streams.nl:8074/stream.mp3"
-      }
-    ]
-  },
-  {
-    "id": "radio-awaaz",
-    "name": "Radio Awaaz",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://jplayer-generator.live-streams.nl/upload/21216186.jpg",
-    "streams": [
-      {
-        "url": "https://mediaserv38.live-streams.nl:18039/stream"
+        "url": "https://mediaserv38.live-streams.nl:8074/stream.mp3",
+        "cors": true
       }
     ]
   },
@@ -12408,18 +10924,6 @@
     ]
   },
   {
-    "id": "radio-blacklight",
-    "name": "Radio Blacklight",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:8876/autodj"
-      }
-    ]
-  },
-  {
     "id": "radio-bnt",
     "name": "Radio BNT",
     "category": "online",
@@ -12439,19 +10943,6 @@
     ]
   },
   {
-    "id": "radio-bonita",
-    "name": "Radio Bonita",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://radiobonita.nl/",
-    "streams": [
-      {
-        "url": "https://live.hostingbudget.nl:1040/stream"
-      }
-    ]
-  },
-  {
     "id": "radio-calypso",
     "name": "Radio Calypso",
     "category": "online",
@@ -12461,10 +10952,12 @@
     "website": "https://calypso675.com",
     "streams": [
       {
-        "url": "https://mcp-1.streampanel.nl:8024/stream"
+        "url": "https://mcp-1.streampanel.nl:8024/stream",
+        "cors": true
       },
       {
-        "url": "https://mcp-1.streampanel.nl:8024/mobiel"
+        "url": "https://mcp-1.streampanel.nl:8024/mobiel",
+        "cors": true
       }
     ]
   },
@@ -12475,7 +10968,6 @@
     "genre": "rock",
     "description": "Classic rock",
     "website": "https://www.radiocaroline.nl/",
-    "logo": "https://www.radiocaroline.nl/favicon.ico",
     "streams": [
       {
         "url": "https://happy.radiocaroline.nl/listen/classic_rock/radio320.mp3",
@@ -12490,7 +10982,6 @@
     "genre": "rock",
     "description": "Classic rock",
     "website": "https://www.radiocaroline.nl/",
-    "logo": "https://www.radiocaroline.nl/favicon.ico",
     "streams": [
       {
         "url": "https://happy.radiocaroline.nl/listen/classic_rock/radio96.acc",
@@ -12505,7 +10996,6 @@
     "genre": "gold",
     "description": "60s, 70s, 80s",
     "website": "https://radiocaroline259.nl/",
-    "logo": "https://radiocaroline259.nl/favicon.ico",
     "streams": [
       {
         "url": "https://happy.radiocaroline.nl/listen/classic_rock/radio128.mp3",
@@ -12528,19 +11018,6 @@
       {
         "url": "https://happy.radiomonique.nl/listen/happy_oldies/radio64.mp3",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "radio-chilling-station",
-    "name": "Radio Chilling Station",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.chillingstation.nl/",
-    "streams": [
-      {
-        "url": "https://mediaserv30.live-streams.nl:8090/stream"
       }
     ]
   },
@@ -12579,21 +11056,8 @@
     "website": "https://www.radiodebranding-online.nl/",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8814/stream"
-      }
-    ]
-  },
-  {
-    "id": "radio-de-musketiers",
-    "name": "Radio De Musketiers",
-    "category": "online",
-    "genre": "mixed",
-    "description": "24/7, various music",
-    "website": "https://www.radiodemusketiers.nl/",
-    "logo": "https://www.radiodemusketiers.nl/wp-content/uploads/2023/03/cropped-bannerRDM.jpg",
-    "streams": [
-      {
-        "url": "https://loa.beheerstream.nl:8022/stream"
+        "url": "https://server-28.stream-server.nl:8814/stream",
+        "cors": true
       }
     ]
   },
@@ -12606,21 +11070,8 @@
     "website": "https://radiodestemmingmaker.nl/",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8894/stream"
-      }
-    ]
-  },
-  {
-    "id": "radio-de-vliegende-hollander",
-    "name": "Radio de Vliegende Hollander",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.radiodevliegendehollander.nl/",
-    "logo": "https://www.radiodevliegendehollander.nl/Welkom_files/Radio%20DeVliegendeHollander.png",
-    "streams": [
-      {
-        "url": "https://www.stream4you.nl:8384/"
+        "url": "https://server-28.stream-server.nl:8894/stream",
+        "cors": true
       }
     ]
   },
@@ -12633,7 +11084,8 @@
     "website": "https://domstadradio.nl/",
     "streams": [
       {
-        "url": "https://dmsstreaming.nl:8000/radio.mp3"
+        "url": "https://dmsstreaming.nl:8000/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -12666,21 +11118,6 @@
     ]
   },
   {
-    "id": "radio-erasmus",
-    "name": "Radio Erasmus",
-    "category": "online",
-    "genre": "hits",
-    "description": "Top 40 en popmuziek, Rotterdam",
-    "about": "Rotterdamse zender met Top 40 en popmuziek voor de regio.",
-    "website": "https://play.radioerasmus.nl/",
-    "logo": "https://static-media.streema.com/media/cache/b5/25/b5258a78aa97c6368cc05c4fe78abb30.jpg",
-    "streams": [
-      {
-        "url": "https://caster04.streampakket.com:8636/stream"
-      }
-    ]
-  },
-  {
     "id": "radio-esperando",
     "name": "Radio Esperando",
     "category": "online",
@@ -12689,7 +11126,8 @@
     "website": "https://radioesperando.nl/",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8888/stream"
+        "url": "https://server-28.stream-server.nl:8888/stream",
+        "cors": true
       }
     ]
   },
@@ -12715,7 +11153,8 @@
     "website": "https://radioexperience.nl/",
     "streams": [
       {
-        "url": "https://totaal-streaming.de:8030/radio2"
+        "url": "https://totaal-streaming.de:8030/radio2",
+        "cors": true
       }
     ]
   },
@@ -12728,19 +11167,8 @@
     "website": "https://www.radiogfm.nl/",
     "streams": [
       {
-        "url": "https://stream.radiogfm.nl:8200/high.aac"
-      }
-    ]
-  },
-  {
-    "id": "radio-goudenpijl",
-    "name": "radio Goudenpijl",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://hostingbudgeteverestcast.nl:2580/stream"
+        "url": "https://stream.radiogfm.nl:8200/high.aac",
+        "cors": true
       }
     ]
   },
@@ -12754,7 +11182,8 @@
     "logo": "https://www.radiogrensland.com/wp-content/uploads/2021/05/Grensland-Logo-300-100.png",
     "streams": [
       {
-        "url": "https://digistreamer.nl:8030/radio.mp3"
+        "url": "https://digistreamer.nl:8030/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -12771,19 +11200,6 @@
     ]
   },
   {
-    "id": "radio-haarlem",
-    "name": "Radio Haarlem",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://radiohaarlem.nl/wp-content/uploads/2023/03/Logo-RadioHaarlem.png",
-    "streams": [
-      {
-        "url": "https://live.radiohaarlem.nl:8000/radio.mp3"
-      }
-    ]
-  },
-  {
     "id": "radio-halloo",
     "name": "Radio Halloo",
     "category": "online",
@@ -12793,7 +11209,8 @@
     "logo": "https://www.radiohalloo.nl/wp-content/uploads/2022/01/cropped-icon-radio-halloo-180x180.png",
     "streams": [
       {
-        "url": "https://mediacp.audiostreamen.nl:8174/stream"
+        "url": "https://mediacp.audiostreamen.nl:8174/stream",
+        "cors": true
       }
     ]
   },
@@ -12807,7 +11224,8 @@
     "logo": "https://radiohanzestad.nl/gallery_gen/1c874aa1b8c79ba30fa7a84674c7b987_920x600.png",
     "streams": [
       {
-        "url": "https://radiohanzestad.ddns.net:18200/nonstop"
+        "url": "https://radiohanzestad.ddns.net:18200/nonstop",
+        "cors": true
       }
     ]
   },
@@ -12862,10 +11280,12 @@
     "logo": "https://radiohulchul.nl/wp-content/uploads/2021/05/cropped-logo-1-192x192.png",
     "streams": [
       {
-        "url": "https://everestcast.live-streams.nl:18010/stream"
+        "url": "https://everestcast.live-streams.nl:18010/stream",
+        "cors": true
       },
       {
-        "url": "https://everestcast.live-streams.nl:18015/stream"
+        "url": "https://everestcast.live-streams.nl:18015/stream",
+        "cors": true
       }
     ]
   },
@@ -12878,20 +11298,8 @@
     "website": "https://www.radiojoyride.nl/",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8776/stream"
-      }
-    ]
-  },
-  {
-    "id": "radio-lfm",
-    "name": "Radio LFM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://l-fm.nl/",
-    "streams": [
-      {
-        "url": "https://stream.l-fm.nl:8443/"
+        "url": "https://server-67.stream-server.nl:8776/stream",
+        "cors": true
       }
     ]
   },
@@ -12904,7 +11312,8 @@
     "website": "https://www.radio-melodieus.com/",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8862/stream"
+        "url": "https://server-28.stream-server.nl:8862/stream",
+        "cors": true
       }
     ]
   },
@@ -12944,7 +11353,6 @@
     "genre": "gold",
     "description": "60s, 70s, 80s",
     "website": "https://www.radiomonique.nl/",
-    "logo": "https://www.radiomonique.nl/apple-touch-icon.png",
     "streams": [
       {
         "url": "https://happy.radiomonique.nl/listen/happy_oldies/radio96.acc",
@@ -12976,35 +11384,8 @@
     "logo": "https://www.radionachtuil.nl/images/homepage%20logo.png",
     "streams": [
       {
-        "url": "https://everestcastprohostingbudget.nl:1415/stream"
-      },
-      {
-        "url": "https://everestcastprohostingbudget.nl:1400/johannes/1/winamp.m3u"
-      }
-    ]
-  },
-  {
-    "id": "radio-nnnevot",
-    "name": "Radio Nnnevot",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://i1.cdn.jetstre.am:8000/sz=stichtingradiononnevot=radiostream"
-      }
-    ]
-  },
-  {
-    "id": "radio-noordvaarder-reiki",
-    "name": "Radio Noordvaarder Reiki",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Healing, new wave",
-    "website": "http://www.radionoordvaarder.nl/",
-    "streams": [
-      {
-        "url": "https://stream.radionoordvaarder.nl:8050/"
+        "url": "https://everestcastprohostingbudget.nl:1415/stream",
+        "cors": true
       }
     ]
   },
@@ -13017,7 +11398,8 @@
     "website": "https://radionostalgia.nl/",
     "streams": [
       {
-        "url": "https://cast1.torontocast.com:1630/stream"
+        "url": "https://cast1.torontocast.com:1630/stream",
+        "cors": true
       }
     ]
   },
@@ -13045,7 +11427,8 @@
     "website": "https://radiooranje.nl/",
     "streams": [
       {
-        "url": "https://securestream.digipal.nl:1816/;stream.mp3"
+        "url": "https://securestream.digipal.nl:1816/;stream.mp3",
+        "cors": true
       }
     ]
   },
@@ -13064,18 +11447,6 @@
     ]
   },
   {
-    "id": "radio-powerline",
-    "name": "Radio Powerline",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-67.stream-server.nl:8836/stream"
-      }
-    ]
-  },
-  {
     "id": "radio-readymix",
     "name": "Radio Readymix",
     "category": "online",
@@ -13084,24 +11455,8 @@
     "website": "https://www.radioreadymix.nl/",
     "streams": [
       {
-        "url": "https://server-26.stream-server.nl:8522/stream"
-      }
-    ]
-  },
-  {
-    "id": "radio-regenboog",
-    "name": "Radio Regenboog",
-    "category": "online",
-    "genre": "rock",
-    "description": "Alternative, folk music",
-    "website": "https://radioregenboog.nl/",
-    "logo": "https://radioregenboog.nl/favicon.ico",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:18828/stream"
-      },
-      {
-        "url": "https://server-28.stream-server.nl:8830/stream"
+        "url": "https://server-26.stream-server.nl:8522/stream",
+        "cors": true
       }
     ]
   },
@@ -13128,7 +11483,8 @@
     "website": "https://www.radiosangam.nl/",
     "streams": [
       {
-        "url": "https://mediaserv68.live-streams.nl:8067/stream"
+        "url": "https://mediaserv68.live-streams.nl:8067/stream",
+        "cors": true
       }
     ]
   },
@@ -13157,22 +11513,6 @@
     "streams": [
       {
         "url": "https://live.radioseabreeze.nl/"
-      },
-      {
-        "url": "https://mediaserv38.live-streams.nl:18025/stream1"
-      }
-    ]
-  },
-  {
-    "id": "radio-seabreeze-am",
-    "name": "Radio Seabreeze AM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://radioseabreeze.nl/wp-content/uploads/2023/04/banner2023-768x192.png",
-    "streams": [
-      {
-        "url": "https://mediaserv38.live-streams.nl:2199/tunein/radioseabreeze-stream1.pls"
       }
     ]
   },
@@ -13187,7 +11527,8 @@
     "logo": "https://pbs.twimg.com/profile_images/725305078660341761/kANcRaAd_400x400.jpg",
     "streams": [
       {
-        "url": "https://stream1.radioseagull.net:8443/stream"
+        "url": "https://stream1.radioseagull.net:8443/stream",
+        "cors": true
       }
     ]
   },
@@ -13210,20 +11551,6 @@
     ]
   },
   {
-    "id": "radio-sputnik-underground",
-    "name": "Radio Sputnik Underground!",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "http://www.radiosputnik.nl/",
-    "logo": "https://www.radiosputnik.nl/assets/images/android-icon-192x192.png",
-    "streams": [
-      {
-        "url": "https://radiosputnik.nl:8002/.m3u"
-      }
-    ]
-  },
-  {
     "id": "radio-stad-centraal",
     "name": "Radio Stad Centraal",
     "category": "online",
@@ -13232,19 +11559,8 @@
     "website": "http://audio.laser558.nl/rsc/index.html#",
     "streams": [
       {
-        "url": "https://stream.hostbee.nl:7029/stream"
-      }
-    ]
-  },
-  {
-    "id": "radio-stad-woerden",
-    "name": "Radio Stad Woerden",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:8886/stream"
+        "url": "https://stream.hostbee.nl:7029/stream",
+        "cors": true
       }
     ]
   },
@@ -13258,7 +11574,8 @@
     "logo": "https://www.radioterranova.nl/bannerradioterranova.jpg",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8914/stream"
+        "url": "https://server-28.stream-server.nl:8914/stream",
+        "cors": true
       }
     ]
   },
@@ -13271,7 +11588,8 @@
     "website": "http://radiotoekan.nl/",
     "streams": [
       {
-        "url": "https://server-10.stream-server.nl:8544/stream"
+        "url": "https://server-10.stream-server.nl:8544/stream",
+        "cors": true
       }
     ]
   },
@@ -13285,7 +11603,8 @@
     "logo": "https://radiotrammelant.nl/wp-content/uploads/2021/08/logo_3.png",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8762/stream"
+        "url": "https://server-67.stream-server.nl:8762/stream",
+        "cors": true
       }
     ]
   },
@@ -13299,7 +11618,8 @@
     "logo": "https://cdn.onlineradiobox.com/img/l/2/115442.v15.png",
     "streams": [
       {
-        "url": "https://c18.radioboss.fm:8403/stream"
+        "url": "https://c18.radioboss.fm:8403/stream",
+        "cors": true
       }
     ]
   },
@@ -13313,22 +11633,8 @@
     "logo": "https://radio-twilight.nl/wp-content/uploads/2020/06/cropped-logo-black-background-180x180.png",
     "streams": [
       {
-        "url": "https://live.hostingbudget.nl:4270/stream"
-      },
-      {
-        "url": "https://stream.shamarohosting.nl:8000/radio.mp3"
-      }
-    ]
-  },
-  {
-    "id": "radio-ultiem",
-    "name": "Radio Ultiem",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-21.stream-server.nl:8382/"
+        "url": "https://stream.shamarohosting.nl:8000/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -13356,7 +11662,8 @@
     "website": "https://www.radiouniek.eu/",
     "streams": [
       {
-        "url": "https://stream.hosting078.nl:8044/stream"
+        "url": "https://stream.hosting078.nl:8044/stream",
+        "cors": true
       }
     ]
   },
@@ -13389,18 +11696,6 @@
     ]
   },
   {
-    "id": "radio-van-noord-tot-zuid",
-    "name": "Radio Van Noord Tot Zuid",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://live.hostingbudget.nl:1800/stream"
-      }
-    ]
-  },
-  {
     "id": "radio-vastelaovend",
     "name": "Radio Vastelaovend",
     "category": "online",
@@ -13416,18 +11711,6 @@
     ]
   },
   {
-    "id": "radio-verona",
-    "name": "Radio Verona",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://mcp-1.streampanel.nl:8020/RadioVelona"
-      }
-    ]
-  },
-  {
     "id": "radio-weststellingwerf-centraal",
     "name": "Radio Weststellingwerf Centraal",
     "category": "online",
@@ -13437,7 +11720,8 @@
     "logo": "https://i0.wp.com/www.radiocentraal.com/cms/wp-content/uploads/2022/06/cropped-mstile-310x310-1.png?fit=32%2C32&ssl=1",
     "streams": [
       {
-        "url": "https://mcp-2.mm-stream.nl:8017/stream"
+        "url": "https://mcp-2.mm-stream.nl:8017/stream",
+        "cors": true
       }
     ]
   },
@@ -13456,21 +11740,6 @@
     ]
   },
   {
-    "id": "radio-zuyd",
-    "name": "Radio Zuyd",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Ziekenhuisradio voor Zuyderland, Zuid-Limburg",
-    "about": "Ziekenhuisradio voor Zuyderland in Zuid-Limburg, voorheen bekend als Radio Atrium Parkstad.",
-    "website": "http://radiozuyd.nl/",
-    "logo": "https://radiozuyd.nl/wp-content/uploads/2018/11/Logo-Radio-Zuyd-2.png",
-    "streams": [
-      {
-        "url": "https://radiozuyd.shoutcaststream.com:8199/stream"
-      }
-    ]
-  },
-  {
     "id": "radio-goldenwave",
     "name": "Radio-Goldenwave",
     "category": "online",
@@ -13479,10 +11748,8 @@
     "website": "https://radiogoldenwave.nl/",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8072/radio"
-      },
-      {
-        "url": "https://mscp3.live-streams.nl:8070/radio"
+        "url": "https://mscp3.live-streams.nl:8072/radio",
+        "cors": true
       }
     ]
   },
@@ -13575,7 +11842,8 @@
     "website": "https://radionickita.nl/",
     "streams": [
       {
-        "url": "https://fra-pioneer08.dedicateware.com:1685/stream"
+        "url": "https://fra-pioneer08.dedicateware.com:1685/stream",
+        "cors": true
       }
     ]
   },
@@ -13646,7 +11914,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8916/stream"
+        "url": "https://server-28.stream-server.nl:8916/stream",
+        "cors": true
       }
     ]
   },
@@ -13718,10 +11987,12 @@
     "logo": "https://www.riversideradio.nl/favicon.ico",
     "streams": [
       {
-        "url": "https://stream.and-stuff.nl:8443/riverside"
+        "url": "https://stream.and-stuff.nl:8443/riverside",
+        "cors": true
       },
       {
-        "url": "https://stream.and-stuff.nl:8443/riversideMp3"
+        "url": "https://stream.and-stuff.nl:8443/riversideMp3",
+        "cors": true
       }
     ]
   },
@@ -13733,7 +12004,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8802/stream"
+        "url": "https://server-28.stream-server.nl:8802/stream",
+        "cors": true
       }
     ]
   },
@@ -13753,8 +12025,8 @@
     ]
   },
   {
-    "id": "rob-stenders-stream",
-    "name": "Rob Stenders stream",
+    "id": "rob-stenders",
+    "name": "Rob Stenders",
     "category": "online",
     "genre": "mixed",
     "description": "Gevarieerde muziek",
@@ -13774,7 +12046,8 @@
     "website": "https://www.robintimo.nl/",
     "streams": [
       {
-        "url": "https://stream.robintimo.nl:8000/radio.mp3"
+        "url": "https://stream.robintimo.nl:8000/radio.mp3",
+        "cors": true
       }
     ]
   },
@@ -13787,7 +12060,8 @@
     "website": "https://rondiamusic.nl/",
     "streams": [
       {
-        "url": "https://mars.streamerr.co:7094/stream"
+        "url": "https://mars.streamerr.co:7094/stream",
+        "cors": true
       }
     ]
   },
@@ -13821,43 +12095,6 @@
       {
         "url": "https://stream.roundandsound.nl/1",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "rtvalbrandswaard",
-    "name": "RtvAlbrandswaard",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://www.rtvalbrandswaard.com/wp-content/uploads/2021/07/Logo-RTV-Albrandswaard-Naam-FC_V1.jpg",
-    "streams": [
-      {
-        "url": "https://streamer.hosting078.nl:1850/stream"
-      }
-    ]
-  },
-  {
-    "id": "saba-radio-q-939-fm-netherlands",
-    "name": "Saba Radio Q 939 FM Netherlands",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://s1.northrich.nl:38123/streamq939"
-      }
-    ]
-  },
-  {
-    "id": "salland-747",
-    "name": "Salland 747",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://radio2.stream24.net:8270/live.mp3"
       }
     ]
   },
@@ -13916,10 +12153,12 @@
     "logo": "https://www.sintfm.nl/sintfm.png",
     "streams": [
       {
-        "url": "https://stream06.dotpoint.nl:8004/stream"
+        "url": "https://stream06.dotpoint.nl:8004/stream",
+        "cors": true
       },
       {
-        "url": "https://stream.tbmp.nl:8000/sinterklaasradiohigh.mp3"
+        "url": "https://stream.tbmp.nl:8000/sinterklaasradiohigh.mp3",
+        "cors": true
       }
     ]
   },
@@ -14059,20 +12298,8 @@
     "website": "https://soundtrackradiostation.com/",
     "streams": [
       {
-        "url": "https://quincy.torontocast.com:2410/stream"
-      }
-    ]
-  },
-  {
-    "id": "starlicht",
-    "name": "Starlicht",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "website": "https://www.radioviainternet.nl/radio-starlight-urk",
-    "streams": [
-      {
-        "url": "https://live.urkfm.nl:8000/urkfm.mp3"
+        "url": "https://quincy.torontocast.com:2410/stream",
+        "cors": true
       }
     ]
   },
@@ -14099,7 +12326,8 @@
     "website": "https://stationmooidatkan.nl/",
     "streams": [
       {
-        "url": "https://ex52.voordeligstreamen.nl:8232/stream"
+        "url": "https://ex52.voordeligstreamen.nl:8232/stream",
+        "cors": true
       }
     ]
   },
@@ -14113,10 +12341,8 @@
     "logo": "https://stationoneinternetradio.nl/img/S1%20logo%20klein.jpg",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8758/stream"
-      },
-      {
-        "url": "https://server-67.stream-server.nl:2000/tunein/StationOneInternetRadio/stream/pls"
+        "url": "https://server-67.stream-server.nl:8758/stream",
+        "cors": true
       }
     ]
   },
@@ -14128,7 +12354,8 @@
     "description": "Gevarieerde muziek",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8920/stream"
+        "url": "https://server-28.stream-server.nl:8920/stream",
+        "cors": true
       }
     ]
   },
@@ -14174,7 +12401,8 @@
     "logo": "https://cdn.onlineradiobox.com/img/l/7/77527.v8.png",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8854/stream"
+        "url": "https://server-28.stream-server.nl:8854/stream",
+        "cors": true
       }
     ]
   },
@@ -14201,7 +12429,8 @@
     "logo": "https://syntheticfm.com/logo-syntheticfm1.png",
     "streams": [
       {
-        "url": "https://mediaserv38.live-streams.nl:18040/live"
+        "url": "https://mediaserv38.live-streams.nl:18040/live",
+        "cors": true
       }
     ]
   },
@@ -14214,7 +12443,8 @@
     "logo": "https://syntheticfm.com/logo-synth-italo.png",
     "streams": [
       {
-        "url": "https://mediaserv38.live-streams.nl:18030/stream"
+        "url": "https://mediaserv38.live-streams.nl:18030/stream",
+        "cors": true
       }
     ]
   },
@@ -14339,20 +12569,6 @@
     ]
   },
   {
-    "id": "the-sid-station",
-    "name": "The SID Station",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Chiptune-muziek van de Commodore 64 SID-chip",
-    "about": "24/7 chiptune-radio met muziek van de legendarische SID-geluidschip uit de Commodore 64.",
-    "website": "https://c64radio.com/",
-    "streams": [
-      {
-        "url": "https://173.208.54.18:8144/stream"
-      }
-    ]
-  },
-  {
     "id": "tiesto-in-concert",
     "name": "Tiësto in Concert",
     "category": "online",
@@ -14391,7 +12607,8 @@
     "logo": "https://www.tirolia-express.nl/v1/include/images/site-name.png",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8846/stream"
+        "url": "https://server-28.stream-server.nl:8846/stream",
+        "cors": true
       }
     ]
   },
@@ -14418,19 +12635,8 @@
     "website": "https://www.trance21.com/",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8022/radio"
-      }
-    ]
-  },
-  {
-    "id": "traxxradio",
-    "name": "TraxxRadio",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://server-28.stream-server.nl:8896/stream"
+        "url": "https://mscp3.live-streams.nl:8022/radio",
+        "cors": true
       }
     ]
   },
@@ -14443,21 +12649,8 @@
     "logo": "https://trendfm.nu/wp-content/uploads/2020/06/tfmlogomobile.png",
     "streams": [
       {
-        "url": "https://trendfm.live-streams.nl:18030/mobiel"
-      }
-    ]
-  },
-  {
-    "id": "tropixx-fm-1055-philipsburg",
-    "name": "Tropixx FM 1055 Philipsburg",
-    "category": "online",
-    "genre": "world",
-    "description": "Caribbean music, latin music",
-    "website": "https://tropixx.fm/",
-    "logo": "https://tropixx.fm/wp-content/uploads/2021/08/cropped-tropixx-site-icon-180x180.png",
-    "streams": [
-      {
-        "url": "https://stream.sxmradio.com:8060/channel2.mp3"
+        "url": "https://trendfm.live-streams.nl:18030/mobiel",
+        "cors": true
       }
     ]
   },
@@ -14476,23 +12669,6 @@
     ]
   },
   {
-    "id": "u-luistert-naar-www-muziekteam-nl-voor-de-beste-piraten-hits",
-    "name": "U luistert naar www.muziekteam.nl voor de beste piraten hits",
-    "category": "online",
-    "genre": "dutch",
-    "description": "Nederlandstalig",
-    "website": "https://muziekteam.nl/",
-    "logo": "https://muziekteam.nl/images/rrrr4.png",
-    "streams": [
-      {
-        "url": "https://mcp-1.streampanel.nl:8036/stream"
-      },
-      {
-        "url": "https://mcp-1.streampanel.nl:2000/tunein/muziekteam-1/stream/pls"
-      }
-    ]
-  },
-  {
     "id": "ubuntufm-radio-international",
     "name": "UbuntuFM Radio International",
     "category": "online",
@@ -14502,7 +12678,8 @@
     "logo": "https://www.ubuntufmradio.com/images/Ubuntu.FM.International.logo.webp",
     "streams": [
       {
-        "url": "https://streaming.coollective.nl:8443/RadioXYZ"
+        "url": "https://streaming.coollective.nl:8443/RadioXYZ",
+        "cors": true
       }
     ]
   },
@@ -14516,34 +12693,8 @@
     "logo": "https://unique-fm.nl/wp-content/uploads/2023/08/Ontwerp-zonder-titel-77-370x370.png",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8212/radio"
-      }
-    ]
-  },
-  {
-    "id": "unique-rock",
-    "name": "Unique Rock",
-    "category": "online",
-    "genre": "rock",
-    "description": "Rock",
-    "website": "https://unique-fm.nl/radiochannel/unique-classicrock/",
-    "logo": "https://unique-fm.nl/wp-content/uploads/2024/04/Logo-Unique-Classic-Rock-1.jpg",
-    "streams": [
-      {
-        "url": "https://mscp2.live-streams.nl:8180/radio"
-      }
-    ]
-  },
-  {
-    "id": "urk-fm-geestelijk",
-    "name": "Urk FM geestelijk",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Misc",
-    "website": "http://urk.fm:8000/",
-    "streams": [
-      {
-        "url": "https://urk.fm:8000/geestelijk.mp3"
+        "url": "https://mscp3.live-streams.nl:8212/radio",
+        "cors": true
       }
     ]
   },
@@ -14559,20 +12710,6 @@
       {
         "url": "https://onlineradio.websoftitnepal.com/8030/stream",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "valleiradionl",
-    "name": "ValleiRadionl",
-    "category": "online",
-    "genre": "hits",
-    "description": "Internetradio voor de Utrechtse en Gelderse Vallei",
-    "about": "Internetradio voor de Utrechtse en Gelderse Vallei, met muziek en nieuws uit de regio.",
-    "website": "https://valleiradio.nl/",
-    "streams": [
-      {
-        "url": "https://server-25.stream-server.nl:8366/stream"
       }
     ]
   },
@@ -14599,7 +12736,8 @@
     "website": "https://variafm.nl/",
     "streams": [
       {
-        "url": "https://server1.streamgigant.nl:9031/varia192"
+        "url": "https://server1.streamgigant.nl:9031/varia192",
+        "cors": true
       }
     ]
   },
@@ -14612,7 +12750,8 @@
     "website": "https://venlovintage.nl/",
     "streams": [
       {
-        "url": "https://stream-10.pmteurope.com:8040/stream"
+        "url": "https://stream-10.pmteurope.com:8040/stream",
+        "cors": true
       }
     ]
   },
@@ -14625,7 +12764,8 @@
     "website": "https://www.vera-radio.nl/",
     "streams": [
       {
-        "url": "https://mscp3.live-streams.nl:8082/live"
+        "url": "https://mscp3.live-streams.nl:8082/live",
+        "cors": true
       }
     ]
   },
@@ -14639,7 +12779,8 @@
     "logo": "https://www.vlietstad.nl/wp-content/uploads/2020/06/Vlietstad_zendmast_RWB-1-Copy.png",
     "streams": [
       {
-        "url": "https://caster.hosting078.nl:1035/stream"
+        "url": "https://caster.hosting078.nl:1035/stream",
+        "cors": true
       }
     ]
   },
@@ -14667,7 +12808,8 @@
     "logo": "https://cdn.nieuwsned.nl/07e1cd7dca89a1678042477183b7ac3f/files/cropped-cropped-logo-vvz-2024-blauw-rond.png",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8122/radio"
+        "url": "https://mscp2.live-streams.nl:8122/radio",
+        "cors": true
       }
     ]
   },
@@ -14681,7 +12823,8 @@
     "logo": "https://static.mytuner.mobi/media/tvos_radios/4zgFmUGemN.png",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8756/stream"
+        "url": "https://server-67.stream-server.nl:8756/stream",
+        "cors": true
       }
     ]
   },
@@ -14731,10 +12874,8 @@
     "website": "https://www.wonderjaren.nl/",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8748/stream"
-      },
-      {
-        "url": "https://server-67.stream-server.nl:2000/tunein/wonderjarenstreamingradio/stream/asx"
+        "url": "https://server-67.stream-server.nl:8748/stream",
+        "cors": true
       }
     ]
   },
@@ -14748,7 +12889,8 @@
     "logo": "https://www.wmrclassic.com/wmr_files/favicon-32x32.png",
     "streams": [
       {
-        "url": "https://server-67.stream-server.nl:8792/stream"
+        "url": "https://server-67.stream-server.nl:8792/stream",
+        "cors": true
       }
     ]
   },
@@ -14762,10 +12904,8 @@
     "logo": "https://static.wixstatic.com/media/5218a9_a6b816efe4ba450682e490d509934b92.png",
     "streams": [
       {
-        "url": "https://stream.sxmradio.com:8060/1043.mp3"
-      },
-      {
-        "url": "https://streamcontrol.net:8444/s/16520"
+        "url": "https://streamcontrol.net:8444/s/16520",
+        "cors": true
       }
     ]
   },
@@ -14824,7 +12964,8 @@
     "logo": "https://www.xmasradio.nl/xmasradio.png",
     "streams": [
       {
-        "url": "https://stream.tbmp.nl:8000/xmasradiohigh.mp3"
+        "url": "https://stream.tbmp.nl:8000/xmasradiohigh.mp3",
+        "cors": true
       }
     ]
   },
@@ -14837,7 +12978,8 @@
     "website": "https://www.robstenders.nl/",
     "streams": [
       {
-        "url": "https://mcp-1.streampanel.nl:8020/bonanza_mp3"
+        "url": "https://mcp-1.streampanel.nl:8020/bonanza_mp3",
+        "cors": true
       }
     ]
   },
@@ -14851,7 +12993,8 @@
     "logo": "https://cdn-profiles.tunein.com/s332783/images/logoq.jpg?t=639077217670000000",
     "streams": [
       {
-        "url": "https://mscp2.live-streams.nl:8012/live.mp3"
+        "url": "https://mscp2.live-streams.nl:8012/live.mp3",
+        "cors": true
       }
     ]
   },
@@ -14911,7 +13054,8 @@
     "website": "https://www.zendergroenveld.com/",
     "streams": [
       {
-        "url": "https://server-28.stream-server.nl:8912/stream"
+        "url": "https://server-28.stream-server.nl:8912/stream",
+        "cors": true
       }
     ]
   },
@@ -14939,18 +13083,6 @@
     "streams": [
       {
         "url": "https://zwaluwradio.duckdns.org/live"
-      }
-    ]
-  },
-  {
-    "id": "zwartewater-fm",
-    "name": "Zwartewater FM",
-    "category": "online",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "streams": [
-      {
-        "url": "https://panel.beheerstream.com:2199/tunein/zwartewaterfm-stream.pls"
       }
     ]
   },
@@ -15105,10 +13237,12 @@
     "logo": "https://reformatorischeomroep.nl/apple-touch-icon.png",
     "streams": [
       {
-        "url": "https://stream01.sthhost.nl:8003/live"
+        "url": "https://stream01.sthhost.nl:8003/live",
+        "cors": true
       },
       {
-        "url": "https://stream01.sthhost.nl:8020/live"
+        "url": "https://stream01.sthhost.nl:8020/live",
+        "cors": true
       }
     ]
   },
@@ -15167,36 +13301,6 @@
     ]
   },
   {
-    "id": "181-fm-awesome-80s",
-    "name": "181.FM Awesome 80s",
-    "category": "global",
-    "genre": "gold",
-    "description": "Hits uit de jaren 80",
-    "about": "Amerikaanse internetzender met non-stop hits uit de jaren 80.",
-    "logo": "https://www.181.fm/favicon.ico",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://relay.181.fm:8068/"
-      }
-    ]
-  },
-  {
-    "id": "181-fm-good-time-oldies",
-    "name": "181.FM Good Time Oldies",
-    "category": "global",
-    "genre": "gold",
-    "description": "Oldies",
-    "about": "Amerikaanse internetzender met klassieke oldies.",
-    "logo": "https://www.181.fm/favicon.ico",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://relay.181.fm:8056/"
-      }
-    ]
-  },
-  {
     "id": "181-fm-the-beat",
     "name": "181.FM The Beat",
     "category": "global",
@@ -15208,21 +13312,6 @@
       {
         "url": "https://listen.181fm.com/181-beat_128k.mp3",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "181-fm-the-office",
-    "name": "181.FM The Office",
-    "category": "global",
-    "genre": "mixed",
-    "description": "Rustige achtergrondmuziek",
-    "about": "Amerikaanse internetzender met rustige achtergrondmuziek, geschikt om te werken.",
-    "logo": "https://www.181.fm/favicon.ico",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://relay.181.fm:8028/"
       }
     ]
   },
@@ -15335,20 +13424,6 @@
       {
         "url": "https://radios.rtbf.be/classic21-128.mp3",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "easylistening-com",
-    "name": "EasyListening.com",
-    "category": "global",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "logo": "https://www.easylistening.com/favicon.ico",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://listen.easylistening.com:8000/stream"
       }
     ]
   },
@@ -15634,19 +13709,6 @@
     ]
   },
   {
-    "id": "jb-radio-2",
-    "name": "JB Radio 2",
-    "category": "global",
-    "genre": "mixed",
-    "description": "Gevarieerde muziek",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://cristina.torontocast.com:8007/mp3-320"
-      }
-    ]
-  },
-  {
     "id": "joe-belgie",
     "name": "Joe België",
     "category": "global",
@@ -15752,32 +13814,6 @@
       {
         "url": "https://icecast.vrtcdn.be/klaracontinuo.aac",
         "cors": true
-      }
-    ]
-  },
-  {
-    "id": "linn-classical",
-    "name": "Linn Classical",
-    "category": "global",
-    "genre": "classical",
-    "description": "Klassieke muziek",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://89.16.185.174:8004/stream"
-      }
-    ]
-  },
-  {
-    "id": "linn-jazz",
-    "name": "Linn Jazz",
-    "category": "global",
-    "genre": "jazz-soul",
-    "description": "Jazz en soul",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://89.16.185.174:8000/stream"
       }
     ]
   },
@@ -16233,21 +14269,6 @@
       },
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/RTE_2FM_INT.mp3"
-      }
-    ]
-  },
-  {
-    "id": "smooth-jazz-24-7",
-    "name": "Smooth Jazz 24/7",
-    "category": "global",
-    "genre": "jazz-soul",
-    "description": "Smooth jazz, non-stop",
-    "about": "Non-stop smooth jazz.",
-    "logo": "https://www.181.fm/favicon.ico",
-    "nonstop": true,
-    "streams": [
-      {
-        "url": "https://relay.181.fm:8008/"
       }
     ]
   },
