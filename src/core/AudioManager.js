@@ -41,15 +41,16 @@ class AudioManager {
     };
   }
 
-  async initialize() {
-    try {
-      await Promise.all(Object.values(this.sources).map((source) => source.initialize()));
-      return true;
-    } catch (error) {
-      console.error('AudioManager: initialization failed', error);
-      this._triggerError(error);
-      return false;
-    }
+  /** Initialize all sources once; later calls return the same promise. */
+  initialize() {
+    this._initPromise ??= Promise.all(Object.values(this.sources).map((source) => source.initialize()))
+      .then(() => true)
+      .catch((error) => {
+        console.error('AudioManager: initialization failed', error);
+        this._triggerError(error);
+        return false;
+      });
+    return this._initPromise;
   }
 
   /**

@@ -12,78 +12,69 @@ export function useAudio() {
   const audioManagerRef = useRef(null);
   const playAttemptRef = useRef(0);
 
-  // Initialize AudioManager on mount
+  // Connect the AudioManager singleton to the store. React may run this effect
+  // twice (StrictMode in development mounts, unmounts and remounts), so the
+  // singleton is never destroyed here: the cleanup only stops playback and the
+  // callbacks are attached again on every run.
   useEffect(() => {
-    if (!audioManagerRef.current) {
-      audioManagerRef.current = getAudioManager();
+    const manager = getAudioManager();
+    audioManagerRef.current = manager;
+    manager.setVolume(state.volume);
+    manager.setFadeEnabled(state.fadeAudioStreams);
+    manager.initialize();
 
-      // Sync settings from state BEFORE initializing
-      if (state.volume !== undefined) {
-        audioManagerRef.current.setVolume(state.volume);
+    // Set up callbacks
+    manager.on('onStateChange', (newState) => {
+      // Keep audioSource in sync with AudioManager's actual active source.
+      // AudioManager.currentSource is the single source of truth for "what's
+      // playing" - some callers (e.g. AdBreakController) switch sources
+      // directly on AudioManager without going through playRadio/playSpotify/
+      // playYouTube below, which would otherwise leave state.audioSource stale
+      // and the player UI stuck showing the previous source (e.g. radio info
+      // lingering after switching to a Spotify ad break).
+      actions.setAudioSource(manager.currentSource);
+
+      if (newState === 'playing') {
+        actions.setPlaying(true);
+        actions.setPaused(false);
+        actions.setLoading(false);
+      } else if (newState === 'paused') {
+        actions.setPlaying(false);
+        actions.setPaused(true);
+        actions.setLoading(false);
+      } else if (newState === 'loading' || newState === 'transitioning') {
+        actions.setLoading(true);
+      } else {
+        actions.setPlaying(false);
+        actions.setPaused(false);
+        actions.setLoading(false);
       }
-      if (state.fadeAudioStreams !== undefined) {
-        audioManagerRef.current.setFadeEnabled(state.fadeAudioStreams);
+    });
+
+    manager.on('onError', (error) => {
+      actions.setError(error.message || 'Audio afspeelfout');
+    });
+
+    // Keep currentStation in sync with whatever radio station AudioManager
+    // actually has loaded, the same way audioSource is synced above. Without
+    // this, a station switch triggered outside playRadio() (e.g. the nonstop
+    // rotation during an ad break, which calls AudioManager.play() directly)
+    // never updates state.currentStation, so the player bar keeps showing the
+    // name/logo of whichever station was playing before the switch.
+    manager.on('onMetadataChange', (metadata) => {
+      if (metadata.station) {
+        actions.setStation(metadata.station);
       }
+    });
 
-      audioManagerRef.current.initialize();
+    // Set up RadioService callbacks for connection status and buffering
+    const radioSource = manager.getSource('radio');
+    radioSource.onStatusUpdate = (status) => actions.setConnectionStatus(status);
+    radioSource.onBufferingChange = (isBuffering) => actions.setBuffering(isBuffering);
 
-      // Set up callbacks
-      audioManagerRef.current.on('onStateChange', (newState) => {
-        // Keep audioSource in sync with AudioManager's actual active source.
-        // AudioManager.currentSource is the single source of truth for "what's
-        // playing" - some callers (e.g. AdBreakController) switch sources
-        // directly on AudioManager without going through playRadio/playSpotify/
-        // playYouTube below, which would otherwise leave state.audioSource stale
-        // and the player UI stuck showing the previous source (e.g. radio info
-        // lingering after switching to a Spotify ad break).
-        actions.setAudioSource(audioManagerRef.current.currentSource);
-
-        if (newState === 'playing') {
-          actions.setPlaying(true);
-          actions.setPaused(false);
-          actions.setLoading(false);
-        } else if (newState === 'paused') {
-          actions.setPlaying(false);
-          actions.setPaused(true);
-          actions.setLoading(false);
-        } else if (newState === 'loading' || newState === 'transitioning') {
-          actions.setLoading(true);
-        } else {
-          actions.setPlaying(false);
-          actions.setPaused(false);
-          actions.setLoading(false);
-        }
-      });
-
-      audioManagerRef.current.on('onError', (error) => {
-        actions.setError(error.message || 'Audio afspeelfout');
-      });
-
-      // Keep currentStation in sync with whatever radio station AudioManager
-      // actually has loaded, the same way audioSource is synced above. Without
-      // this, a station switch triggered outside playRadio() (e.g. the nonstop
-      // rotation during an ad break, which calls AudioManager.play() directly)
-      // never updates state.currentStation, so the player bar keeps showing the
-      // name/logo of whichever station was playing before the switch.
-      audioManagerRef.current.on('onMetadataChange', (metadata) => {
-        if (metadata.station) {
-          actions.setStation(metadata.station);
-        }
-      });
-
-      // Set up RadioService callbacks for connection status and buffering
-      const radioSource = audioManagerRef.current.getSource('radio');
-      if (radioSource) {
-        radioSource.onStatusUpdate = (status) => {
-          actions.setConnectionStatus(status);
-        };
-        radioSource.onBufferingChange = (isBuffering) => {
-          actions.setBuffering(isBuffering);
-        };
-      }
-    }
-
-    return () => audioManagerRef.current?.destroy();
+    return () => {
+      manager.stopAll();
+    };
   // Runs once on mount. Later volume/fade changes are synced by the effects below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

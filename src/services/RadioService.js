@@ -7,8 +7,8 @@
 // CORS: the visualizer needs the element in crossOrigin mode, but a
 // crossOrigin request to a server without CORS headers fails outright. So the
 // element only uses crossOrigin for streams flagged `cors`; if such a stream
-// errors immediately (its CORS header may have been dropped) it is retried
-// once without crossOrigin.
+// errors (its CORS header may have been dropped) it is retried once without
+// crossOrigin.
 //
 // Recovery: when a playing stream errors, ends or stalls, the service
 // reconnects on its own (falling back to the next stream) a few times before
@@ -108,7 +108,8 @@ export class RadioSource {
           return true;
         } catch (error) {
           if (error instanceof Cancelled) return false;
-          if (candidates[i].cors && error.quick) {
+          // A CORS failure is an error, never a timeout: retry without crossOrigin.
+          if (candidates[i].cors && !error.timedOut) {
             try {
               await this._tryStream({ ...candidates[i], cors: false }, attempt);
               streamCache.set(station.id, candidates[i].url);
@@ -183,12 +184,11 @@ export class RadioSource {
 
   _tryStream(stream, attempt) {
     const cors = Boolean(stream.cors);
-    if (cors !== this.corsEnabled) this._createAudioElement(cors);
+    if (!this.audio || cors !== this.corsEnabled) this._createAudioElement(cors);
     const audio = this.audio;
     const skipAds = isPrerollSkipEnabled() && hasPreroll(this.station);
 
     return new Promise((resolve, reject) => {
-      const startedAt = Date.now();
       let settled = false;
       const finish = (error) => {
         if (settled) return;
@@ -200,12 +200,12 @@ export class RadioSource {
         if (!(error instanceof Cancelled)) this._resetElement();
         reject(error);
       };
-      const onError = () => {
-        const error = new Error('Stream error');
-        error.quick = Date.now() - startedAt < 3000;
+      const onError = () => finish(new Error('Stream error'));
+      const timer = setTimeout(() => {
+        const error = new Error('Timeout');
+        error.timedOut = true;
         finish(error);
-      };
-      const timer = setTimeout(() => finish(new Error('Timeout')), CONNECT_TIMEOUT_MS);
+      }, CONNECT_TIMEOUT_MS);
       const cancelCheck = setInterval(() => {
         if (attempt !== this._attempt) finish(new Cancelled());
       }, 200);
@@ -223,10 +223,7 @@ export class RadioSource {
           toast.success('Pre-roll reclame overgeslagen', 2500);
         }
         finish();
-      }, (error) => {
-        error.quick = Date.now() - startedAt < 3000;
-        finish(error);
-      });
+      }, (error) => finish(error));
     });
   }
 

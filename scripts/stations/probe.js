@@ -5,9 +5,10 @@
 //   - the final URL is HTTPS (HTTP streams are mixed content and get blocked)
 //   - the server answers 2xx and starts sending audio bytes in a codec that
 //     browsers decode natively (MP3, AAC, Ogg, FLAC)
-// The probe also records whether the stream sends CORS headers. The player
-// only sets crossOrigin (needed for the visualizer) when that is true,
-// because a crossOrigin request to a server without CORS fails outright.
+// The probe also records whether the stream sends CORS headers on every hop
+// of its redirect chain. The player only sets crossOrigin (needed for the
+// visualizer) when that is true, because a crossOrigin request fails outright
+// as soon as one response lacks the header.
 //
 // CLI: node scripts/stations/probe.js <url> [url...]
 
@@ -20,6 +21,7 @@ const BROWSER_UA =
   '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
 const PLAYLIST_TYPES = ['mpegurl', 'scpls', 'x-pls', 'pls+xml'];
+const MAX_REDIRECTS = 5;
 
 /** Identify the payload from its first bytes. */
 export function sniffFormat(bytes) {
@@ -98,20 +100,32 @@ export async function probeStream(url, { timeoutMs = 12000, minBytes = 8192 } = 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: { 'User-Agent': BROWSER_UA, Origin: SITE_ORIGIN, Accept: '*/*' },
-    });
-    result.finalUrl = res.url;
+    // Follow redirects by hand: a browser only allows a crossOrigin request if
+    // every response in the redirect chain carries a CORS header, not just the last.
+    let res;
+    let current = url;
+    result.cors = true;
+    for (let hop = 0; ; hop++) {
+      res = await fetch(current, {
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: { 'User-Agent': BROWSER_UA, Origin: SITE_ORIGIN, Accept: '*/*' },
+      });
+      const acao = res.headers.get('access-control-allow-origin');
+      result.cors &&= acao === '*' || acao === SITE_ORIGIN;
+      const location = res.headers.get('location');
+      if (res.status < 300 || res.status >= 400 || !location) break;
+      if (hop === MAX_REDIRECTS) return { ...result, error: 'too many redirects' };
+      res.body?.cancel().catch(() => {});
+      current = new URL(location, current).href;
+      if (!current.startsWith('https://')) return { ...result, finalUrl: current, error: 'redirects to http' };
+    }
+    result.finalUrl = current;
     result.status = res.status;
     const type = (res.headers.get('content-type') || '').toLowerCase();
-    const acao = res.headers.get('access-control-allow-origin');
-    result.cors = acao === '*' || acao === SITE_ORIGIN;
     const icyBr = parseInt(res.headers.get('icy-br'), 10);
     if (icyBr > 0) result.bitrate = icyBr;
 
-    if (!res.url.startsWith('https://')) return { ...result, error: 'redirects to http' };
     if (!res.ok) return { ...result, error: `HTTP ${res.status}` };
     if (/text\/html/.test(type)) return { ...result, error: 'html page' };
 

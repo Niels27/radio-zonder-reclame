@@ -107,8 +107,9 @@ function App() {
       }, 5000);
       return () => clearTimeout(timer);
     }
+  // Only a new error should show a toast; currentStation is read for the message.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.error, actions]);
+  }, [state.error]);
 
   // Scroll detection for visualizer placement
   useEffect(() => {

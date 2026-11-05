@@ -2,7 +2,7 @@
 // Exposes StateProvider, useAppState() for reading and useActions() for updates.
 // Settings are loaded from and persisted to localStorage.
 
-import { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useMemo } from 'react';
 
 // Safe localStorage write - handles QuotaExceededError gracefully
 const safePersist = (key, value) => {
@@ -264,118 +264,119 @@ function useAppDispatch() {
   return context;
 }
 
-// Action creators (stable callbacks around dispatch)
+// Action creators. One memoized object, so components can list `actions` as an
+// effect dependency without the effect re-running on every render.
 export function useActions() {
   const dispatch = useAppDispatch();
 
-  return {
+  return useMemo(() => ({
     // Audio actions
-    setStation: useCallback((station) => {
+    setStation: (station) => {
       dispatch({ type: ActionTypes.SET_STATION, payload: station });
-    }, [dispatch]),
+    },
 
-    setPlaying: useCallback((isPlaying) => {
+    setPlaying: (isPlaying) => {
       dispatch({ type: ActionTypes.SET_PLAYING, payload: isPlaying });
-    }, [dispatch]),
+    },
 
-    setPaused: useCallback((isPaused) => {
+    setPaused: (isPaused) => {
       dispatch({ type: ActionTypes.SET_PAUSED, payload: isPaused });
-    }, [dispatch]),
+    },
 
-    setLoading: useCallback((isLoading) => {
+    setLoading: (isLoading) => {
       dispatch({ type: ActionTypes.SET_LOADING, payload: isLoading });
-    }, [dispatch]),
+    },
 
-    setTransitioning: useCallback((isTransitioning) => {
+    setTransitioning: (isTransitioning) => {
       dispatch({ type: ActionTypes.SET_TRANSITIONING, payload: isTransitioning });
-    }, [dispatch]),
+    },
 
-    setVolume: useCallback((volume) => {
+    setVolume: (volume) => {
       dispatch({ type: ActionTypes.SET_VOLUME, payload: volume });
-    }, [dispatch]),
+    },
 
-    setAudioSource: useCallback((source) => {
+    setAudioSource: (source) => {
       dispatch({ type: ActionTypes.SET_AUDIO_SOURCE, payload: source });
-    }, [dispatch]),
+    },
 
-    setError: useCallback((error) => {
+    setError: (error) => {
       dispatch({ type: ActionTypes.SET_ERROR, payload: error });
-    }, [dispatch]),
+    },
 
-    setConnectionStatus: useCallback((status) => {
+    setConnectionStatus: (status) => {
       dispatch({ type: ActionTypes.SET_CONNECTION_STATUS, payload: status });
-    }, [dispatch]),
+    },
 
-    setBuffering: useCallback((isBuffering) => {
+    setBuffering: (isBuffering) => {
       dispatch({ type: ActionTypes.SET_BUFFERING, payload: isBuffering });
-    }, [dispatch]),
+    },
 
     // Ad break actions
-    startAdBreak: useCallback((mode) => {
+    startAdBreak: (mode) => {
       dispatch({ type: ActionTypes.START_AD_BREAK, payload: { mode } });
-    }, [dispatch]),
+    },
 
-    endAdBreak: useCallback(() => {
+    endAdBreak: () => {
       dispatch({ type: ActionTypes.END_AD_BREAK });
-    }, [dispatch]),
+    },
 
-    setAdBreakMode: useCallback((mode) => {
+    setAdBreakMode: (mode) => {
       dispatch({ type: ActionTypes.SET_AD_BREAK_MODE, payload: mode });
-    }, [dispatch]),
+    },
 
-    setAdBreakTimeLeft: useCallback((timeLeft) => {
+    setAdBreakTimeLeft: (timeLeft) => {
       dispatch({ type: ActionTypes.SET_AD_BREAK_TIME_LEFT, payload: timeLeft });
-    }, [dispatch]),
+    },
 
-    setNextAdBreakIn: useCallback((time) => {
+    setNextAdBreakIn: (time) => {
       dispatch({ type: ActionTypes.SET_NEXT_AD_BREAK_IN, payload: time });
-    }, [dispatch]),
+    },
 
-    startTimer: useCallback(() => {
+    startTimer: () => {
       dispatch({ type: ActionTypes.START_TIMER });
-    }, [dispatch]),
+    },
 
-    stopTimer: useCallback(() => {
+    stopTimer: () => {
       dispatch({ type: ActionTypes.STOP_TIMER });
-    }, [dispatch]),
+    },
 
     // Playlist actions
-    setPlaylistUrl: useCallback((url) => {
+    setPlaylistUrl: (url) => {
       dispatch({ type: ActionTypes.SET_PLAYLIST_URL, payload: url });
-    }, [dispatch]),
+    },
 
-    setPlaylistInfo: useCallback((info) => {
+    setPlaylistInfo: (info) => {
       dispatch({ type: ActionTypes.SET_PLAYLIST_INFO, payload: info });
-    }, [dispatch]),
+    },
 
-    setPlaylistProvider: useCallback((provider) => {
+    setPlaylistProvider: (provider) => {
       dispatch({ type: ActionTypes.SET_PLAYLIST_PROVIDER, payload: provider });
-    }, [dispatch]),
+    },
 
-    setPlaylistShuffle: useCallback((shuffle) => {
+    setPlaylistShuffle: (shuffle) => {
       dispatch({ type: ActionTypes.SET_PLAYLIST_SHUFFLE, payload: shuffle });
-    }, [dispatch]),
+    },
 
-    setYoutubeUrl: useCallback((url) => {
+    setYoutubeUrl: (url) => {
       dispatch({ type: ActionTypes.SET_YOUTUBE_URL, payload: url });
-    }, [dispatch]),
+    },
 
     // UI actions
-    toggleVisualizer: useCallback((enabled) => {
+    toggleVisualizer: (enabled) => {
       dispatch({ type: ActionTypes.TOGGLE_VISUALIZER, payload: enabled });
-    }, [dispatch]),
+    },
 
-    setVisualizerType: useCallback((type) => {
+    setVisualizerType: (type) => {
       dispatch({ type: ActionTypes.SET_VISUALIZER_TYPE, payload: type });
-    }, [dispatch]),
+    },
 
     // Settings actions
-    setFadeAudioStreams: useCallback((enabled) => {
+    setFadeAudioStreams: (enabled) => {
       dispatch({ type: ActionTypes.SET_FADE_AUDIO_STREAMS, payload: enabled });
-    }, [dispatch]),
+    },
 
-    setAdBreakSettings: useCallback((settings) => {
+    setAdBreakSettings: (settings) => {
       dispatch({ type: ActionTypes.SET_AD_BREAK_SETTINGS, payload: settings });
-    }, [dispatch]),
-  };
+    },
+  }), [dispatch]);
 }
