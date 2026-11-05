@@ -167,7 +167,7 @@
     "description": "Nieuwe pop en alternative",
     "about": "De publieke popzender voor nieuwe muziek, alternative en Nederlands talent, bekend van Serious Request.",
     "website": "https://www.npo3fm.nl",
-    "logo": "https://www.npo3fm.nl/apple-touch-icon.png",
+    "logo": "https://www.npo3fm.nl/svg/npo_3fm_logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/3fm-bb-mp3",
@@ -245,7 +245,7 @@
     "description": "Klassieke muziek",
     "about": "Voorheen NPO Radio 4: de publieke zender voor klassieke muziek, met concerten en opera.",
     "website": "https://www.npoklassiek.nl",
-    "logo": "https://www.npoklassiek.nl/apple-touch-icon.png",
+    "logo": "https://www.npoklassiek.nl/svg/npo-klassiek-logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/radio4-bb-mp3",
@@ -269,7 +269,7 @@
     "description": "Nieuws en sport",
     "about": "De publieke nieuws- en sportzender van Nederland, met actualiteiten, achtergronden en live sportverslagen.",
     "website": "https://www.nporadio1.nl",
-    "logo": "https://www.nporadio1.nl/apple-touch-icon.png",
+    "logo": "https://www.nporadio1.nl/svg/npo_radio1_logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/radio1-bb-mp3",
@@ -293,7 +293,7 @@
     "description": "Pop, rock en verhalen",
     "about": "De grootste publieke muziekzender, met pop- en rockmuziek van toen en nu en bekend van de Top 2000.",
     "website": "https://www.nporadio2.nl",
-    "logo": "https://www.nporadio2.nl/apple-touch-icon.png",
+    "logo": "https://www.nporadio2.nl/svg/npo_radio2_logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/radio2-bb-mp3",
@@ -316,7 +316,7 @@
     "genre": "classical",
     "description": "Classic, opera, non-stop",
     "website": "http://www.radio4.nl/",
-    "logo": "https://www.nporadio4.nl/apple-touch-icon.png",
+    "logo": "https://www.npoklassiek.nl/svg/npo-klassiek-logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/radio4-eigentijds-mp3",
@@ -336,7 +336,7 @@
     "description": "Hits uit de jaren 60, 70 en 80",
     "about": "Publieke zender voor 55-plussers met muziek uit de jaren 60, 70 en 80 en programma's over het leven van alledag.",
     "website": "https://www.nporadio5.nl",
-    "logo": "https://www.nporadio5.nl/apple-touch-icon.png",
+    "logo": "https://www.nporadio5.nl/svg/npo_radio5_logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/radio5-bb-mp3",
@@ -360,7 +360,7 @@
     "description": "Nederlandstalige muziek",
     "about": "Publieke zender met uitsluitend Nederlandstalige muziek, van levenslied tot Nederpop. Onderdeel van NPO Radio 5.",
     "website": "https://www.nporadio5.nl/sterrennl",
-    "logo": "https://www.nporadio5.nl/apple-touch-icon.png",
+    "logo": "https://www.nporadio5.nl/svg/npo_radio5_logo.svg",
     "streams": [
       {
         "url": "https://icecast.omroep.nl/radio2-sterrennl-mp3",
@@ -579,7 +579,7 @@
     "description": "Hits uit de jaren 70-90",
     "about": "Landelijke zender van Talpa Network met de grootste hits uit de jaren 60, 70, 80 en 90, bekend van de Top 4000.",
     "website": "https://www.radio10.nl",
-    "logo": "https://ctfimages.talparad.io/4Gnhj4FCc4FPeSRqzBHI2m/c17188d025b819b24eebe332078a568a/Radio_10_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO10.mp3",
@@ -599,7 +599,7 @@
     "description": "Hits en dance",
     "about": "Landelijke hitzender van Talpa Network met actuele pop- en dancehits, bekend van De 538 Ochtendshow.",
     "website": "https://www.538.nl",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO538.mp3",
@@ -673,7 +673,7 @@
     "description": "Classic hits en rock",
     "about": "Landelijke zender van Mediahuis met classic hits en rock uit de jaren 70, 80 en 90.",
     "website": "https://www.radioveronica.nl",
-    "logo": "https://api.mediahuisradio.nl/media/cxebvppe/radio-veronica-1080x1080.jpg",
+    "logo": "https://www.radioveronica.nl/veronica/veronica-logo.svg",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/VERONICA.mp3",
@@ -693,7 +693,7 @@
     "description": "Feelgood hits",
     "about": "Landelijke zender van Talpa Network met de grootste hits van nu en toen, met weinig gepraat.",
     "website": "https://www.skyradio.nl",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SKYRADIO.mp3",
@@ -713,7 +713,7 @@
     "description": "Dance en hits",
     "about": "Dance- en hitzender van Mediahuis, sinds 2023 landelijk via DAB+, bekend van de MixMarathon.",
     "website": "https://www.slam.nl",
-    "logo": "https://api.mediahuisradio.nl/media/stygioy0/slam-algemeen_2000x2000.jpg",
+    "logo": "https://api.mediahuisradio.nl/media/2ejisuv4/slam-_logo_rgb_wit.svg",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/SLAM_MP3.mp3",
@@ -867,7 +867,7 @@
     "description": "Hits uit de jaren 90",
     "about": "Themakanaal van Radio 538 met hits uit de jaren 90.",
     "website": "https://www.538.nl/zenders/90s-hits",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -888,7 +888,7 @@
     "description": "Dance",
     "about": "Themakanaal van Radio 538 met dance, house en EDM.",
     "website": "https://www.538.nl/zenders/538-dance-department",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR01.mp3",
@@ -908,7 +908,7 @@
     "description": "Grootste 538-hits",
     "about": "Voorheen 538 Classics: de grootste hits uit de geschiedenis van Radio 538.",
     "website": "https://www.538.nl/zenders/greatest-hits",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -929,7 +929,7 @@
     "description": "Hitzone-hits",
     "about": "Themakanaal van Radio 538 met hits van de Hitzone-albums.",
     "website": "https://www.538.nl/zenders/hitzone",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -950,7 +950,7 @@
     "description": "Ibiza house",
     "about": "Themakanaal van Radio 538 met Ibiza-house en zomerse dance.",
     "website": "https://www.538.nl/zenders/ibiza",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -971,7 +971,7 @@
     "description": "Non-stop hits",
     "about": "Non-stop de grootste hits van Radio 538, zonder presentatoren.",
     "website": "https://www.538.nl/zenders/non-stop",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -992,7 +992,7 @@
     "description": "Feesthits",
     "about": "Themakanaal van Radio 538 met feest- en partyhits.",
     "website": "https://www.538.nl/zenders/party",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -1033,7 +1033,7 @@
     "description": "De 538 Top 50",
     "about": "Non-stop de actuele 538 Top 50, ook via DAB+.",
     "website": "https://www.538.nl/zenders/top-50",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -1054,7 +1054,7 @@
     "description": "Zomerhits",
     "about": "Themakanaal van Radio 538 met zomerhits.",
     "website": "https://www.538.nl/zenders/zomer",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "nonstop": true,
     "streams": [
       {
@@ -1127,7 +1127,7 @@
     "description": "Ochtendshow terugluisteren",
     "about": "Kanaal van Radio 538 rond De 538 Ochtendshow.",
     "website": "https://www.538.nl/zenders/538-ochtendshow",
-    "logo": "https://ctfimages.talparad.io/2AIuJh6rcNAFWaDbH3cKEg/2048835da3011e2b76633a94bf56c558/538_512x512.jpg?f=center&fit=fill",
+    "logo": "https://www.538.nl/icons/radio538/apple-icon-144x144.png",
     "streams": [
       {
         "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TLPSTR29.mp3",
@@ -1470,7 +1470,7 @@
     "description": "Hits uit de 60's en 70's",
     "about": "Themakanaal van Radio 10 met hits uit de jaren 60 en 70, ook via DAB+.",
     "website": "https://www.radio10.nl/zenders/60s-en-70s-hits",
-    "logo": "https://ctfimages.talparad.io/7h8JG6sZK773A3hlCe7RdA/18e9e8f1e4e7ef76965338fd3162b1ce/60-s_-_70-s_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1491,7 +1491,7 @@
     "description": "Hits uit de jaren 80",
     "about": "Themakanaal van Radio 10 met hits uit de jaren 80, ook via DAB+.",
     "website": "https://www.radio10.nl/zenders/80s-hits",
-    "logo": "https://ctfimages.talparad.io/74MQP8JIxgk0Lzx26lgqil/fe48e413eed1031b4282de9bb3d5e205/80-s_Hits_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1512,7 +1512,7 @@
     "description": "Hits uit de jaren 90",
     "about": "Themakanaal van Radio 10 met hits uit de jaren 90.",
     "website": "https://www.radio10.nl/zenders/90s-hits",
-    "logo": "https://ctfimages.talparad.io/61OFczsALVho22OwlBoPjN/4c9bacf107278a3fb6029275baecdf54/90-s_hits_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1533,7 +1533,7 @@
     "description": "Disco classics",
     "about": "Themakanaal van Radio 10 met disco-classics.",
     "website": "https://www.radio10.nl/zenders/disco-classics",
-    "logo": "https://ctfimages.talparad.io/1hGprzgtoOcwOZwBjeHuIX/e6b746a51371ad41103d77dc22c04f4e/Disco_Classics_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1554,7 +1554,7 @@
     "description": "Non-stop classics",
     "about": "Non-stop de grootste hits van Radio 10 zonder presentatoren.",
     "website": "https://www.radio10.nl/zenders/non-stop",
-    "logo": "https://ctfimages.talparad.io/5HYnzuxMXkQP8qIvsHNkWh/9e86427b693d53d3bd29fca61a2fae39/Non-stop_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1575,7 +1575,7 @@
     "description": "Soul classics",
     "about": "Themakanaal van Radio 10 met soul-classics (voorheen Radio 10 Soul & Jazz).",
     "website": "https://www.radio10.nl/zenders/radio-10-soul-jazz",
-    "logo": "https://ctfimages.talparad.io/3jTv7g44WFmA9ijbQsHTGy/bd7a071cb51e0cd202c45c231a5450b8/R10-Tile-Item-zonder-tekst-1080x1080.png?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1596,7 +1596,7 @@
     "description": "De Top 4000",
     "about": "Themakanaal van Radio 10 met de Top 4000 aller tijden.",
     "website": "https://www.radio10.nl/zenders/top-4000",
-    "logo": "https://ctfimages.talparad.io/7IYaHh8rFNTsTqyytOL7AW/d2ae9522ec05281dc62913f8540a8aa8/Top_4000_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Radio_10_logo_2019.svg/250px-Radio_10_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1655,7 +1655,7 @@
     "description": "Hits uit de 00's en 10's",
     "about": "Themakanaal van Sky Radio met hits uit de jaren 00 en 10.",
     "website": "https://www.skyradio.nl/zenders/00s-and-10s-hits",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1676,7 +1676,7 @@
     "description": "Hits uit de jaren 80",
     "about": "Themakanaal van Sky Radio met hits uit de jaren 80.",
     "website": "https://www.skyradio.nl/zenders/80s-hits",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1697,7 +1697,7 @@
     "description": "Kerstmuziek",
     "about": "Themakanaal van Sky Radio met non-stop kerstmuziek.",
     "website": "https://www.skyradio.nl/zenders/kerst",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1718,7 +1718,7 @@
     "description": "Hits",
     "about": "Themakanaal van Sky Radio met de grootste hits, ook via DAB+.",
     "website": "https://www.skyradio.nl/zenders/hits",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1739,7 +1739,7 @@
     "description": "Lovesongs",
     "about": "Themakanaal van Sky Radio met non-stop lovesongs.",
     "website": "https://www.skyradio.nl/zenders/love-songs",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1760,7 +1760,7 @@
     "description": "Non-stop hits",
     "about": "Non-stop feelgood hits van Sky Radio zonder presentatoren (ook bekend als Non-Stop@Work).",
     "website": "https://www.skyradio.nl/zenders/sky-radio-non-stop",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1781,7 +1781,7 @@
     "description": "Rustige hits",
     "about": "Themakanaal van Sky Radio met relaxte, rustige hits.",
     "website": "https://www.skyradio.nl/zenders/smooth-hits",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1802,7 +1802,7 @@
     "description": "Zomerhits",
     "about": "Themakanaal van Sky Radio met zomerhits.",
     "website": "https://www.skyradio.nl/zenders/summer-hits",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -1823,7 +1823,7 @@
     "description": "De Sky Top 1000",
     "about": "Themakanaal van Sky Radio met de Sky Top 1000.",
     "website": "https://www.skyradio.nl/zenders/top-1000",
-    "logo": "https://ctfimages.talparad.io/THnBtZH5I5RABCOp9WPpI/0d5fa4e65d6fd1e3e9d349088fecaed3/Sky_radio_-_512x512.jpg?f=center&fit=fill",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sky_Radio_logo_2019.svg/250px-Sky_Radio_logo_2019.svg.png",
     "nonstop": true,
     "streams": [
       {
@@ -3287,6 +3287,7 @@
     "description": "Muziekkanaal Haarlem105",
     "about": "Tweede radiokanaal van lokale omroep Haarlem105.",
     "website": "https://haarlem105.nl/haarlemshuffle/",
+    "logo": "https://www.haarlem105shuffle.nl/shuffle1200.png",
     "location": "Haarlem",
     "streams": [
       {
@@ -3454,6 +3455,7 @@
     "description": "Lokale omroep Amstelveen",
     "about": "Lokale publieke omroep voor Amstelveen, Ouder-Amstel (Noord-Holland).",
     "website": "https://www.jammfm.nl/",
+    "logo": "https://www.jammfm.nl/wp-content/uploads/2024/07/Logo-Website-links01.png",
     "location": "Amstelveen",
     "streams": [
       {
@@ -4016,6 +4018,7 @@
     "description": "Lokale omroep Land van Cuijk",
     "about": "Lokale publieke omroep voor Land van Cuijk (Noord-Brabant).",
     "website": "https://www.omroeplvc.nl/",
+    "logo": "https://redbee-fsly-vod.cdn.redbee.live/imagescaler002/nlpo/omroeplandvancuijk/assets/cffc8ba9_950389b/posters/32a69246bf2d421e72f845199a5b0796/32a69246bf2d421e72f845199a5b0796.jpg",
     "location": "Land van Cuijk",
     "streams": [
       {
@@ -4739,6 +4742,7 @@
     "description": "Stadsradio Den Haag",
     "about": "Haagse stadsradio.",
     "website": "https://www.radiostaddenhaag.com/",
+    "logo": "https://www.liveradio.ie/files/images/335003/resized/180x172c/radio_stad_den_haag.jpg",
     "location": "Den Haag",
     "streams": [
       {
@@ -5241,6 +5245,7 @@
     "description": "Lokale omroep Deventer",
     "about": "Lokale publieke omroep voor Deventer, Raalte, Olst-Wijhe (Overijssel).",
     "website": "https://www.salland1.nl/",
+    "logo": "https://cdn-profiles.tunein.com/s87697/images/logod.jpg",
     "location": "Deventer",
     "streams": [
       {
@@ -8216,6 +8221,7 @@
     "genre": "mixed",
     "description": "Gevarieerde muziek",
     "website": "https://www.hitstream.fm/",
+    "logo": "https://www.hitstream.fm/static/logo-2a23f21b0d3facae9130b5718ae8842f.png",
     "streams": [
       {
         "url": "https://stream.streamhits.nl/stream/1/",
@@ -10030,6 +10036,7 @@
     "genre": "rock",
     "description": "Alternative rock",
     "website": "https://pinguinradio.com/player/pinguin-radio",
+    "logo": "https://pinguinradio.com/assets/icons/icon-72x72.png",
     "streams": [
       {
         "url": "https://streams.pinguinradio.com/PinguinRadio192.mp3",
@@ -11452,6 +11459,7 @@
     "genre": "mixed",
     "description": "Gevarieerde muziek",
     "website": "https://www.radioreadymix.nl/",
+    "logo": "https://www.radioreadymix.nl/.cm4all/uproc.php/0/Logo%202019/.Sticker.jpg/picture-1200?_=16a30478678",
     "streams": [
       {
         "url": "https://server-26.stream-server.nl:8522/stream",
@@ -13141,6 +13149,7 @@
     "description": "Christelijke muziek",
     "about": "Online christelijke zender met psalmen, koor- en orgelmuziek.",
     "website": "https://christelijkeomroep.nl",
+    "logo": "https://cdn-profiles.tunein.com/s304951/images/logoq.jpg?t=154227",
     "streams": [
       {
         "url": "https://stream.christelijkeomroep.nl/192",

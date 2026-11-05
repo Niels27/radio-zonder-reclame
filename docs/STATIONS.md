@@ -41,6 +41,15 @@ Stations that were removed because they stopped working are listed in
 | `nonstop` | no | `true` = continuous music without presenters. These show on the *Non-stop* tab. |
 | `streams` | yes | Ordered list, best first. The player tries them in this order. |
 
+Logos render at 64x64 on a dark card, scaled to fit, so choose them for that:
+
+- Prefer a transparent PNG or SVG of the logo itself that stays readable on a dark background.
+  Black wordmarks disappear; use a version with its own background if nothing else exists.
+- Avoid social or player tile images. Talpa's `*_512x512.jpg` tiles, for example, put a small logo
+  at the top of an empty coloured square, leaving room for text overlays.
+- Wikimedia only serves its [standard thumbnail sizes](https://w.wiki/GHai) (such as `250px` and
+  `330px`). Other sizes, such as `200px`, return HTTP 400.
+
 `stream.cors` is `true` when the server sends CORS headers. Only then does the player load the
 stream with `crossOrigin`, which the visualizer needs. A `crossOrigin` request to a server
 without CORS fails outright, so the flag must be correct. The checker maintains it.
