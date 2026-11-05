@@ -38,7 +38,12 @@ jobs:
           
       - name: Install dependencies
         run: npm ci
-        
+
+      - name: Lint and validate station data
+        run: |
+          npm run lint
+          npm run stations:validate
+
       - name: Build project
         run: npm run build
         env:

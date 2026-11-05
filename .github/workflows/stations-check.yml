@@ -1,0 +1,29 @@
+# Verifies that every stream in src/data/stations.json still plays.
+# Runs weekly and whenever the station data or the checker changes. A failed
+# run means at least one station has no working stream left: run
+# `npm run stations:check` locally to repair the file (see docs/STATIONS.md).
+name: Check radio streams
+
+on:
+  schedule:
+    - cron: '17 4 * * 1' # Mondays 04:17 UTC
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/data/stations.json'
+      - 'scripts/stations/**'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # The station scripts have no dependencies, so no npm install is needed.
+      - run: node scripts/stations/check.js --dry-run --report

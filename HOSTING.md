@@ -3,8 +3,8 @@
 ## Current Setup
 
 - **Hosting**: GitHub Pages at `https://niels27.github.io/radio-zonder-reclame/`
-- **Deploy**: Auto-deploy via `.github/workflows/deploy.yml` on push to `main`
-- **Firebase**: Installed but in demo mode (placeholder keys) - only used for station reporting, which already works via localStorage without Firebase
+- **Deploy**: Auto-deploy via `.github/workflows/deploy.yml` on push to `main` (lint + station data validation run first)
+- **Stream health**: `.github/workflows/stations-check.yml` checks every stream weekly (see `docs/STATIONS.md`)
 
 ---
 
@@ -76,37 +76,14 @@ This handles hundreds to thousands of users with zero issues. Even tens of thous
 
 ---
 
-## Step 3: Remove Firebase (Saves ~180KB from bundle)
-
-Firebase is the largest dependency and it's not being used (demo mode with placeholder keys). Station reporting already works fully via localStorage.
-
-### What to do
-
-1. **Remove the firebase dependency**:
-   ```bash
-   npm uninstall firebase
-   ```
-
-2. **Update `src/utils/stationReporting.js`**: Remove the Firebase import and the Firebase submission code (lines 3, 88-112). Reports will continue to save to localStorage as they already do.
-
-3. **Delete `src/utils/firebase.js`**: No longer needed.
-
-4. **Update any imports**: The DeveloperDashboard may import from firebase.js — update those to remove Firebase references.
-
-5. **Rebuild**: Your bundle size should drop significantly (~180KB less).
-
-> **Note**: If you ever want server-side reporting later, you could use a free Cloudflare Worker (100k requests/day free) instead of Firebase — much lighter.
-
----
-
-## Step 4: Development → Production Workflow
+## Step 3: Development → Production Workflow
 
 ### Your workflow after setup:
 
 ```
 Edit code locally
     ↓
-npm run dev          (test at https://127.0.0.1:4178)
+npm run dev          (test at http(s)://127.0.0.1:4178/radio-zonder-reclame/)
     ↓
 git add + commit
     ↓
@@ -141,7 +118,7 @@ For solo development, pushing straight to `main` is fine too. The preview deploy
 
 ---
 
-## Step 5: Analytics & User Metrics (Free)
+## Step 4: Analytics & User Metrics (Free)
 
 ### Option A: Cloudflare Web Analytics (Recommended — easiest)
 
@@ -184,7 +161,7 @@ Start with **Cloudflare Web Analytics** — it's zero config once you're on Clou
 
 ---
 
-## Step 6: Google Indexing
+## Step 5: Google Indexing
 
 Once your site is live on the custom domain:
 
@@ -200,15 +177,7 @@ Once your site is live on the custom domain:
      </url>
    </urlset>
    ```
-3. **Add meta tags** to `index.html` for SEO:
-   ```html
-   <meta name="description" content="Luister naar Nederlandse radiozenders zonder reclame. Automatisch schakelen naar muziek tijdens reclameblokken.">
-   <meta name="keywords" content="radio, zonder reclame, Nederland, NPO, ad-free, reclamevrij">
-   <meta property="og:title" content="Radio Zonder Reclame">
-   <meta property="og:description" content="Nederlandse radio zonder reclameonderbrekingen">
-   <meta property="og:type" content="website">
-   <meta property="og:url" content="https://radiozonderreclame.nl">
-   ```
+3. **Meta tags**: `index.html` already has description/Open Graph tags; add `og:url` with the new domain.
 4. **robots.txt** in `public/`:
    ```
    User-agent: *
@@ -239,9 +208,7 @@ Once your site is live on the custom domain:
 - [ ] Change `base` in `vite.config.js` from `/radio-zonder-reclame/` to `/`
 - [ ] Update `homepage` in `package.json` to new domain
 - [ ] Add custom domain in Cloudflare Pages settings
-- [ ] Remove Firebase dependency (`npm uninstall firebase`)
-- [ ] Clean up firebase.js and stationReporting.js
 - [ ] Enable Cloudflare Web Analytics
-- [ ] Add SEO meta tags and sitemap
+- [ ] Add `og:url` and a sitemap
 - [ ] Submit to Google Search Console
 - [ ] Push to main → verify live at your domain
