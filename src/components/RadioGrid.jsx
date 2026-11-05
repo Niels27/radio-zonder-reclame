@@ -246,7 +246,7 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
               key={key}
               onClick={() => selectTab(key)}
               title={description}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-[15px] py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 activeTab === key ? 'bg-radio-accent text-white' : 'bg-radio-dark text-white hover:bg-gray-700'
               }`}
             >

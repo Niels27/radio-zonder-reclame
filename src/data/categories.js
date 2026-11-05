@@ -5,10 +5,10 @@
 export const CATEGORIES = [
   { key: 'npo', label: 'NPO', description: 'Landelijke publieke omroep en NPO-themakanalen' },
   { key: 'commercial', label: 'Commercieel', description: 'Landelijke commerciële zenders (FM en DAB+)' },
-  { key: 'themes', label: 'Themakanalen', description: 'Online themakanalen van de landelijke commerciële zenders' },
+  { key: 'themes', label: 'Thematisch', description: 'Online themakanalen van de landelijke commerciële zenders' },
   { key: 'regional', label: 'Regionaal', description: 'Regionale publieke omroepen en regionale commerciële zenders' },
   { key: 'local', label: 'Lokaal', description: 'Lokale publieke omroepen en stadszenders' },
-  { key: 'online', label: 'Webradio', description: 'Nederlandse internetzenders' },
+  { key: 'online', label: 'Web', description: 'Nederlandse internetzenders' },
   { key: 'religious', label: 'Religieus', description: 'Christelijke en andere religieuze zenders' },
   { key: 'global', label: 'Global', description: 'Gratis zenders uit de rest van de wereld' },
 ];

@@ -53,10 +53,10 @@ Defined in [`src/data/categories.js`](../src/data/categories.js). Each station h
 |---|---|---|
 | `npo` | NPO | NPO stations and NPO's own theme channels |
 | `commercial` | Commercieel | Main channel of national commercial stations (FM and/or national DAB+) |
-| `themes` | Themakanalen | Online theme channels of those commercial broadcasters |
+| `themes` | Thematisch | Online theme channels of those commercial broadcasters |
 | `regional` | Regionaal | The 13 regional public broadcasters, plus regional commercial stations |
 | `local` | Lokaal | Local public broadcasters and city stations |
-| `online` | Webradio | Other Dutch internet stations (also AM/pirate nostalgia stations with a stream) |
+| `online` | Web | Other Dutch internet stations (also AM/pirate nostalgia stations with a stream) |
 | `religious` | Religieus | Religious stations |
 | `global` | Global | Non-Dutch stations, including Flemish ones |
 
