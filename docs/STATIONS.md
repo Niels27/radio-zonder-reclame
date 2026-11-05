@@ -103,6 +103,11 @@ Requires Node 20+ and no dependencies. The checker, for every station:
 4. removes stations left without any working stream and appends them to
    `docs/REMOVED_STATIONS.md` with the reason.
 
+Streams that answer **HTTP 403/451** are kept and only reported as a warning. That response
+usually means the server blocks the checking machine's location or IP range (the CI runner is in
+the US; some Dutch stations only serve Dutch or residential listeners), not that the stream is
+dead. Check such a station from a Dutch connection before removing it by hand.
+
 Review the diff before committing; a station can be temporarily offline.
 
 The [`stations-check` workflow](../.github/workflows/stations-check.yml) runs the dry run every

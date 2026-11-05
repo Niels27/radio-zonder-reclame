@@ -13,6 +13,9 @@
 //   - logos that do not load as an HTTPS image are cleared (the UI shows initials)
 //   - a station left without any playable stream is removed and logged in
 //     docs/REMOVED_STATIONS.md
+//   - streams answering HTTP 403/451 are kept and only reported: that is
+//     usually geo/IP blocking of the machine running the check (CI runs in
+//     the US), not a dead stream
 
 import fs from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -61,19 +64,29 @@ const logoResults = await probeAll(
 );
 
 const removed = [];
+const blocked = [];
 let changedStreams = 0;
 let clearedLogos = 0;
+const isBlocked = (result) => /^HTTP (403|451)$/.test(result.error ?? '');
 
 for (const station of targets) {
   const streams = [];
   const seen = new Set();
-  for (const { url } of station.streams) {
-    for (const p of streamResults.get(url).playable) {
+  let blockedHere = false;
+  for (const stream of station.streams) {
+    const result = streamResults.get(stream.url);
+    if (!result.playable.length && isBlocked(result) && !seen.has(stream.url)) {
+      blockedHere = true;
+      seen.add(stream.url);
+      streams.push({ url: stream.url, cors: !!stream.cors });
+    }
+    for (const p of result.playable) {
       if (seen.has(p.url)) continue;
       seen.add(p.url);
       streams.push({ url: p.url, cors: p.cors });
     }
   }
+  if (blockedHere) blocked.push(station);
   const streamsChanged =
     JSON.stringify(streams) !== JSON.stringify(station.streams.map(({ url, cors }) => ({ url, cors: !!cors })));
   if (streamsChanged) changedStreams++;
@@ -102,6 +115,9 @@ console.log(
     `${removed.length} dead, ${changedStreams} with changed streams, ${clearedLogos} logos cleared.`,
 );
 for (const { station, reasons } of removed) console.log(`  dead: ${station.name}\n    ${reasons.join('\n    ')}`);
+for (const station of blocked) {
+  console.log(`  warning: ${station.name} has streams refused (HTTP 403/451) from this machine; kept - check from NL`);
+}
 
 if (dryRun) {
   process.exit(removed.length ? 1 : 0);
