@@ -1,5 +1,6 @@
+// components/AudioPlayer.jsx - The fixed player bar: play/pause, now playing,
+// playlist controls, ad-break countdown and the volume slider.
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-// components/AudioPlayer.jsx - Enhanced smooth volume control
 const AudioPlayer = ({
   currentStation,
   isPlaying,
@@ -7,39 +8,28 @@ const AudioPlayer = ({
   onTogglePlayPause,
   onVolumeChange,
   isAdBreakActive,
-  isTimerRunning,        // ✅ NEW: Whether auto ad break switching is active
+  isTimerRunning,
   nextAdBreakIn,
-  currentAdBreakTimeLeft, // ✅ ADD: This prop
-  onCancelAdBreakTimer,   // ✅ ADD: This prop
+  currentAdBreakTimeLeft,
   currentSource,
   playlistShuffle,
   onToggleShuffle,
   onNextTrack,
-  onPreviousTrack,  // ✅ NEW: Add previous track control
-  playlistInfo,  // queuedStation and onCancelQueuedSwitch removed - queue system disabled
-  adBreakMode,           // ✅ NEW: Add ad break mode prop
-  savedStation,          // ✅ NEW: Station we'll return to after ad break
-  onRotateNonstopStation, // ✅ NEW: Add rotation callback prop
-  useCommunityTimings,    // ✅ NEW: Add community timings flag prop
-  currentAdBreakUsedCommunityTiming = false, // ✅ NEW: Track if current ad break used community timing
-  nextCommunityTiming,    // ✅ NEW: Add community timing metadata prop
-  isRadioPausedForAdBreak, // ✅ NEW: Add paused radio state prop
-  pausedRadioStation,      // ✅ NEW: Add paused radio station prop
-  isManualTestActive,       // ✅ NEW: Add manual test state prop
-  isNonstopModeManuallyActive, // ✅ NEW: Simple state for nonstop cycling button
-  // ✅ NEW: Manual timer control functions
+  onPreviousTrack,
+  playlistInfo,
+  adBreakMode,
+  savedStation, // station the player returns to after the ad break
   onJumpToSwitchNow,
-  onEndAdBreak  // ✅ NEW: Function to end ad break early
+  onEndAdBreak,
 }) => {
-  // ✅ FIX: Add safety check for pausedRadioStation prop
-  const safePausedRadioStation = pausedRadioStation || null;
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(volume);
   const [isVolumeChanging, setIsVolumeChanging] = useState(false);
-  const [showVolumeTooltip, setShowVolumeTooltip] = useState(false); const [isDragging, setIsDragging] = useState(false);
+  const [showVolumeTooltip, setShowVolumeTooltip] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const volumeTimeoutRef = useRef(null);
   const volumeSliderRef = useRef(null);
-  const dragStateRef = useRef(false); // ✅ FIX: Add ref to track drag state
+  const dragStateRef = useRef(false); // Add ref to track drag state
 
   const isPlaylistSource = currentSource === 'spotify' || currentSource === 'youtube';
 
@@ -75,17 +65,12 @@ const AudioPlayer = ({
     }
   };
 
-  // ✅ ENHANCED: Smooth volume change with 1% steps
+  // Smooth volume change with 1% steps
   const handleVolumeSliderChange = useCallback((newVolume) => {
     // Round to 1% increments for super smooth control
     const roundedVolume = Math.round(newVolume * 100) / 100;
 
     onVolumeChange(roundedVolume);
-
-    // Apply volume immediately to audio element for real-time feedback
-    if (window.audioPlayer?.audioRef?.current) {
-      window.audioPlayer.audioRef.current.volume = roundedVolume;
-    }
 
     if (roundedVolume > 0 && isMuted) {
       setIsMuted(false);
@@ -112,7 +97,7 @@ const AudioPlayer = ({
     }, 1000);
   }, [onVolumeChange, isMuted, isDragging]);
 
-  // ✅ FIX: Enhanced mouse wheel handling with proper event prevention
+  // Enhanced mouse wheel handling with proper event prevention
   const handleVolumeWheel = useCallback((e) => {
     // Prevent page scrolling
     e.preventDefault();
@@ -123,7 +108,7 @@ const AudioPlayer = ({
     handleVolumeSliderChange(newVolume);
   }, [volume, handleVolumeSliderChange]);
 
-  // ✅ NEW: Calculate volume from mouse position - FIXED
+  // Calculate volume from mouse position - FIXED
   const updateVolumeFromMouse = useCallback((clientX) => {
     if (!volumeSliderRef.current || !dragStateRef.current) return;
 
@@ -141,7 +126,7 @@ const AudioPlayer = ({
     handleVolumeSliderChange(newVolume);
   }, [handleVolumeSliderChange]);
 
-  // ✅ FIX: Create stable event handlers using useCallback
+  // Create stable event handlers using useCallback
   const handleGlobalMouseMove = useCallback((e) => {
     if (dragStateRef.current) {
       e.preventDefault();
@@ -155,11 +140,11 @@ const AudioPlayer = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // ✅ FIX: Clean up drag state immediately
+      // Clean up drag state immediately
       dragStateRef.current = false;
       setIsDragging(false);
 
-      // ✅ FIX: Remove listeners immediately
+      // Remove listeners immediately
       document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
       document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
 
@@ -170,12 +155,12 @@ const AudioPlayer = ({
     }
   }, [handleGlobalMouseMove]);
 
-  // ✅ FIX: Simplified mouse down handler
+  // Simplified mouse down handler
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // ✅ FIX: Set drag state immediately
+    // Set drag state immediately
     dragStateRef.current = true;
     setIsDragging(true);
     setShowVolumeTooltip(true);
@@ -183,12 +168,12 @@ const AudioPlayer = ({
     // Handle initial click
     updateVolumeFromMouse(e.clientX);
 
-    // ✅ FIX: Add listeners with capture to ensure they work
+    // Add listeners with capture to ensure they work
     document.addEventListener('mousemove', handleGlobalMouseMove, { capture: true, passive: false });
     document.addEventListener('mouseup', handleGlobalMouseUp, { capture: true, passive: false });
   }, [updateVolumeFromMouse, handleGlobalMouseMove, handleGlobalMouseUp]);
 
-  // ✅ FIX: Touch handlers with same pattern
+  // Touch handlers with same pattern
   const handleGlobalTouchMove = useCallback((e) => {
     if (dragStateRef.current && e.touches[0]) {
       e.preventDefault();
@@ -248,23 +233,22 @@ const AudioPlayer = ({
     }
   }, [volume, isMuted]);
 
-  const handleKeyPress = (e) => {
-    if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
-      e.preventDefault();
-      onTogglePlayPause(); // ✅ This line was causing the error
-    }
-  };
-
-  // Add keyboard event listener
+  // Space toggles play/pause, except while typing in a field.
   useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+        e.preventDefault();
+        onTogglePlayPause();
+      }
+    };
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [onTogglePlayPause]); // ✅ ADD: onTogglePlayPause to dependencies
+  }, [onTogglePlayPause]);
 
-  // ✅ CLEANUP: Remove event listeners on unmount
+  // Remove event listeners on unmount
   useEffect(() => {
     return () => {
-      // ✅ FIX: Force cleanup all event listeners
+      // Force cleanup all event listeners
       dragStateRef.current = false;
 
       document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
@@ -276,13 +260,14 @@ const AudioPlayer = ({
         clearTimeout(volumeTimeoutRef.current);
       }
     };
-  }, []); // ✅ FIX: Empty dependency array for cleanup only
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup
+  }, []);
 
-  // ✅ FIX: Emergency cleanup if drag state gets stuck
+  // Emergency cleanup if drag state gets stuck
   useEffect(() => {
     const cleanup = () => {
       if (dragStateRef.current) {
-        console.warn('🔧 Force cleaning stuck drag state');
+        console.warn('AudioPlayer: clearing stuck volume drag state');
         dragStateRef.current = false;
         setIsDragging(false);
 
@@ -327,10 +312,7 @@ const AudioPlayer = ({
     }
   };
 
-  // Add validation check
-  const isPlaylistValid = playlistInfo?.isValid;
-
-  // ✅ NEW: Format ad break timer display
+  // Format ad break timer display
   const formatAdBreakTimer = (timeLeft) => {
     if (timeLeft === null || timeLeft === undefined) return '0:00';
     const minutes = Math.floor(timeLeft / 60);
@@ -410,16 +392,7 @@ const AudioPlayer = ({
                       </span>
                     )}
 
-                    {/* ✅ NEW: Radio "On Hold" indicator during ad break */}
-                    {isAdBreakActive && isRadioPausedForAdBreak && safePausedRadioStation && (
-                      <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full flex items-center space-x-1 animate-pulse">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                        </svg>
-                        <span>Radio wacht: {safePausedRadioStation?.name || 'Onbekend'}</span>
-                      </span>
-                    )}
-                  </div>                  {/* Queue system disabled for reliability */}
+                  </div>
                 </div>
               </div>
             </div>
@@ -467,24 +440,22 @@ const AudioPlayer = ({
                   </svg>
                 </button>
               </div>
-            )}            {/* Ad Break Countdown - informational timer display, hidden on narrow screens for space */}
+            )}
+
+            {/* Ad Break Countdown - informational timer display, hidden on narrow screens for space */}
             {isAdBreakActive ? (
               currentAdBreakTimeLeft !== null && (
-                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
-                  currentAdBreakUsedCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
-                }`}>
+                <div className="hidden sm:flex items-center space-x-2 text-sm text-radio-secondary">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                     <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                   </svg>
                   <span>
-                    {currentAdBreakUsedCommunityTiming ? 'Community switch naar ' : 'Switch naar '}
+                    {'Switch naar '}
                     <span className="font-bold">{savedStation?.name || 'radio'}</span>
                     {' over:'}
                   </span>
-                  <span className={`font-mono text-white px-2 py-1 rounded ${
-                    currentAdBreakUsedCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
-                  }`}>
+                  <span className="font-mono text-white px-2 py-1 rounded bg-gray-700">
                     {formatAdBreakTimer(currentAdBreakTimeLeft)}
                   </span>
                 </div>
@@ -494,19 +465,15 @@ const AudioPlayer = ({
               // right when the countdown hits zero, and 0 is falsy but not a
               // "nothing to render" value, so `&&` used to print a stray "0".
               nextAdBreakIn != null && (
-                <div className={`hidden sm:flex items-center space-x-2 text-sm ${
-                  nextCommunityTiming ? 'text-yellow-400' : 'text-radio-secondary'
-                }`}>
+                <div className="hidden sm:flex items-center space-x-2 text-sm text-radio-secondary">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                     <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                   </svg>
                   <span>
-                    {nextCommunityTiming ? 'Community pauze wisseling in:' : `Switch naar ${adBreakMode === 'playlist' ? 'Playlist' : adBreakMode === 'nonstop' ? 'Non-Stop Radio' : 'YouTube Playlist'} over:`}
+                    {`Switch naar ${adBreakMode === 'playlist' ? 'Playlist' : adBreakMode === 'nonstop' ? 'Non-Stop Radio' : 'YouTube Playlist'} over:`}
                   </span>
-                  <span className={`font-mono text-white px-2 py-1 rounded ${
-                    nextCommunityTiming ? 'bg-yellow-600' : 'bg-gray-700'
-                  }`}>
+                  <span className="font-mono text-white px-2 py-1 rounded bg-gray-700">
                     {typeof nextAdBreakIn === 'number' ? formatAdBreakTimer(nextAdBreakIn) : nextAdBreakIn}
                   </span>
                 </div>
@@ -529,18 +496,7 @@ const AudioPlayer = ({
               </button>
             )}
 
-            {/* Rotation Button for Nonstop Mode - Show during any nonstop mode */}
-            {adBreakMode === 'nonstop' && onRotateNonstopStation && 
-             (isNonstopModeManuallyActive || isAdBreakActive) && (
-              <button
-                onClick={onRotateNonstopStation}
-                className="ml-2 w-12 h-8 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-l transition-colors"
-                title="Wissel naar volgende non-stop radio"
-              >
-                ⟳
-              </button>
-            )}
-            {/* ✅ ENHANCED: Super Smooth Volume Control with Real-time Dragging - FIXED */}
+            {/* Super Smooth Volume Control with Real-time Dragging - FIXED */}
             <div className={`volume-container ${isVolumeChanging ? 'volume-changing' : ''}`}>
               <button
                 onClick={handleVolumeIconClick}
@@ -551,7 +507,7 @@ const AudioPlayer = ({
               </button>
 
               <div className="relative">
-                {/* ✅ ENHANCED: Custom volume slider with FIXED real-time dragging */}
+                {/* Custom volume slider with FIXED real-time dragging */}
                 <div
                   ref={volumeSliderRef}
                   className={`volume-slider ${getVolumeLevel()} ${isVolumeChanging ? 'volume-changing' : ''} ${isDragging ? 'dragging' : ''}`}
@@ -577,7 +533,7 @@ const AudioPlayer = ({
                   />
                 </div>
 
-                {/* ✅ ENHANCED: Volume Tooltip with smooth transitions */}
+                {/* Volume Tooltip with smooth transitions */}
                 <div className={`volume-tooltip ${showVolumeTooltip || isDragging ? 'opacity-100' : 'opacity-0'}`}>
                   {getVolumePercent()}%
                   {isDragging && <div className="tooltip-drag-indicator">↕</div>}

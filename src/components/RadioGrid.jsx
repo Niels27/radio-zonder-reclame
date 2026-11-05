@@ -1,488 +1,257 @@
-// components/RadioGrid.jsx - Ensure proper favorites integration
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, X, Star, ExternalLink } from 'lucide-react';
-import LoadingIndicator from './LoadingIndicator';
+// components/RadioGrid.jsx - Station browser: category tabs, genre filter,
+// search and the grid of station cards.
+
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { Search, X, ExternalLink } from 'lucide-react';
+import { CATEGORIES, GENRES, POPULAR_STATIONS, STATIONS } from '../data/stations.js';
 import { useFavorites } from '../hooks/useFavorites';
-import { LogoFallback } from '../utils/logoFallback.js';
-import { getBestLogoUrl, getLogoFallbacks, shouldMonitorLogo, logFailedLogo, getFailedLogos } from '../utils/logoManager.js';
-import { allRadioStations, isPopularStation, getPopularStations } from '../data/allRadioStations.js';
-import { getStationDefinition } from '../data/fallbackStations.js';
-import { RadioStreamTester } from '../utils/radioStreamTester';
-import { notify } from '../utils/eventBus';
-// Import the failed stations from the codebase file
-import { isFailedStation } from '../data/failedStations.js';
 
-const categories = [
-    { key: 'all', label: 'Alle stations' },
-    { key: 'popular', label: 'Populair' },
-    { key: 'favorites', label: 'Favorieten' },
-    { key: 'public', label: 'Publiek' },
-    { key: 'commercial', label: 'Commercieel' },
-    { key: 'news', label: 'Nieuws' },
-    { key: 'regional', label: 'Regionaal' },
-    { key: 'local', label: 'Lokaal' },
-    { key: 'religious', label: 'Religieus' },
-    { key: 'specialty', label: 'Specialiteit' },
-    { key: 'nonstop', label: 'Non-stop' },
-     { key: 'realnonstop', label: '' }
-  ];
-// Progressive Logo Component with Fallback Support
-const StationLogo = ({ station, className = "w-full h-full" }) => {
-  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
-  const [imageError, setImageError] = useState(false);
-  const [hasTriedOriginal, setHasTriedOriginal] = useState(false);
-  
-  const logoUrls = useMemo(() => {
-    const urls = [];
-    
-    // First try the premium logo from logoManager
-    const bestUrl = getBestLogoUrl(station);
-    if (bestUrl) {
-      urls.push(bestUrl);
-    }
-    
-    // Then try original station logos if they exist
-    if (station.logo && station.logo !== bestUrl) {
-      urls.push(station.logo);
-    }
-    if (station.favicon && station.favicon !== bestUrl && station.favicon !== station.logo) {
-      urls.push(station.favicon);
-    }
-    
-    // Add fallback URLs only if we don't have any original logos
-    if (urls.length === 0) {
-      urls.push(...getLogoFallbacks(station));
-    }
-    
-    return urls.filter(Boolean);
-  }, [station]);
-  
-  const currentUrl = logoUrls[currentUrlIndex];
-  
-  const handleImageError = async (error) => {
-   // console.log(`Logo failed for ${station.name}: ${currentUrl}`, error);
-    
-    /* Log failed logo for monitoring if it's a priority station
-    if (shouldMonitorLogo(station)) {
-      logFailedLogo(station, currentUrl, error?.toString() || 'Unknown error');
-    }*/
-    
-    // Try next URL in fallback chain
-    if (currentUrlIndex < logoUrls.length - 1) {
-      setCurrentUrlIndex(prev => prev + 1);
-      setImageError(false);
-      setHasTriedOriginal(true);
-    } else {
-      // All URLs failed, show fallback
-      setImageError(true);
-      setHasTriedOriginal(true);
-    }
-  };
+const TABS = [
+  { key: 'popular', label: 'Populair' },
+  { key: 'favorites', label: 'Favorieten' },
+  { key: 'all', label: 'Alle zenders' },
+  ...CATEGORIES.filter((c) => c.key !== 'global'),
+  { key: 'nonstop', label: 'Non-stop', description: 'Doorlopend muziek, zonder presentatie' },
+  CATEGORIES.find((c) => c.key === 'global'),
+];
+const TAB_KEYS = new Set(TABS.map((t) => t.key));
+const GENRE_LABELS = Object.fromEntries(GENRES.map((g) => [g.key, g.label]));
+const TAB_STORAGE_KEY = 'radio_selected_category';
 
-  const handleImageLoad = () => {
-    setImageError(false);
-  };
+function loadTab() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TAB_STORAGE_KEY));
+    return TAB_KEYS.has(saved) ? saved : 'popular';
+  } catch {
+    return 'popular';
+  }
+}
 
-  // Reset when station changes
-  useEffect(() => {
-    setCurrentUrlIndex(0);
-    setImageError(false);
-    setHasTriedOriginal(false);
-  }, [station.name]);
+function saveTab(key) {
+  try {
+    localStorage.setItem(TAB_STORAGE_KEY, JSON.stringify(key));
+  } catch {
+    // Not persisted; harmless.
+  }
+}
 
-  // If we have a logo URL and haven't failed, show image
-  if (currentUrl && !imageError) {
+function stationsForTab(tab, favorites) {
+  switch (tab) {
+    case 'popular': return POPULAR_STATIONS;
+    case 'all': return STATIONS;
+    case 'nonstop': return STATIONS.filter((s) => s.nonstop);
+    case 'favorites': {
+      const byId = new Map(STATIONS.map((s) => [s.id, s]));
+      return favorites.map((id) => byId.get(id)).filter(Boolean);
+    }
+    default: return STATIONS.filter((s) => s.category === tab);
+  }
+}
+
+function matchesQuery(station, query) {
+  return (
+    station.name.toLowerCase().includes(query) ||
+    station.description.toLowerCase().includes(query) ||
+    station.location?.toLowerCase().includes(query)
+  );
+}
+
+const initials = (name) => {
+  const words = name.split(/\s+/).filter(Boolean);
+  return (words.length >= 2 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase();
+};
+
+const StationLogo = ({ station }) => {
+  const [failed, setFailed] = useState(false);
+  if (station.logo && !failed) {
     return (
       <img
-        src={currentUrl}
-        alt={`${station.name} logo`}
-        className={className}
-        onError={handleImageError}
-        onLoad={handleImageLoad}
-        style={{ objectFit: 'contain' }}
+        src={station.logo}
+        alt=""
+        loading="lazy"
+        className="w-full h-full max-w-16 max-h-16 object-contain"
+        onError={() => setFailed(true)}
       />
     );
   }
-
-  // Only show text fallback if we've actually tried the original logos and they failed
-  if (imageError || (hasTriedOriginal && logoUrls.length === 0)) {
-    // Generate a nice blue circle with initials (like before)
-    return (
-      <div 
-        className={`${className} bg-blue-600 rounded-full flex items-center justify-center text-white font-bold`}
-        style={{ fontSize: '1.5rem' }}
-      >
-        {LogoFallback.getLogoText(station.name)}
-      </div>
-    );
-  }
-
-  // Loading state - show blue circle while checking
   return (
-    <div 
-      className={`${className} bg-blue-600 rounded-full flex items-center justify-center text-white font-bold animate-pulse`}
-      style={{ fontSize: '1.5rem' }}
-    >
-      {LogoFallback.getLogoText(station.name)}
+    <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl">
+      {initials(station.name)}
     </div>
   );
 };
 
-// Update SmartText component to better detect overflow
-const SmartText = ({ text, className, isName = false, trailing = null, title = null }) => {
-  const [shouldScroll, setShouldScroll] = useState(false);
-  const textRef = React.useRef(null);
+const StationCard = memo(function StationCard({
+  station, isActive, isPlaying, isConnecting, isFavorite, onSelect, onToggleFavorite,
+}) {
+  const nameRef = useRef(null);
+  const descriptionRef = useRef(null);
 
-  useEffect(() => {
-    const checkOverflow = () => {
-      if (textRef.current) {
-        const element = textRef.current;
-        // For station names (2 lines), check if content exceeds the height
-        if (isName) {
-          const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
-          const maxHeight = lineHeight * 2; // 2 lines
-          setShouldScroll(element.scrollHeight > maxHeight + 2); // +2 for tolerance
-        } else {
-          // For descriptions (1 line), check horizontal overflow
-          setShouldScroll(element.scrollWidth > element.clientWidth);
-        }
-      }
-    };
+  // Long names/descriptions scroll on hover. Overflow is measured only for the
+  // hovered card, so a grid of a thousand cards does not measure on render.
+  const markOverflow = () => {
+    const name = nameRef.current;
+    const description = descriptionRef.current;
+    name?.classList.toggle('text-overflow', name.scrollHeight > name.clientHeight + 2);
+    description?.classList.toggle('text-overflow', description.scrollWidth > description.clientWidth);
+  };
 
-    checkOverflow();
-    window.addEventListener('resize', checkOverflow);
-    return () => window.removeEventListener('resize', checkOverflow);
-  }, [text, isName]);
+  const tooltip = [station.about || station.description, station.location].filter(Boolean).join(' - ');
 
   return (
-    <div className={`${isName ? 'px-2 mb-1 flex-1 flex items-center' : 'px-2 mb-2'}`}>
-      <div
-        ref={textRef}
-        title={title || undefined}
-        className={`${className} ${shouldScroll ? 'text-overflow' : ''} w-full text-center`}
-      >
-        {text}
-        {trailing}
-      </div>
-    </div>
-  );
-};
-
-// Update the RadioGrid component to cache selected category:
-
-const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
-  
-  // Load selected category from cache, default to 'popular'
-  const [selectedCategory, setSelectedCategory] = useState(() => {
-    try {
-      const saved = localStorage.getItem('radio_selected_category');
-      return saved ? JSON.parse(saved) : 'popular';
-    } catch {
-      return 'popular';
-    }
-  });
-  
-  const [previousCategory, setPreviousCategory] = useState(() => {
-    try {
-      const saved = localStorage.getItem('radio_previous_category');
-      return saved ? JSON.parse(saved) : 'popular';
-    } catch {
-      return 'popular';
-    }
-  });
-  
-  const { favorites, isFavorite, toggleFavorite } = useFavorites();
-
-  // Cache selected category when it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('radio_selected_category', JSON.stringify(selectedCategory));
-    } catch (error) {
-      console.warn('Failed to save selected category:', error);
-    }
-  }, [selectedCategory]);
-
-  // Debug effect to monitor favorites changes
-  useEffect(() => {
-    console.log('RadioGrid - Favorites changed:', favorites);
-  }, [favorites]);
-
-  // Logo monitoring - expose functions to global console for debugging
-  useEffect(() => {
-    window.radioLogoDebug = {
-      getFailedLogos: () => {
-        try {
-          return getFailedLogos();
-        } catch (error) {
-          console.error('Error getting failed logos:', error);
-          return [];
-        }
-      },
-      logStats: () => {
-        try {
-          const failed = getFailedLogos();
-          return {
-            totalFailed: failed.length,
-            failedStations: failed.map(f => f.stationName),
-            lastFailures: failed.slice(-5)
-          };
-        } catch (error) {
-          console.error('Error getting logo stats:', error);
-          return { error: error.message };
-        }
-      }
-    };
-
-    return () => {
-      delete window.radioLogoDebug;
-    };
-  }, []);
-
-  // Popular stations - always available (cheap, ~22 stations)
-  const popularStations = useMemo(() => {
-    return getPopularStations().map(station => ({
-      ...station,
-      category: 'popular',
-      isDefault: true
-    }));
-  }, []);
-
-  // Full station list - only computed when needed (search or non-popular tab)
-  const needsFullList = selectedCategory !== 'popular' || searchQuery;
-  const allStations = useMemo(() => {
-    if (!needsFullList) return popularStations;
-
-    const stations = [...popularStations];
-    const popularNames = new Set(popularStations.map(s => s.name));
-
-    Object.entries(allRadioStations).forEach(([category, categoryStations]) => {
-      if (category !== 'popular') {
-        Object.values(categoryStations).forEach(station => {
-          if (!popularNames.has(station.name)) {
-            stations.push({
-              ...station,
-              category,
-              originalCategory: category
-            });
-          }
-        });
-      }
-    });
-
-    return stations;
-  }, [needsFullList, popularStations]);
-
-  // Filter stations based on search and category
-  const filteredStations = useMemo(() => {
-    let filtered = allStations;
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(station => 
-        station.name.toLowerCase().includes(query) ||
-        station.description.toLowerCase().includes(query) ||
-        station.city?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply category filter
-    if (selectedCategory === 'favorites') {
-      console.log('Filtering favorites, current favorites:', favorites); // Debug log
-      console.log('All stations count:', filtered.length); // Debug log
-      filtered = filtered.filter(station => {
-        const isFav = favorites.includes(station.name);
-        return isFav;
-      });
-      console.log('Filtered favorites count:', filtered.length); // Debug log
-    } else if (selectedCategory === 'popular') {
-      filtered = filtered.filter(station => station.isDefault || station.category === 'popular');
-    } else if (selectedCategory === 'all') {
-      // For 'all' category, only show stations that have a valid category
-      const validCategories = categories.map(cat => cat.key).filter(key => key !== 'all' && key !== 'favorites');
-      filtered = filtered.filter(station => {
-        const hasValidCategory = station.category && validCategories.includes(station.category);
-        const hasValidOriginalCategory = station.originalCategory && validCategories.includes(station.originalCategory);
-        const isPopular = station.isDefault || station.category === 'popular';
-        
-        return hasValidCategory || hasValidOriginalCategory || isPopular;
-      });
-    } else {
-      // For specific categories, only show stations that belong to that category
-      filtered = filtered.filter(station => 
-        station.category === selectedCategory || 
-        station.originalCategory === selectedCategory
-      );
-    }
-
-    return filtered;
-  }, [allStations, searchQuery, selectedCategory, favorites]);
-
-
-
-  const handleStationSelect = (station) => {
-    if (isLoading) return;
-    onStationSelect(station);
-  };
-
-  // ✅ NEW: Auto-toggle category when searching
-  const handleSearchQueryChange = (query) => {
-    setSearchQuery(query);
-    
-    if (query.trim()) {
-      // When starting to search, switch to "all" and remember previous category
-      if (selectedCategory !== 'all') {
-        setPreviousCategory(selectedCategory);
-        setSelectedCategory('all');
-      }
-    } else {
-      // When clearing search, restore previous category
-      if (selectedCategory === 'all' && previousCategory !== 'all') {
-        setSelectedCategory(previousCategory);
-      }
-    }
-  };
-
-  // Update the search input section:
-  {!showSearch ? (
-    <button
-      onClick={() => setShowSearch(true)}
-      className="p-2 rounded-lg bg-radio-card text-radio-text hover:bg-radio-hover transition-colors"
-      title="Zoeken"
-      id="search-icon"
+    <div
+      onClick={() => onSelect(station)}
+      onMouseEnter={markOverflow}
+      className={`radio-card relative overflow-hidden aspect-square group ${isActive ? 'active' : ''} ${
+        isPlaying ? 'playing' : ''
+      }`}
     >
-      <Search size={20} />
-    </button>
-  ) : (
-    <div className="flex items-center gap-2 bg-radio-dark rounded-lg px-4 py-2">
-      <Search size={16} className="text-radio-secondary" />
-      <input
-        type="text"
-        placeholder="Zoek radiozenders..."
-        value={searchQuery}
-        onChange={(e) => handleSearchQueryChange(e.target.value)} // ← Use the new handler
-        className="bg-transparent border-none outline-none text-white placeholder-radio-secondary min-w-64"
-        autoFocus
-      />
+      <div className="station-logo h-1/2 mb-2 flex items-center justify-center p-2">
+        <StationLogo station={station} />
+      </div>
+
+      <div className="px-2 mb-1 flex-1 flex items-center">
+        <div ref={nameRef} title={tooltip} className="station-name leading-tight font-medium text-white w-full text-center">
+          {station.name}
+          {station.website && (
+            <a
+              href={station.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="hidden group-hover:inline-flex items-center align-middle ml-1 p-0.5 rounded-full hover:bg-black/30"
+              title={`Website van ${station.name}`}
+            >
+              <ExternalLink className="w-3 h-3 text-gray-300" />
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="px-2 mb-2">
+        <div ref={descriptionRef} className="station-description text-gray-400 text-xs w-full text-center">
+          {station.description}
+        </div>
+      </div>
+
+      {isConnecting && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+          <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-500" />
+        </div>
+      )}
+
       <button
-        onClick={() => {
-          setShowSearch(false);
-          // Reset search and category
-          if (searchQuery.trim() && selectedCategory === 'all' && previousCategory !== 'all') {
-            setSelectedCategory(previousCategory);
-          }
-          setSearchQuery('');
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(station.id);
         }}
-        className="text-radio-secondary hover:text-white transition-colors"
+        className={`card-corner-btn absolute top-1 right-1 p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors focus:opacity-100 ${
+          isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+        title={isFavorite ? 'Uit favorieten verwijderen' : 'Aan favorieten toevoegen'}
       >
-        <X size={16} />
+        <svg className={`w-3 h-3 ${isFavorite ? 'text-yellow-400' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
       </button>
     </div>
-  )}
+  );
+});
 
-  // Update the category selection to sync with auto-toggle:
-  const handleCategoryChange = (categoryKey) => {
-    setSelectedCategory(categoryKey);
-    // If manually selecting a category while searching, update the previous category
-    if (searchQuery.trim() && categoryKey !== 'all') {
-      setPreviousCategory(categoryKey);
-    } else if (!searchQuery.trim()) {
-      setPreviousCategory(categoryKey);
-    }
+const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) => {
+  const [tab, setTab] = useState(loadTab);
+  const [genre, setGenre] = useState(null);
+  const [query, setQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+
+  const searching = query.trim().length > 0;
+  // A search always covers every station; the selected tab comes back when it is cleared.
+  const activeTab = searching ? 'all' : tab;
+
+  const tabStations = useMemo(() => {
+    const list = stationsForTab(activeTab, favorites);
+    const q = query.trim().toLowerCase();
+    return q ? list.filter((s) => matchesQuery(s, q)) : list;
+  }, [activeTab, favorites, query]);
+
+  const genresInTab = useMemo(() => {
+    const present = new Set(tabStations.map((s) => s.genre));
+    return GENRES.filter((g) => present.has(g.key));
+  }, [tabStations]);
+
+  const visibleStations = genre ? tabStations.filter((s) => s.genre === genre) : tabStations;
+
+  const selectTab = (key) => {
+    setTab(key);
+    setGenre(null);
+    setQuery('');
+    saveTab(key);
   };
 
-  // Update the category buttons:
-  {categories.map(category => (
-    <button
-      key={category.key}
-      onClick={() => handleCategoryChange(category.key)} // ← Use the new handler
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-        selectedCategory === category.key
-          ? 'bg-radio-accent text-white'
-          : 'bg-radio-dark text-white hover:bg-gray-700'
-      } ${searchQuery.trim() && category.key === 'all' ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`} // ← Add visual indicator when auto-selected
-    >
-      {category.label}
-      {category.key === 'favorites' && favorites.length > 0 && (
-        <span className="ml-2 bg-radio-accent/20 text-radio-accent px-2 py-0.5 rounded-full text-xs">
-          {favorites.length}
-        </span>
-      )}
-    </button>
-  ))}
+  const closeSearch = () => {
+    setShowSearch(false);
+    setQuery('');
+  };
 
-  // Update the results count message:
-  {(searchQuery || selectedCategory !== 'popular') && ( // ← Changed from 'all' to 'popular' since popular is now default
-    <div className="mb-4 text-radio-secondary">
-      {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} gevonden
-      {searchQuery && selectedCategory === 'all' && (
-        <span className="ml-2 text-blue-400 text-xs">(zoekt in alle categorieën)</span>
-      )}
-    </div>
-  )}
+  // Stable callback so memoized cards don't re-render on every parent render
+  // (the app re-renders every second while the ad-break countdown runs).
+  const latest = useRef({ isLoading, onStationSelect });
+  latest.current = { isLoading, onStationSelect };
+  const handleSelect = useCallback((station) => {
+    if (!latest.current.isLoading) latest.current.onStationSelect(station);
+  }, []);
+
+  const tabInfo = TABS.find((t) => t.key === activeTab);
 
   return (
     <div className="flex-1 p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header with search */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold">Nederlandse Radiozenders</h1>
-            
-            {!showSearch ? (
-              <button
-                onClick={() => setShowSearch(true)}
-                className="p-2 rounded-lg bg-radio-card text-radio-text hover:bg-radio-hover transition-colors"
-                title="Zoeken"
-                id="search-icon"
-              >
-                <Search size={20} />
+        <div className="flex items-center gap-4 mb-8">
+          <h1 className="text-3xl font-bold">Radiozenders</h1>
+          {showSearch ? (
+            <div className="flex items-center gap-2 bg-radio-dark rounded-lg px-4 py-2">
+              <Search size={16} className="text-radio-secondary" />
+              <input
+                type="text"
+                placeholder="Zoek op naam, genre of plaats..."
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setGenre(null);
+                }}
+                onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
+                className="bg-transparent border-none outline-none text-white placeholder-radio-secondary min-w-64"
+                autoFocus
+              />
+              <button onClick={closeSearch} className="text-radio-secondary hover:text-white transition-colors" title="Sluiten">
+                <X size={16} />
               </button>
-            ) : (
-              <div className="flex items-center gap-2 bg-radio-dark rounded-lg px-4 py-2">
-                <Search size={16} className="text-radio-secondary" />
-                <input
-                  type="text"
-                  placeholder="Zoek radiozenders..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearchQueryChange(e.target.value)} // ← Use the new handler
-                  className="bg-transparent border-none outline-none text-white placeholder-radio-secondary min-w-64"
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    setShowSearch(false);
-                    // Reset search and category
-                    if (searchQuery.trim() && selectedCategory === 'all' && previousCategory !== 'all') {
-                      setSelectedCategory(previousCategory);
-                    }
-                    setSearchQuery('');
-                  }}
-                  className="text-radio-secondary hover:text-white transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <button
+              id="search-icon"
+              onClick={() => setShowSearch(true)}
+              className="p-2 rounded-lg bg-radio-card text-radio-text hover:bg-radio-hover transition-colors"
+              title="Zoeken"
+            >
+              <Search size={20} />
+            </button>
+          )}
         </div>
 
-        {/* Category filters */}
-       <div className="flex flex-wrap gap-2 mb-6">
-          {categories.filter(category => category.key !== 'realnonstop').map(category => (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {TABS.map(({ key, label, description }) => (
             <button
-              key={category.key}
-              onClick={() => handleCategoryChange(category.key)}
+              key={key}
+              onClick={() => selectTab(key)}
+              title={description}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedCategory === category.key
-                  ? 'bg-radio-accent text-white'
-                  : 'bg-radio-dark text-white hover:bg-gray-700'
-              } ${searchQuery.trim() && category.key === 'all' ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
+                activeTab === key ? 'bg-radio-accent text-white' : 'bg-radio-dark text-white hover:bg-gray-700'
+              }`}
             >
-              {category.label}
-              {category.key === 'favorites' && favorites.length > 0 && (
+              {label}
+              {key === 'favorites' && favorites.length > 0 && (
                 <span className="ml-2 bg-radio-accent/20 text-radio-accent px-2 py-0.5 rounded-full text-xs">
                   {favorites.length}
                 </span>
@@ -491,136 +260,57 @@ const RadioGrid = ({ onStationSelect, currentStation, isLoading, isPlaying }) =>
           ))}
         </div>
 
-        {/* Results count */}
-        {(searchQuery || selectedCategory !== 'popular') && ( // ← Changed from 'all' to 'popular' since popular is now default
-          <div className="mb-4 text-radio-secondary">
-            {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} gevonden
-            {searchQuery && selectedCategory === 'all' && (
-              <span className="ml-2 text-blue-400 text-xs">(zoekt in alle categorieën)</span>
-            )}
+        {genresInTab.length > 1 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[{ key: null, label: 'Alle genres' }, ...genresInTab].map(({ key, label }) => (
+              <button
+                key={key ?? 'all'}
+                onClick={() => setGenre(key)}
+                className={`px-3 py-1 rounded-full text-xs transition-colors ${
+                  genre === key ? 'bg-gray-200 text-gray-900' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
-        
-    
-        
-        {/* Stations grid */}
+
+        {activeTab !== 'popular' && (
+          <div className="mb-4 text-radio-secondary text-sm">
+            {visibleStations.length} {visibleStations.length === 1 ? 'zender' : 'zenders'}
+            {genre && ` in ${GENRE_LABELS[genre]}`}
+            {searching ? ' gevonden in alle categorieën' : tabInfo?.description && ` - ${tabInfo.description}`}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-          {filteredStations.map((station) => {
-            // The curated fallbackStations.js entry (when there is one) carries a
-            // researched, genre/identity description; allStations only ever holds
-            // the raw Radio-Browser description otherwise (often generic, e.g.
-            // "Commerciële radio"), so prefer the curated one when available.
-            const stationDefinition = getStationDefinition(station.name);
-            const description = stationDefinition?.description || station.description;
-            // A longer, station-specific blurb for the name tooltip - distinct
-            // from the short tag shown under the card. Falls back to the short
-            // description for stations that don't have one researched yet.
-            const tooltipText = stationDefinition?.longDescription || description;
-
+          {visibleStations.map((station) => {
+            const isActive = currentStation?.id === station.id;
             return (
-            <div
-              key={station.name}
-              onClick={() => handleStationSelect(station)}
-              className={`radio-card relative overflow-hidden aspect-square ${
-                currentStation?.name === station.name ? 'active' : ''
-              } ${
-                currentStation?.name === station.name && isPlaying ? 'playing' : ''
-              } group`}
-            >
-              {/* Station Logo */}
-              <div className="station-logo h-1/2 mb-2 flex items-center justify-center p-2">
-                <StationLogo station={station} className="w-full h-full max-w-16 max-h-16" />
-              </div>
-
-              {/* Station Name - Smart scrolling text, with a hover tooltip
-                  describing the station and a website icon trailing the name
-                  that only shows up on hover */}
-              <SmartText
-                text={station.name}
-                title={tooltipText}
-                className={`station-name leading-tight font-medium ${
-                  isFailedStation(station.name)
-                    ? 'text-red-400'     // ✅ Red text for failed stations
-                    : 'text-white'       // ✅ White text for working stations
-                }`}
-                isName={true}
-                trailing={
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const website = stationDefinition?.website;
-                      if (website) {
-                        window.open(website, '_blank', 'noopener,noreferrer');
-                      } else {
-                        notify('Site niet bekend', 'info', 2000);
-                      }
-                    }}
-                    className="hidden group-hover:inline-flex items-center align-middle ml-1 p-0.5 rounded-full hover:bg-black/30 transition-colors"
-                    title={`Website van ${station.name} openen`}
-                  >
-                    <ExternalLink className="w-3 h-3 text-gray-300" />
-                  </button>
-                }
+              <StationCard
+                key={station.id}
+                station={station}
+                isActive={isActive}
+                isPlaying={isActive && isPlaying}
+                isConnecting={isActive && isLoading}
+                isFavorite={isFavorite(station.id)}
+                onSelect={handleSelect}
+                onToggleFavorite={toggleFavorite}
               />
-
-              {/* Station Description - Smart scrolling text */}
-              <SmartText
-                text={description}
-                className="station-description text-gray-400 text-xs"
-                isName={false}
-              />              {/* Loading Indicator */}
-             {isLoading && currentStation?.name === station.name && !window.isAdBreakActive && (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-gray-400 text-xs">
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-500 mr-1"></div>
-                    <span className="text-xs"></span>
-                  </div>
-                </div>
-              )}
-
-              {/* Favorite Button (top-right) - revealed on hover, but stays visible once favorited */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  console.log('Favorite button clicked for:', station.name);
-                  console.log('Current isFavorite status:', isFavorite(station.name));
-                  toggleFavorite(station.name);
-                  // Force a small delay to see if state updates
-                  setTimeout(() => {
-                    console.log('After toggle - isFavorite status:', isFavorite(station.name));
-                  }, 100);
-                }}
-                className={`card-corner-btn absolute top-1 right-1 p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors focus:opacity-100 ${
-                  isFavorite(station.name) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                }`}
-                title={isFavorite(station.name) ? 'Uit favorieten verwijderen' : 'Aan favorieten toevoegen'}
-              >
-                <svg
-                  className={`w-3 h-3 transition-colors ${isFavorite(station.name) ? 'text-yellow-400' : 'text-gray-400'}`}
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-              </button>
-
-             { /* Failed Station Indicator */}
-                    {/* {failedStations.includes(station.name) && (
-                      <div className="absolute top-1 left-1 w-2 h-2 bg-red-500 rounded-full" title="Station gerapporteerd als niet werkend"></div>
-                    )} */}
-                    </div>
             );
           })}
-                  </div>
+        </div>
 
-                  {/* No results message */}
-        {filteredStations.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-radio-secondary text-lg mb-2">
-              Geen radiozenders gevonden
+        {visibleStations.length === 0 && (
+          <div className="text-center py-12 text-radio-secondary">
+            <div className="text-lg mb-2">
+              {activeTab === 'favorites' ? 'Nog geen favorieten' : 'Geen zenders gevonden'}
             </div>
-            <div className="text-radio-secondary text-sm">
-              Probeer een andere zoekterm of categorie
+            <div className="text-sm">
+              {activeTab === 'favorites'
+                ? 'Klik op de ster van een zender om hem hier te bewaren.'
+                : 'Probeer een andere zoekterm of categorie.'}
             </div>
           </div>
         )}

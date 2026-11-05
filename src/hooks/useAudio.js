@@ -1,25 +1,21 @@
-// hooks/useAudio.js - Simplified audio playback hook
-// Wrapper for AudioManager with React integration
+// hooks/useAudio.js - React binding for the AudioManager singleton.
+// Mirrors AudioManager state into the app store and exposes playback actions.
 
 import { useEffect, useCallback, useRef } from 'react';
 import { useAppState, useActions } from '../core/StateManager';
 import { getAudioManager } from '../core/AudioManager';
-import { InterruptionHandler } from '../core/InterruptionHandler';
-import { notify } from '../utils/eventBus';
 
 export function useAudio() {
   const state = useAppState();
   const actions = useActions();
 
   const audioManagerRef = useRef(null);
-  const interruptionHandlerRef = useRef(null);
   const playAttemptRef = useRef(0);
 
   // Initialize AudioManager on mount
   useEffect(() => {
     if (!audioManagerRef.current) {
       audioManagerRef.current = getAudioManager();
-      interruptionHandlerRef.current = new InterruptionHandler();
 
       // Sync settings from state BEFORE initializing
       if (state.volume !== undefined) {
@@ -29,12 +25,7 @@ export function useAudio() {
         audioManagerRef.current.setFadeEnabled(state.fadeAudioStreams);
       }
 
-      // Initialize
-      audioManagerRef.current.initialize().then(success => {
-        if (!success) {
-          console.error('❌ useAudio: AudioManager initialization failed');
-        }
-      });
+      audioManagerRef.current.initialize();
 
       // Set up callbacks
       audioManagerRef.current.on('onStateChange', (newState) => {
@@ -80,10 +71,6 @@ export function useAudio() {
         }
       });
 
-      audioManagerRef.current.on('onEmergency', (event) => {
-        notify('Volume automatisch verlaagd voor veiligheid', 'warning', 3000);
-      });
-
       // Set up RadioService callbacks for connection status and buffering
       const radioSource = audioManagerRef.current.getSource('radio');
       if (radioSource) {
@@ -96,12 +83,9 @@ export function useAudio() {
       }
     }
 
-    return () => {
-      // Cleanup
-      if (audioManagerRef.current) {
-        audioManagerRef.current.destroy();
-      }
-    };
+    return () => audioManagerRef.current?.destroy();
+  // Runs once on mount. Later volume/fade changes are synced by the effects below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync volume changes from state to AudioManager
@@ -129,12 +113,6 @@ export function useAudio() {
     const myAttemptId = playAttemptRef.current;
 
     try {
-      // Check for interruption
-      const interruption = interruptionHandlerRef.current.handleUserAction('station_select', { station });
-      if (interruption.wasInterrupted) {
-        console.log('🔔 useAudio: User interrupted automated action');
-      }
-
       // Immediately update UI to show new station
       actions.setLoading(true);
       actions.setStation(station);
@@ -144,19 +122,8 @@ export function useAudio() {
 
       const success = await audioManagerRef.current.play('radio', { station });
 
-      // Only update state if this is still the current attempt
-      if (playAttemptRef.current !== myAttemptId) {
-        console.log('🔄 useAudio: Stale play attempt, ignoring result');
-        return false;
-      }
-
-      if (success) {
-        try {
-          localStorage.setItem('lastPlayedStation', JSON.stringify(station));
-        } catch (error) {
-          console.warn('Failed to save last played station', error);
-        }
-      }
+      // A newer playRadio() call owns the UI state now.
+      if (playAttemptRef.current !== myAttemptId) return false;
 
       actions.setLoading(false);
       actions.setConnectionStatus(null);
@@ -166,7 +133,6 @@ export function useAudio() {
       // Only update error state if still current attempt
       if (playAttemptRef.current !== myAttemptId) return false;
 
-      console.error('❌ useAudio: Failed to play radio', error);
       actions.setLoading(false);
       actions.setConnectionStatus(null);
       actions.setError(error.message);
@@ -181,9 +147,6 @@ export function useAudio() {
     if (!audioManagerRef.current) return false;
 
     try {
-      // Check for interruption
-      interruptionHandlerRef.current.handleUserAction('mode_switch', { mode: 'spotify' });
-
       actions.setLoading(true);
       actions.setAudioSource('spotify');
 
@@ -196,7 +159,7 @@ export function useAudio() {
       return success;
 
     } catch (error) {
-      console.error('❌ useAudio: Failed to play Spotify', error);
+      console.error('useAudio: Failed to play Spotify', error);
       actions.setLoading(false);
       actions.setError(error.message);
       return false;
@@ -210,9 +173,6 @@ export function useAudio() {
     if (!audioManagerRef.current) return false;
 
     try {
-      // Check for interruption
-      interruptionHandlerRef.current.handleUserAction('mode_switch', { mode: 'youtube' });
-
       actions.setLoading(true);
       actions.setAudioSource('youtube');
 
@@ -222,7 +182,7 @@ export function useAudio() {
       return success;
 
     } catch (error) {
-      console.error('❌ useAudio: Failed to play YouTube', error);
+      console.error('useAudio: Failed to play YouTube', error);
       actions.setLoading(false);
       actions.setError(error.message);
       return false;
@@ -236,12 +196,9 @@ export function useAudio() {
     if (!audioManagerRef.current) return;
 
     try {
-      // Check for interruption
-      interruptionHandlerRef.current.handleUserAction('pause');
-
       await audioManagerRef.current.pause();
     } catch (error) {
-      console.error('❌ useAudio: Failed to pause', error);
+      console.error('useAudio: Failed to pause', error);
       actions.setError(error.message);
     }
   }, [actions]);
@@ -253,12 +210,9 @@ export function useAudio() {
     if (!audioManagerRef.current) return;
 
     try {
-      // Check for interruption
-      interruptionHandlerRef.current.handleUserAction('play');
-
       await audioManagerRef.current.resume();
     } catch (error) {
-      console.error('❌ useAudio: Failed to resume', error);
+      console.error('useAudio: Failed to resume', error);
       actions.setError(error.message);
     }
   }, [actions]);
@@ -274,7 +228,7 @@ export function useAudio() {
       actions.setStation(null);
       actions.setAudioSource(null);
     } catch (error) {
-      console.error('❌ useAudio: Failed to stop', error);
+      console.error('useAudio: Failed to stop', error);
     }
   }, [actions]);
 
@@ -288,7 +242,7 @@ export function useAudio() {
       audioManagerRef.current.setVolume(volume);
       actions.setVolume(volume);
     } catch (error) {
-      console.error('❌ useAudio: Failed to set volume', error);
+      console.error('useAudio: Failed to set volume', error);
     }
   }, [actions]);
 
@@ -315,7 +269,7 @@ export function useAudio() {
         await source.nextTrack();
       }
     } catch (error) {
-      console.error('❌ useAudio: Failed to skip track', error);
+      console.error('useAudio: Failed to skip track', error);
     }
   }, [state.audioSource]);
 
@@ -331,7 +285,7 @@ export function useAudio() {
         await source.previousTrack();
       }
     } catch (error) {
-      console.error('❌ useAudio: Failed to go back', error);
+      console.error('useAudio: Failed to go back', error);
     }
   }, [state.audioSource]);
 
@@ -348,7 +302,7 @@ export function useAudio() {
         actions.setPlaylistShuffle(enabled);
       }
     } catch (error) {
-      console.error('❌ useAudio: Failed to set shuffle', error);
+      console.error('useAudio: Failed to set shuffle', error);
     }
   }, [state.audioSource, actions]);
 
@@ -410,22 +364,6 @@ export function useAudio() {
     };
   }, [pause, resume, stop, nextTrack, previousTrack, state.audioSource]);
 
-  /**
-   * Get audio element (for visualizer)
-   */
-  const getAudioElement = useCallback(() => {
-    if (!audioManagerRef.current) return null;
-
-    const source = audioManagerRef.current.getSource('radio');
-    return source ? source.getAudioElement() : null;
-  }, []);
-
-  /**
-   * Get interruption handler (for external use)
-   */
-  const getInterruptionHandler = useCallback(() => {
-    return interruptionHandlerRef.current;
-  }, []);
 
   return {
     // State
@@ -451,14 +389,7 @@ export function useAudio() {
     previousTrack,
     setShuffle,
 
-    // Utilities
-    getAudioElement,
-    getInterruptionHandler,
     audioManager: audioManagerRef.current,
-
-    // ✅ NEW: Spotify ready check
     isSpotifyReady: () => audioManagerRef.current?.isSpotifyReady() || false
   };
 }
-
-export default useAudio;

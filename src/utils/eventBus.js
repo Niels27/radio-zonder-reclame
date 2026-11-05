@@ -1,5 +1,5 @@
-// utils/eventBus.js - Simple event bus for cross-component communication
-// Replaces window.* globals with a lightweight pub/sub system
+// utils/eventBus.js - Minimal pub/sub for cross-component communication
+// (notifications, YouTube player control, audio element changes).
 
 const listeners = {};
 
@@ -42,23 +42,15 @@ export const closeAllYouTubePlayers = () => {
   eventBus.emit('youtube:close');
 };
 
-export const updateYouTubePlayers = (config) => {
-  eventBus.emit('youtube:update', config);
-};
-
 // --- Audio element signal helpers ---
 export const signalAudioElementChanged = (corsEnabled) => {
   eventBus.emit('audio:elementChanged', { corsEnabled });
 };
 
 // --- Playlist stopped helper ---
+// Emitted when the user closes a YouTube player themselves (type: 'youtube').
 export const signalPlaylistStopped = (type) => {
   eventBus.emit('playlist:stopped', type);
 };
-
-// --- Manual modes helper ---
-let _stopAllManualModes = null;
-export const registerStopAllManualModes = (fn) => { _stopAllManualModes = fn; };
-export const stopAllManualModes = () => { if (_stopAllManualModes) _stopAllManualModes(); };
 
 export default eventBus;

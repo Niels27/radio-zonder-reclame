@@ -1,7 +1,8 @@
-// core/StateManager.jsx - Centralized state management with React Context
-// Single source of truth for the entire application
+// core/StateManager.jsx - Centralized app state (React Context + useReducer).
+// Exposes StateProvider, useAppState() for reading and useActions() for updates.
+// Settings are loaded from and persisted to localStorage.
 
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 
 // Safe localStorage write - handles QuotaExceededError gracefully
 const safePersist = (key, value) => {
@@ -47,23 +48,13 @@ const initialState = {
   // UI state
   showVisualizer: true,
   visualizerType: 'bars',
-  visualizerBlur: 2,
-  showFloatingPlayer: false,
-  showDeveloperDashboard: false,
 
   // Settings
   fadeAudioStreams: false,
-  useCommunityTimings: true,
   adBreakMinute: 29,
   adBreakMinute2: 59,
   adBreakDuration: 6,
-  adBreakDuration2: 10,
-
-  // Community timing
-  currentAdBreakUsedCommunityTiming: false,
-  nextCommunityTiming: null,
-  showFeedbackPopup: false,
-  feedbackStationName: ''
+  adBreakDuration2: 9,
 };
 
 // Action types
@@ -99,19 +90,10 @@ const ActionTypes = {
   // UI actions
   TOGGLE_VISUALIZER: 'TOGGLE_VISUALIZER',
   SET_VISUALIZER_TYPE: 'SET_VISUALIZER_TYPE',
-  SET_VISUALIZER_BLUR: 'SET_VISUALIZER_BLUR',
-  TOGGLE_FLOATING_PLAYER: 'TOGGLE_FLOATING_PLAYER',
-  TOGGLE_DEVELOPER_DASHBOARD: 'TOGGLE_DEVELOPER_DASHBOARD',
 
   // Settings actions
   SET_FADE_AUDIO_STREAMS: 'SET_FADE_AUDIO_STREAMS',
-  SET_USE_COMMUNITY_TIMINGS: 'SET_USE_COMMUNITY_TIMINGS',
   SET_AD_BREAK_SETTINGS: 'SET_AD_BREAK_SETTINGS',
-
-  // Community timing actions
-  SET_COMMUNITY_TIMING_STATE: 'SET_COMMUNITY_TIMING_STATE',
-  SHOW_FEEDBACK_POPUP: 'SHOW_FEEDBACK_POPUP',
-  HIDE_FEEDBACK_POPUP: 'HIDE_FEEDBACK_POPUP'
 };
 
 // Reducer function
@@ -162,9 +144,7 @@ function appReducer(state, action) {
         ...state,
         isAdBreakActive: false,
         adBreakTimeLeft: null,
-        savedStation: null,
-        currentAdBreakUsedCommunityTiming: false,
-        nextCommunityTiming: null
+        savedStation: null
       };
 
     case ActionTypes.SET_AD_BREAK_MODE:
@@ -205,45 +185,13 @@ function appReducer(state, action) {
     case ActionTypes.SET_VISUALIZER_TYPE:
       return { ...state, visualizerType: action.payload };
 
-    case ActionTypes.SET_VISUALIZER_BLUR:
-      return { ...state, visualizerBlur: action.payload };
-
-    case ActionTypes.TOGGLE_FLOATING_PLAYER:
-      return { ...state, showFloatingPlayer: action.payload };
-
-    case ActionTypes.TOGGLE_DEVELOPER_DASHBOARD:
-      return { ...state, showDeveloperDashboard: action.payload };
 
     // Settings actions
     case ActionTypes.SET_FADE_AUDIO_STREAMS:
       return { ...state, fadeAudioStreams: action.payload };
 
-    case ActionTypes.SET_USE_COMMUNITY_TIMINGS:
-      return { ...state, useCommunityTimings: action.payload };
-
     case ActionTypes.SET_AD_BREAK_SETTINGS:
       return { ...state, ...action.payload };
-
-    // Community timing actions
-    case ActionTypes.SET_COMMUNITY_TIMING_STATE:
-      return {
-        ...state,
-        currentAdBreakUsedCommunityTiming: action.payload.used,
-        nextCommunityTiming: action.payload.timing
-      };
-
-    case ActionTypes.SHOW_FEEDBACK_POPUP:
-      return {
-        ...state,
-        showFeedbackPopup: true,
-        feedbackStationName: action.payload
-      };
-
-    case ActionTypes.HIDE_FEEDBACK_POPUP:
-      return {
-        ...state,
-        showFeedbackPopup: false
-      };
 
     default:
       return state;
@@ -254,40 +202,35 @@ function appReducer(state, action) {
 const StateContext = createContext(null);
 const DispatchContext = createContext(null);
 
-// Provider component
-export function StateProvider({ children }) {
-  // Load initial state from localStorage
-  const loadedState = {
-    ...initialState,
-    volume: parseFloat(localStorage.getItem('volume') || '0.5'),
-    showVisualizer: JSON.parse(localStorage.getItem('visualizer_enabled') || 'true'),
-    visualizerType: localStorage.getItem('visualizer_type') || 'bars',
-    visualizerBlur: parseFloat(localStorage.getItem('visualizer_blur') || '2'),
-    fadeAudioStreams: JSON.parse(localStorage.getItem('fade_audio_streams') || 'false'),
-    useCommunityTimings: JSON.parse(localStorage.getItem('use_community_timings') || 'true'),
-    playlistProvider: localStorage.getItem('playlist_provider') || 'spotify',
-    youtubeUrl: localStorage.getItem('youtube_url') || localStorage.getItem('custom_lofi_url') || 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
-    adBreakMode: (() => {
-      const saved = localStorage.getItem('adbreak_mode');
-      // Migrate old 'lofi' mode to 'youtube'
-      if (saved === 'lofi') return 'youtube';
-      return saved || 'playlist';
-    })(),
-    adBreakMinute: parseInt(localStorage.getItem('adbreak_minute') || '29'),
-    adBreakMinute2: parseInt(localStorage.getItem('adbreak_minute2') || '59'),
-    adBreakDuration: parseInt(localStorage.getItem('adbreak_duration') || '6'),
-    adBreakDuration2: parseInt(localStorage.getItem('adbreak_duration2') || '9')
-  };
+// Initial state merged with persisted settings (runs once, via useReducer's lazy initializer)
+const loadPersistedState = () => ({
+  ...initialState,
+  volume: parseFloat(localStorage.getItem('volume') || '0.5'),
+  showVisualizer: JSON.parse(localStorage.getItem('visualizer_enabled') || 'true'),
+  visualizerType: localStorage.getItem('visualizer_type') || 'bars',
+  fadeAudioStreams: JSON.parse(localStorage.getItem('fade_audio_streams') || 'false'),
+  playlistProvider: localStorage.getItem('playlist_provider') || 'spotify',
+  youtubeUrl: localStorage.getItem('youtube_url') || localStorage.getItem('custom_lofi_url') || 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
+  adBreakMode: (() => {
+    const saved = localStorage.getItem('adbreak_mode');
+    // Migrate old 'lofi' mode to 'youtube'
+    if (saved === 'lofi') return 'youtube';
+    return saved || 'playlist';
+  })(),
+  adBreakMinute: parseInt(localStorage.getItem('adbreak_minute') || '29'),
+  adBreakMinute2: parseInt(localStorage.getItem('adbreak_minute2') || '59'),
+  adBreakDuration: parseInt(localStorage.getItem('adbreak_duration') || '6'),
+  adBreakDuration2: parseInt(localStorage.getItem('adbreak_duration2') || '9')
+});
 
-  const [state, dispatch] = useReducer(appReducer, loadedState);
+export function StateProvider({ children }) {
+  const [state, dispatch] = useReducer(appReducer, undefined, loadPersistedState);
 
   // Persist important state to localStorage
   useEffect(() => { safePersist('volume', state.volume.toString()); }, [state.volume]);
   useEffect(() => { safePersist('visualizer_enabled', JSON.stringify(state.showVisualizer)); }, [state.showVisualizer]);
   useEffect(() => { safePersist('visualizer_type', state.visualizerType); }, [state.visualizerType]);
-  useEffect(() => { safePersist('visualizer_blur', state.visualizerBlur.toString()); }, [state.visualizerBlur]);
   useEffect(() => { safePersist('fade_audio_streams', JSON.stringify(state.fadeAudioStreams)); }, [state.fadeAudioStreams]);
-  useEffect(() => { safePersist('use_community_timings', JSON.stringify(state.useCommunityTimings)); }, [state.useCommunityTimings]);
   useEffect(() => { safePersist('playlist_provider', state.playlistProvider); }, [state.playlistProvider]);
   useEffect(() => { safePersist('adbreak_mode', state.adBreakMode); }, [state.adBreakMode]);
   useEffect(() => { safePersist('youtube_url', state.youtubeUrl); }, [state.youtubeUrl]);
@@ -305,7 +248,6 @@ export function StateProvider({ children }) {
   );
 }
 
-// Custom hooks for using state and dispatch
 export function useAppState() {
   const context = useContext(StateContext);
   if (context === null) {
@@ -314,7 +256,7 @@ export function useAppState() {
   return context;
 }
 
-export function useAppDispatch() {
+function useAppDispatch() {
   const context = useContext(DispatchContext);
   if (context === null) {
     throw new Error('useAppDispatch must be used within StateProvider');
@@ -322,7 +264,7 @@ export function useAppDispatch() {
   return context;
 }
 
-// Action creators (convenience functions)
+// Action creators (stable callbacks around dispatch)
 export function useActions() {
   const dispatch = useAppDispatch();
 
@@ -427,47 +369,13 @@ export function useActions() {
       dispatch({ type: ActionTypes.SET_VISUALIZER_TYPE, payload: type });
     }, [dispatch]),
 
-    setVisualizerBlur: useCallback((blur) => {
-      dispatch({ type: ActionTypes.SET_VISUALIZER_BLUR, payload: blur });
-    }, [dispatch]),
-
-    toggleFloatingPlayer: useCallback((show) => {
-      dispatch({ type: ActionTypes.TOGGLE_FLOATING_PLAYER, payload: show });
-    }, [dispatch]),
-
-    toggleDeveloperDashboard: useCallback((show) => {
-      dispatch({ type: ActionTypes.TOGGLE_DEVELOPER_DASHBOARD, payload: show });
-    }, [dispatch]),
-
     // Settings actions
     setFadeAudioStreams: useCallback((enabled) => {
       dispatch({ type: ActionTypes.SET_FADE_AUDIO_STREAMS, payload: enabled });
     }, [dispatch]),
 
-    setUseCommunityTimings: useCallback((enabled) => {
-      dispatch({ type: ActionTypes.SET_USE_COMMUNITY_TIMINGS, payload: enabled });
-    }, [dispatch]),
-
     setAdBreakSettings: useCallback((settings) => {
       dispatch({ type: ActionTypes.SET_AD_BREAK_SETTINGS, payload: settings });
     }, [dispatch]),
-
-    // Community timing actions
-    setCommunityTimingState: useCallback((used, timing) => {
-      dispatch({
-        type: ActionTypes.SET_COMMUNITY_TIMING_STATE,
-        payload: { used, timing }
-      });
-    }, [dispatch]),
-
-    showFeedbackPopup: useCallback((stationName) => {
-      dispatch({ type: ActionTypes.SHOW_FEEDBACK_POPUP, payload: stationName });
-    }, [dispatch]),
-
-    hideFeedbackPopup: useCallback(() => {
-      dispatch({ type: ActionTypes.HIDE_FEEDBACK_POPUP });
-    }, [dispatch])
   };
 }
-
-export { ActionTypes };

@@ -1,342 +1,153 @@
-// core/AudioManager.js - Unified audio playback controller
-// Manages all audio sources: Radio, Spotify, YouTube
+// core/AudioManager.js - Single controller for all audio sources (radio, Spotify, YouTube).
+//
+// Guarantees that only one source plays at a time, keeps the volume in sync
+// across sources, and optionally crossfades when switching between source
+// types. Every play() call supersedes the previous one: a slower, cancelled
+// attempt recognises it is stale and stays silent instead of reporting errors.
 
 import { RadioSource } from '../services/RadioService';
 import { SpotifySource } from '../services/SpotifyService';
 import { YouTubeSource } from '../services/YouTubeService';
-import { VolumeNormalizer } from './VolumeNormalizer';
 
-/**
- * AudioManager - Central controller for all audio playback
- *
- * Responsibilities:
- * - Manage switching between audio sources (radio, spotify, youtube)
- * - Ensure only one source plays at a time
- * - Synchronize volume across all sources
- * - Handle transitions smoothly without conflicts
- */
+// Per-source loudness correction (Spotify/YouTube are mastered louder than
+// radio) and an overall ceiling to avoid clipping at 100%.
+const SOURCE_GAIN = { radio: 1.0, spotify: 0.9, youtube: 0.85 };
+const MAX_VOLUME = 0.9;
+const FADE_MS = 500;
+const FADE_STEPS = 20;
+
 class AudioManager {
   constructor() {
-    // Current active source type
-    this.currentSource = null; // 'radio' | 'spotify' | 'youtube' | null
-
-    // Audio source instances
     this.sources = {
       radio: new RadioSource(),
       spotify: new SpotifySource(),
-      youtube: new YouTubeSource()
+      youtube: new YouTubeSource(),
     };
-
-    // Volume normalization system
-    this.volumeNormalizer = new VolumeNormalizer();
-
-    // Playback state
+    this.currentSource = null; // 'radio' | 'spotify' | 'youtube' | null
     this.state = 'idle'; // 'idle' | 'loading' | 'playing' | 'paused' | 'transitioning'
     this.volume = 0.5;
-    this.isTransitioning = false;
-
-    // Incremented on every play() call so a superseded (cancelled) attempt can
-    // recognize it's no longer the latest one and stay silent - see play().
-    this._playAttemptId = 0;
-
-    // Fade settings
     this.fadeEnabled = false;
-    this.fadeDuration = 500; // milliseconds
+    this.isTransitioning = false;
+    this._playAttemptId = 0;
+    this.currentMetadata = { station: null, playlist: null };
+    this.callbacks = { onStateChange: null, onError: null, onMetadataChange: null };
 
-    // Current playback metadata
-    this.currentMetadata = {
-      station: null,      // For radio
-      playlist: null,     // For spotify/youtube
-      track: null         // Current track info
-    };
-
-    // Event callbacks
-    this.callbacks = {
-      onStateChange: null,
-      onError: null,
-      onMetadataChange: null,
-      onEmergency: null
+    // A radio stream that drops and cannot be recovered ends playback.
+    this.sources.radio.onPlaybackFailed = (error) => {
+      if (this.currentSource !== 'radio') return;
+      this.currentSource = null;
+      this._setState('idle');
+      this._triggerError(error);
     };
   }
 
-  /**
-   * Initialize audio sources
-   */
   async initialize() {
-    console.log('🎵 AudioManager: Initializing all sources');
-
     try {
-      // Initialize volume normalizer
-      await this.volumeNormalizer.initialize();
-
-      // Set up emergency callback
-      this.volumeNormalizer.setEmergencyCallback = (event) => {
-        console.error('🚨 AudioManager: Emergency volume event', event);
-        if (this.callbacks.onEmergency) {
-          this.callbacks.onEmergency(event);
-        }
-        // Immediately resync volumes to safe levels
-        this.syncVolume();
-      };
-
-      // Initialize each source
-      await this.sources.radio.initialize();
-      await this.sources.spotify.initialize();
-      await this.sources.youtube.initialize();
-
-      // Start volume monitoring
-      this.volumeNormalizer.startMonitoring();
-
-      console.log('✅ AudioManager: All sources initialized');
+      await Promise.all(Object.values(this.sources).map((source) => source.initialize()));
       return true;
     } catch (error) {
-      console.error('❌ AudioManager: Initialization failed', error);
+      console.error('AudioManager: initialization failed', error);
       this._triggerError(error);
       return false;
     }
   }
 
   /**
-   * Play audio from a specific source
-   * @param {string} sourceType - 'radio' | 'spotify' | 'youtube'
-   * @param {object} config - Configuration for the source
+   * Play a source. Resolves true when playback started, false when it failed
+   * or was superseded by a newer play() call.
+   * @param {'radio'|'spotify'|'youtube'} sourceType
+   * @param {object} config - source-specific ({ station } for radio)
    */
   async play(sourceType, config = {}) {
-    console.log(`🎵 AudioManager: Play request - ${sourceType}`, config);
-
-    // If already transitioning, force-cancel immediately for same-source switches (e.g. radio→radio)
-    if (this.isTransitioning) {
-      if (this.currentSource === sourceType || sourceType === 'radio') {
-        console.log(`⚡ AudioManager: Force-cancelling previous ${this.currentSource} transition for new ${sourceType}`);
-        // Stop the current source to cancel its URL attempts
-        if (this.sources[sourceType]) {
-          await this.sources[sourceType].stop();
-        }
-        this.isTransitioning = false;
-      } else {
-        console.warn('⚠️ AudioManager: Already transitioning, waiting briefly...');
-        let waitCount = 0;
-        while (this.isTransitioning && waitCount < 10) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          waitCount++;
-        }
-        if (this.isTransitioning) {
-          console.error('❌ AudioManager: Previous transition stuck, forcing stop');
-          await this.stopAll();
-          this.isTransitioning = false;
-        }
-      }
-    }
-
-    // Mark this call as the latest play() request. A slower, superseded call
-    // (e.g. a station the user already switched away from) recognizes itself
-    // as stale below and stays silent instead of surfacing a "failed to start"
-    // error for playback nobody is waiting on anymore.
-    this._playAttemptId++;
-    const myAttemptId = this._playAttemptId;
-    const isStale = () => this._playAttemptId !== myAttemptId;
+    const attemptId = ++this._playAttemptId;
+    const isStale = () => this._playAttemptId !== attemptId;
 
     try {
       this.isTransitioning = true;
       this._setState('transitioning');
 
-      // CROSSFADE: Only if fade enabled, we have a current source, AND switching to DIFFERENT source type
-      // IMPORTANT: Don't crossfade radio→radio because it breaks Web Audio API connection (visualizer)
-      const shouldCrossfade = this.fadeEnabled && this.currentSource && this.currentSource !== sourceType;
-
-      if (shouldCrossfade) {
-        console.log(`🔀 AudioManager: Crossfading ${this.currentSource} → ${sourceType}`);
+      // Crossfade only between different source types: radio-to-radio would
+      // tear down the element the visualizer is attached to.
+      if (this.fadeEnabled && this.currentSource && this.currentSource !== sourceType) {
         await this._crossfade(sourceType, config);
-
-        if (isStale()) {
-          console.log(`⚡ AudioManager: ${sourceType} attempt superseded during crossfade, ignoring its result`);
-          return false;
-        }
-      } else {
-        // NO FADE: Immediate stop (same source type or no fade)
-        if (this.currentSource === sourceType) {
-          console.log(`⚡ AudioManager: Same source type (${sourceType}), skipping crossfade to prevent Web Audio API conflict`);
-        }
-        console.log('🛑 AudioManager: FORCING STOP OF ALL AUDIO SOURCES');
-        await this.stopAll();
-
-        if (isStale()) {
-          console.log(`⚡ AudioManager: ${sourceType} attempt superseded while stopping other sources, bailing out`);
-          return false;
-        }
-
-        // Update current source
-        this.currentSource = sourceType;
-
-        // Play the new source
-        this._setState('loading');
-        const success = await this.sources[sourceType].play(config);
-
-        if (isStale()) {
-          // A newer play() call took over mid-load - let it report the outcome instead.
-          console.log(`⚡ AudioManager: ${sourceType} attempt superseded while loading, ignoring its result`);
-          return false;
-        }
-
-        if (success) {
-          this._setState('playing');
-          this.syncVolume();
-          this._updateMetadata(sourceType, config);
-          console.log(`✅ AudioManager: Now playing ${sourceType}`);
-          return true;
-        } else {
-          throw new Error(`Failed to start ${sourceType}`);
-        }
+        return !isStale();
       }
 
+      await this.stopAll();
+      if (isStale()) return false;
+
+      this.currentSource = sourceType;
+      this._setState('loading');
+      const success = await this.sources[sourceType].play(config);
+      if (isStale()) return false;
+      if (!success) throw new Error(`Failed to start ${sourceType}`);
+
+      this._setState('playing');
+      this.syncVolume();
+      this._updateMetadata(sourceType, config);
       return true;
-
     } catch (error) {
-      if (isStale()) {
-        // This attempt was cancelled/superseded - not a real failure, so don't
-        // touch shared state or surface an error toast for it.
-        console.log(`⚡ AudioManager: Ignoring error from superseded ${sourceType} play attempt`, error.message);
-        return false;
-      }
-      console.error('❌ AudioManager: Play failed', error);
-      this._setState('idle');
+      if (isStale()) return false;
+      console.error(`AudioManager: ${sourceType} failed`, error);
       this.currentSource = null;
+      this._setState('idle');
       this._triggerError(error);
       return false;
     } finally {
-      if (!isStale()) {
-        this.isTransitioning = false;
-      }
+      if (!isStale()) this.isTransitioning = false;
     }
   }
 
-  /**
-   * Pause current playback
-   */
   async pause() {
-    if (!this.currentSource) {
-      console.warn('⚠️ AudioManager: No active source to pause');
-      return;
-    }
-
+    if (!this.currentSource) return;
     try {
       await this.sources[this.currentSource].pause();
       this._setState('paused');
-      console.log('⏸️ AudioManager: Paused');
     } catch (error) {
-      console.error('❌ AudioManager: Pause failed', error);
       this._triggerError(error);
     }
   }
 
-  /**
-   * Resume paused playback
-   */
   async resume() {
-    if (!this.currentSource) {
-      console.warn('⚠️ AudioManager: No source to resume');
-      return;
-    }
-
+    if (!this.currentSource) return;
     try {
       await this.sources[this.currentSource].resume();
       this._setState('playing');
-      console.log('▶️ AudioManager: Resumed');
     } catch (error) {
-      console.error('❌ AudioManager: Resume failed', error);
       this._triggerError(error);
     }
   }
 
-  /**
-   * Stop current playback
-   */
   async stopCurrent() {
-    if (!this.currentSource) {
-      return; // Nothing to stop
-    }
-
-    console.log(`🛑 AudioManager: Stopping ${this.currentSource}`);
-
+    if (!this.currentSource) return;
     try {
       await this.sources[this.currentSource].stop();
-      this.currentSource = null;
-      this._setState('idle');
-      this.currentMetadata = { station: null, playlist: null, track: null };
-    } catch (error) {
-      console.error('❌ AudioManager: Stop failed', error);
-      // Force clear anyway
-      this.currentSource = null;
-      this._setState('idle');
+    } finally {
+      this._resetPlayback();
     }
   }
 
-  /**
-   * NUCLEAR OPTION: Stop ALL audio sources (radio, spotify, youtube)
-   * This ensures absolutely no audio overlap
-   */
+  /** Stop every source, so nothing can ever play on top of something else. */
   async stopAll() {
-    console.log('🚨 AudioManager: STOPPING ALL AUDIO SOURCES');
-
-    // Stop all sources in parallel for speed
-    const stopPromises = Object.entries(this.sources).map(async ([sourceType, source]) => {
-      try {
-        await source.stop();
-        console.log(`✅ AudioManager: ${sourceType} stopped`);
-      } catch (error) {
-        console.warn(`⚠️ AudioManager: Failed to stop ${sourceType}`, error);
-        // Continue anyway - we want to stop everything
-      }
-    });
-
-    await Promise.all(stopPromises);
-
-    this.currentSource = null;
-    this._setState('idle');
-    this.currentMetadata = { station: null, playlist: null, track: null };
-
-    console.log('✅ AudioManager: All audio sources stopped');
+    await Promise.all(
+      Object.values(this.sources).map((source) =>
+        source.stop().catch((error) => console.warn('AudioManager: stop failed', error)),
+      ),
+    );
+    this._resetPlayback();
   }
 
-  /**
-   * Set volume for all sources (0.0 to 1.0)
-   */
   setVolume(volume) {
-    const newVolume = Math.max(0, Math.min(1, volume));
-    const oldPercentage = Math.round(this.volume * 100);
-    const newPercentage = Math.round(newVolume * 100);
-
-    this.volume = newVolume;
-
-    // Update volume normalizer
-    this.volumeNormalizer.setVolume(this.volume);
-
+    this.volume = Math.max(0, Math.min(1, volume));
     this.syncVolume();
+  }
 
-    // Only log if volume changed by at least 1%
-    if (oldPercentage !== newPercentage) {
-     // console.log(`🔊 AudioManager: Volume set to ${newPercentage}%`);
+  syncVolume() {
+    for (const [type, source] of Object.entries(this.sources)) {
+      source.setVolume(this._volumeFor(type));
     }
   }
 
-  /**
-   * Sync volume across all sources with normalization
-   */
-  syncVolume() {
-    Object.entries(this.sources).forEach(([sourceType, source]) => {
-      try {
-        // Get normalized volume for this specific source type
-        const normalizedVolume = this.volumeNormalizer.getVolumeForSource(sourceType);
-        source.setVolume(normalizedVolume);
-      } catch (error) {
-        console.warn(`⚠️ AudioManager: Failed to sync volume for ${sourceType}`, error);
-      }
-    });
-  }
-
-  /**
-   * Get current playback state
-   */
   getState() {
     return {
       state: this.state,
@@ -345,180 +156,92 @@ class AudioManager {
       isPlaying: this.state === 'playing',
       isPaused: this.state === 'paused',
       isLoading: this.state === 'loading' || this.isTransitioning,
-      metadata: this.currentMetadata
+      metadata: this.currentMetadata,
     };
   }
 
-  /**
-   * Get specific source instance (for advanced control)
-   */
   getSource(sourceType) {
     return this.sources[sourceType];
   }
 
-  /**
-   * Register event callbacks
-   */
-  on(event, callback) {
-    if (this.callbacks[event] !== undefined) {
-      this.callbacks[event] = callback;
-    }
+  getSpotifySource() {
+    return this.sources.spotify;
   }
 
-  /**
-   * Enable/disable crossfade
-   */
+  /** The radio <audio> element while radio is the active source (for the visualizer). */
+  getAudioElement() {
+    return this.currentSource === 'radio' ? this.sources.radio.getAudioElement() : null;
+  }
+
+  isSpotifyReady() {
+    return Boolean(this.sources.spotify.isReady);
+  }
+
+  on(event, callback) {
+    if (event in this.callbacks) this.callbacks[event] = callback;
+  }
+
   setFadeEnabled(enabled) {
     this.fadeEnabled = enabled;
-    console.log(`🎵 AudioManager: Crossfade ${enabled ? 'enabled' : 'disabled'}`);
   }
 
-  /**
-   * Get the current audio element for visualizer
-   */
-  getAudioElement() {
-    if (this.currentSource === 'radio' && this.sources.radio.audio) {
-      return this.sources.radio.audio;
-    }
-    return null;
+  destroy() {
+    this.stopCurrent();
+    Object.values(this.sources).forEach((source) => source.destroy?.());
   }
 
-  // Private methods
+  // --- internals ---
 
-  /**
-   * Crossfade from current source to new source
-   */
-  async _crossfade(newSourceType, newConfig) {
-    console.log(`🔀 AudioManager: Crossfading to ${newSourceType}`);
+  _volumeFor(sourceType) {
+    return Math.min(this.volume * (SOURCE_GAIN[sourceType] ?? 1), MAX_VOLUME);
+  }
 
-    const oldSource = this.currentSource;
-    const fadeDuration = this.fadeDuration;
-    const steps = 20; // Number of fade steps
-    const stepDuration = fadeDuration / steps;
-    const targetVolume = this.volume;
-
+  async _crossfade(newType, config) {
+    const oldType = this.currentSource;
+    const next = this.sources[newType];
+    this.currentSource = newType;
     try {
-      // Start new source at 0 volume
-      this.currentSource = newSourceType;
-      const newSourceInstance = this.sources[newSourceType];
-
-      // Start playing new source
-      await newSourceInstance.play(newConfig);
-
-      // Set new source to 0 volume
-      newSourceInstance.setVolume(0);
-
-      console.log(`🔀 Starting crossfade: ${oldSource} → ${newSourceType}`);
-
-      // Fade out old, fade in new
-      for (let i = 0; i <= steps; i++) {
-        const progress = i / steps;
-        const oldVolume = targetVolume * (1 - progress);
-        const newVolume = targetVolume * progress;
-
-        // Set volumes
-        if (oldSource && this.sources[oldSource]) {
-          const oldNormalized = this.volumeNormalizer.getNormalizedVolume(oldSource) * (1 - progress);
-          this.sources[oldSource].setVolume(oldNormalized);
-        }
-
-        const newNormalized = this.volumeNormalizer.getNormalizedVolume(newSourceType) * progress;
-        newSourceInstance.setVolume(newNormalized);
-
-        await new Promise(resolve => setTimeout(resolve, stepDuration));
+      await next.play(config);
+      for (let i = 0; i <= FADE_STEPS; i++) {
+        const progress = i / FADE_STEPS;
+        this.sources[oldType]?.setVolume(this._volumeFor(oldType) * (1 - progress));
+        next.setVolume(this._volumeFor(newType) * progress);
+        await new Promise((resolve) => setTimeout(resolve, FADE_MS / FADE_STEPS));
       }
-
-      // Stop old source
-      if (oldSource && this.sources[oldSource]) {
-        await this.sources[oldSource].stop();
-      }
-
-      console.log(`✅ AudioManager: Crossfade complete`);
-
+      await this.sources[oldType]?.stop();
       this._setState('playing');
-      this._updateMetadata(newSourceType, newConfig);
-
+      this._updateMetadata(newType, config);
     } catch (error) {
-      console.error('❌ AudioManager: Crossfade failed', error);
-      // Fallback: immediate switch
       await this.stopAll();
       throw error;
     }
   }
 
-  _setState(newState) {
-    this.state = newState;
+  _resetPlayback() {
+    this.currentSource = null;
+    this.currentMetadata = { station: null, playlist: null };
+    this._setState('idle');
+  }
 
-    // Resume/pause volume monitoring based on playback state
-    if (newState === 'playing') {
-      this.volumeNormalizer.resumeMonitoring();
-    } else if (newState === 'idle' || newState === 'paused') {
-      this.volumeNormalizer.pauseMonitoring();
-    }
-
-    if (this.callbacks.onStateChange) {
-      this.callbacks.onStateChange(newState);
-    }
+  _setState(state) {
+    this.state = state;
+    this.callbacks.onStateChange?.(state);
   }
 
   _triggerError(error) {
-    if (this.callbacks.onError) {
-      this.callbacks.onError(error);
-    }
+    this.callbacks.onError?.(error);
   }
 
   _updateMetadata(sourceType, config) {
-    switch (sourceType) {
-      case 'radio':
-        this.currentMetadata.station = config.station;
-        break;
-      case 'spotify':
-      case 'youtube':
-        this.currentMetadata.playlist = config.playlist || config.playlistId;
-        break;
-    }
-
-    if (this.callbacks.onMetadataChange) {
-      this.callbacks.onMetadataChange(this.currentMetadata);
-    }
-  }
-
-  /**
-   * Check if Spotify player is ready
-   */
-  isSpotifyReady() {
-    return this.sources.spotify?.isReady || false;
-  }
-
-  /**
-   * Get Spotify source (for direct access if needed)
-   */
-  getSpotifySource() {
-    return this.sources.spotify;
-  }
-
-  /**
-   * Cleanup and destroy
-   */
-  destroy() {
-    console.log('🧹 AudioManager: Cleanup');
-    this.stopCurrent();
-    Object.values(this.sources).forEach(source => {
-      if (source.destroy) {
-        source.destroy();
-      }
-    });
+    if (sourceType === 'radio') this.currentMetadata.station = config.station;
+    else this.currentMetadata.playlist = config.playlist || config.playlistId;
+    this.callbacks.onMetadataChange?.(this.currentMetadata);
   }
 }
 
-// Singleton instance (or use dependency injection)
-let audioManagerInstance = null;
+let instance = null;
 
 export const getAudioManager = () => {
-  if (!audioManagerInstance) {
-    audioManagerInstance = new AudioManager();
-  }
-  return audioManagerInstance;
+  instance ??= new AudioManager();
+  return instance;
 };
-
-export default AudioManager;

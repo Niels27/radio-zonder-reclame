@@ -1,5 +1,4 @@
-// App.jsx - Main application component (REWRITTEN with new architecture)
-// Orchestrates the application using new StateManager and hooks
+// App.jsx - Page layout and wiring between the audio/ad-break hooks and the UI.
 
 import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import RadioGrid from './components/RadioGrid';
@@ -7,17 +6,15 @@ import AudioPlayer from './components/AudioPlayer';
 import AdBreakSettings from './components/AdBreakSettings';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationSystem from './components/NotificationSystem';
-import eventBus, { notify } from './utils/eventBus';
+import eventBus, { notify, signalPlaylistStopped } from './utils/eventBus';
 
 // Lazy-loaded components (not needed on initial render)
 const ResizableYouTubePlayer = lazy(() => import('./components/overlays/ResizableYouTubePlayer'));
-const DeveloperDashboard = lazy(() => import('./components/DeveloperDashboard'));
 const MusicVisualizerSingle = lazy(() => import('./components/MusicVisualizerSingle'));
 
 import { useAppState, useActions } from './core/StateManager';
 import { useAudio } from './hooks/useAudio';
 import { useAdBreak } from './hooks/useAdBreak';
-import { useFavorites } from './hooks/useFavorites';
 
 function App() {
   const state = useAppState();
@@ -25,8 +22,7 @@ function App() {
 
   // Core hooks
   const audio = useAudio();
-  const adBreak = useAdBreak(audio.audioManager, audio.getInterruptionHandler());
-  const favorites = useFavorites();
+  const adBreak = useAdBreak(audio.audioManager);
 
   // Local UI state
   const [visualizerPosition, setVisualizerPosition] = useState('header');
@@ -39,9 +35,6 @@ function App() {
    * Handle station selection from grid
    */
   const handleStationSelect = (station) => {
-    console.log('📻 App: Station selected', station.name);
-
-    // User manually selected station - this interrupts any automated action
     audio.playRadio(station);
 
     notify(`Nu aan het spelen: ${station.name}`, 'success', 2000);
@@ -64,7 +57,6 @@ function App() {
     };
 
     setYoutubePlayers(prev => [...prev, newPlayer]);
-    console.log('▶️ App: Opened YouTube player', newPlayer);
   }, [state.volume]);
 
   /**
@@ -72,7 +64,7 @@ function App() {
    */
   const closeYouTubePlayer = useCallback((playerId) => {
     setYoutubePlayers(prev => prev.filter(p => p.id !== playerId));
-    console.log('✕ App: Closed YouTube player', playerId);
+    signalPlaylistStopped('youtube');
   }, []);
 
   /**
@@ -80,21 +72,6 @@ function App() {
    */
   const closeAllYouTubePlayers = useCallback(() => {
     setYoutubePlayers([]);
-    console.log('✕ App: Closed all YouTube players');
-  }, []);
-
-  /**
-   * Update all open YouTube players with new video/playlist
-   */
-  const updateYouTubePlayers = useCallback((config) => {
-    setYoutubePlayers(prev => {
-      if (prev.length === 0) return prev;
-      return prev.map(p => ({
-        ...p,
-        videoId: config.videoId ?? p.videoId,
-        playlistId: config.playlistId ?? p.playlistId,
-      }));
-    });
   }, []);
 
   /**
@@ -105,20 +82,6 @@ function App() {
       p.id === playerId ? { ...p, volume } : p
     ));
   };
-
-  // Auto-play last station on mount
-  useEffect(() => {
-    try {
-      const lastStation = localStorage.getItem('lastPlayedStation');
-      if (lastStation) {
-        const station = JSON.parse(lastStation);
-        console.log('📻 App: Found last played station', station.name);
-        // Don't auto-play, just show in UI
-      }
-    } catch (error) {
-      console.error('Failed to load last station', error);
-    }
-  }, []);
 
   // Show error as toast notification (Dutch) and clear after 5 seconds
   useEffect(() => {
@@ -171,26 +134,16 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isHeaderVisible, state.showVisualizer]);
 
-  // Update CSS variable for visualizer blur
-  useEffect(() => {
-    document.documentElement.style.setProperty('--visualizer-blur', `${state.visualizerBlur}px`);
-  }, [state.visualizerBlur]);
 
   // Event bus subscriptions for YouTube player
   useEffect(() => {
     const unsubOpen = eventBus.on('youtube:open', openYouTubePlayer);
     const unsubClose = eventBus.on('youtube:close', closeAllYouTubePlayers);
-    const unsubUpdate = eventBus.on('youtube:update', updateYouTubePlayers);
-    return () => { unsubOpen(); unsubClose(); unsubUpdate(); };
-  }, [openYouTubePlayer, closeAllYouTubePlayers, updateYouTubePlayers]);
+    return () => { unsubOpen(); unsubClose(); };
+  }, [openYouTubePlayer, closeAllYouTubePlayers]);
 
-  // Expose remaining globals that can't easily be replaced yet
+  // PlaylistProviderSelector reads Spotify readiness through this global.
   useEffect(() => {
-    // Keep window globals as shims for code that still uses them
-    window.openYouTubePlayer = openYouTubePlayer;
-    window.closeAllYouTubePlayers = closeAllYouTubePlayers;
-
-    // Spotify ready status
     if (!window.audioPlayer) {
       window.audioPlayer = {};
     }
@@ -206,20 +159,19 @@ function App() {
         if (spotifySource) {
           try {
             await spotifySource.initialize();
-            console.log('✅ Manual Spotify initialization successful');
             window.dispatchEvent(new CustomEvent('spotifyPlayerReady', {
               detail: { ready: true, manual: true }
             }));
             return true;
           } catch (error) {
-            console.error('❌ Manual Spotify initialization failed:', error);
+            console.error('Manual Spotify initialization failed:', error);
             throw error;
           }
         }
       }
       return false;
     };
-  }, [openYouTubePlayer, closeAllYouTubePlayers, audio]);
+  }, [audio]);
 
   return (
     <ErrorBoundary>
@@ -246,17 +198,6 @@ function App() {
             </Suspense>
           )}
 
-          {/* Hidden Developer Access - Triple click */}
-          <div
-            className="absolute top-5 right-10 w-5 h-5 cursor-pointer z-10"
-            onClick={(e) => {
-              if (e.detail === 3 && localStorage.getItem('dev_mode') === 'true') {
-                actions.toggleDeveloperDashboard(true);
-                notify('Developer Dashboard geopend', 'success', 2000);
-              }
-            }}
-          />
-
           {/* Banner Content */}
           <div className="text-center banner-text">
             <h1 className="text-3xl md:text-4xl font-bold mb-3 banner-title bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -275,7 +216,6 @@ function App() {
           <div className="bg-gray-800 border-b border-gray-700">
             <ErrorBoundary>
               <AdBreakSettings
-                // Ad break timer settings
                 adBreakMinute={adBreak.adBreakMinute}
                 adBreakMinute2={adBreak.adBreakMinute2}
                 adBreakDuration={adBreak.adBreakDuration}
@@ -287,42 +227,17 @@ function App() {
                 onDuration2Change={adBreak.setAdBreakDuration2}
                 onStartTimer={adBreak.startTimer}
                 onStopTimer={adBreak.stopTimer}
-                onManualAdBreak={adBreak.manualAdBreak}
-
-                // Ad break state
+                onEndAdBreak={adBreak.endAdBreak}
                 isAdBreakActive={adBreak.isAdBreakActive}
-                nextAdBreakIn={adBreak.nextAdBreakIn}
-                currentAdBreakTimeLeft={adBreak.adBreakTimeLeft}
                 adBreakMode={adBreak.adBreakMode}
                 onAdBreakModeChange={adBreak.setAdBreakMode}
-
-                // Playlist settings
-                playlistProvider={state.playlistProvider}
-                onProviderChange={actions.setPlaylistProvider}
                 playlistUrl={state.playlistUrl}
                 onPlaylistUrlChange={actions.setPlaylistUrl}
                 playlistInfo={state.playlistInfo}
                 onPlaylistInfoChange={actions.setPlaylistInfo}
                 playlistShuffle={state.playlistShuffle}
-                onShuffleChange={actions.setPlaylistShuffle}
-
-                // Visualizer settings
-                visualizerEnabled={state.showVisualizer}
-                onVisualizerToggle={actions.toggleVisualizer}
-                visualizerType={state.visualizerType}
-                onVisualizerTypeChange={actions.setVisualizerType}
-                visualizerBlur={state.visualizerBlur}
-                onVisualizerBlurChange={actions.setVisualizerBlur}
-
-                // YouTube mode settings
                 youtubeUrl={state.youtubeUrl}
                 onYoutubeUrlChange={actions.setYoutubeUrl}
-
-                // Other settings
-                fadeAudioStreams={state.fadeAudioStreams}
-                onFadeAudioStreamsChange={actions.setFadeAudioStreams}
-
-                // Audio player reference
                 audioPlayer={audio}
               />
             </ErrorBoundary>
@@ -334,8 +249,6 @@ function App() {
             currentStation={state.currentStation}
             isLoading={state.isLoading}
             isPlaying={state.isPlaying}
-            favorites={favorites.favorites}
-            onToggleFavorite={favorites.toggleFavorite}
           />
         </div>
 
@@ -371,7 +284,7 @@ function App() {
               nextAdBreakIn={adBreak.nextAdBreakIn}
               currentAdBreakTimeLeft={adBreak.adBreakTimeLeft}
               adBreakMode={adBreak.adBreakMode}
-              savedStation={adBreak.savedStation} // ✅ NEW: Pass saved station for "returning to" display
+              savedStation={adBreak.savedStation}
 
               currentSource={state.audioSource}
               playlistInfo={state.playlistInfo}
@@ -379,7 +292,7 @@ function App() {
               playlistShuffle={state.playlistShuffle}
               onToggleShuffle={audio.setShuffle}
               onNextTrack={audio.nextTrack}
-              onPreviousTrack={audio.previousTrack}  // ✅ NEW: Add previous track control
+              onPreviousTrack={audio.previousTrack}
 
               onCancelAdBreak={adBreak.cancelAdBreak}
               onJumpToSwitchNow={adBreak.skipToZero}
@@ -421,13 +334,6 @@ function App() {
               <span className="text-sm text-yellow-300">Bufferen..</span>
             </div>
           </div>
-        )}
-
-        {/* Developer Dashboard */}
-        {state.showDeveloperDashboard && (
-          <Suspense fallback={null}>
-            <DeveloperDashboard onClose={() => actions.toggleDeveloperDashboard(false)} />
-          </Suspense>
         )}
 
         {/* YouTube Players (can have multiple) */}

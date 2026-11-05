@@ -1,18 +1,19 @@
-// components/AdBreakSettings.jsx - Show current ad break countdown instead of next break countdown
+// components/AdBreakSettings.jsx - Ad-break configuration panel: the switch
+// method (YouTube, Spotify, non-stop radio), its settings, a "Test" button per
+// method, and the timer settings bar.
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import PlaylistProviderSelector from "./PlaylistProviderSelector";
 import YouTubeUrlInput from "./YouTubeUrlInput";
-// import VisualizerSettings from "./VisualizerSettings";  // commented out from UI
 import NonstopSettingsOverlay from "./NonstopSettingsOverlay";
 import AdBreakExpandedSettings from "./AdBreakExpandedSettings";
 import { isSpotifyAuthenticated } from "../utils/spotifyUtils";
-import eventBus, {
-  notify,
-  openYouTubePlayer,
-  closeAllYouTubePlayers,
-  registerStopAllManualModes,
-} from "../utils/eventBus";
+import { extractPlaylistId, extractYouTubeVideoId } from "../utils/youtubeUtils.js";
+import { isPrerollSkipEnabled, setPrerollSkipEnabled } from "../utils/preroll.js";
+import eventBus, { notify, openYouTubePlayer, closeAllYouTubePlayers } from "../utils/eventBus";
+
+const MODE_NAMES = { playlist: "Spotify", youtube: "YouTube" };
+const IDLE = { active: false, loading: false };
 
 const AdBreakSettings = ({
   adBreakMinute,
@@ -26,579 +27,138 @@ const AdBreakSettings = ({
   onDuration2Change,
   onStartTimer,
   onStopTimer,
-  onManualAdBreak,
+  onEndAdBreak,
   isAdBreakActive,
   playlistUrl,
   playlistInfo,
-  nextAdBreakIn,
-  currentAdBreakTimeLeft,
-  isManualTestActive,
   audioPlayer,
   adBreakMode,
   onAdBreakModeChange,
-  isManualTestInProgress,
-  autoAdDetectionEnabled,
-  onAutoAdDetectionChange,
-  // ✅ NEW: Additional props for playlist controls
-  playlistProvider,
-  onProviderChange,
   onPlaylistUrlChange,
   onPlaylistInfoChange,
   playlistShuffle,
-  onShuffleChange,
-  isValidatingPlaylist,
-  isPlaylistInputHovered,
-  setIsPlaylistInputHovered,
-  // Visualizer & fade props - commented out from UI but still passed from parent
-  // visualizerEnabled, onVisualizerToggle, visualizerType, onVisualizerTypeChange, visualizerBlur, onVisualizerBlurChange,
-  // fadeAudioStreams, onFadeAudioStreamsChange,
-  // YouTube mode props
   youtubeUrl,
   onYoutubeUrlChange,
-  // Simple nonstop cycling button state
-  setIsNonstopModeManuallyActive,
 }) => {
-  // ✅ INSTANT STATE TRACKING: Prevent double-clicking between timer and manual modes
   const [isTimerStarting, setIsTimerStarting] = useState(false);
-
-  const [autoSkipPreroll, setAutoSkipPreroll] = useState(() => {
-    try {
-      const saved = localStorage.getItem("auto_skip_preroll");
-      return saved ? JSON.parse(saved) : false; // Default to disabled (handmatig)
-    } catch {
-      return false;
-    }
-  });
-
-  // Overlay states
+  const [autoSkipPreroll, setAutoSkipPreroll] = useState(isPrerollSkipEnabled);
   const [showNonstopSettings, setShowNonstopSettings] = useState(false);
+  // State of the manual "Test" run per method (non-stop radio has no test run).
+  const [testState, setTestState] = useState({ playlist: IDLE, youtube: IDLE });
 
-  // Note: useCommunityTimings is now coming from props instead of local state
+  const getModeState = (mode) => testState[mode] ?? IDLE;
+  const setModeState = (mode, value) => setTestState((prev) => ({ ...prev, [mode]: value }));
+  const isAnyModeActive = () => Object.values(testState).some((m) => m.active);
+  const isAnyModeLoading = () => Object.values(testState).some((m) => m.loading);
+  const getActiveMode = () => Object.keys(testState).find((mode) => testState[mode].active) ?? null;
 
-  // Check if current mode is valid
-  const isModeValid = () => {
-    if (adBreakMode === "playlist") {
-      return playlistUrl && playlistInfo?.isValid;
-    }
-    return true; // nonstop and lofi don't require configuration
-  };
+  const isModeValid = () => (adBreakMode === "playlist" ? Boolean(playlistUrl && playlistInfo?.isValid) : true);
+  const isRadioSelected = () => Boolean(audioPlayer?.currentStation);
 
-  // ✅ NEW: Check if radio station is selected for timer
-  const isRadioSelected = () => {
-    return audioPlayer && audioPlayer.currentStation;
-  };
-  // Save to localStorage when autoSkipPreroll changes
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        "auto_skip_preroll",
-        JSON.stringify(autoSkipPreroll),
-      );
-
-      // ✅ CRITICAL: Update the AdSkipUtils setting immediately
-      if (window.AdSkipUtils) {
-        window.AdSkipUtils.setAutoSkipSetting(autoSkipPreroll);
-      }
-
-      console.log(
-        "🔧 Auto skip setting saved and synced:",
-        autoSkipPreroll ? "Automatisch" : "Handmatig",
-      );
-    } catch (error) {
-      console.warn("Failed to save auto skip setting:", error);
-    }
+    setPrerollSkipEnabled(autoSkipPreroll);
   }, [autoSkipPreroll]);
 
-  // Update open YouTube player when URL changes - close and reopen with new URL
+  const parseYouTubeUrl = (url) => ({
+    videoId: extractYouTubeVideoId(url) || undefined,
+    playlistId: extractPlaylistId(url) || undefined,
+  });
+
+  // While a YouTube test runs, a new URL reopens the player with it.
   useEffect(() => {
-    if (!youtubeUrl || !getModeState("youtube").active) return;
-    import("../utils/lofiUtils.js").then(({ extractYouTubeVideoId }) => {
-      import("../utils/youtubeUtils.js").then(({ extractPlaylistId }) => {
-        const videoId = extractYouTubeVideoId(youtubeUrl);
-        const playlistId = extractPlaylistId(youtubeUrl);
-        if (videoId || playlistId) {
-          closeAllYouTubePlayers();
-          setTimeout(() => {
-            openYouTubePlayer({
-              videoId: videoId || undefined,
-              playlistId: playlistId || undefined,
-              title: "YouTube",
-              isAutomatic: false,
-              autoCloseSeconds: null,
-            });
-          }, 100);
-        }
-      });
-    });
+    if (!youtubeUrl || !testState.youtube.active) return;
+    const { videoId, playlistId } = parseYouTubeUrl(youtubeUrl);
+    if (!videoId && !playlistId) return;
+    closeAllYouTubePlayers();
+    const timer = setTimeout(() => {
+      openYouTubePlayer({ videoId, playlistId, title: "YouTube", isAutomatic: false, autoCloseSeconds: null });
+    }, 100);
+    return () => clearTimeout(timer);
+    // Only react to URL changes, not to the test starting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [youtubeUrl]);
 
-  // ✅ ISOLATED: Separate state for each manual mode to prevent race conditions
-  const [playlistModeState, setPlaylistModeState] = useState({
-    active: false,
-    loading: false,
-    startTime: null,
-  });
-  const [nonstopModeState, setNonstopModeState] = useState({
-    active: false,
-    loading: false,
-    startTime: null,
-  });
-  const [youtubeModeState, setYoutubeModeState] = useState({
-    active: false,
-    loading: false,
-    startTime: null,
-  });
-
-  // Track which mode is currently selected for display purposes
-  const [selectedManualMode, setSelectedManualMode] = useState(null);
-  // Helper to get current mode state
-  const getModeState = (mode) => {
-    switch (mode) {
-      case "playlist":
-        return playlistModeState;
-      case "nonstop":
-        return nonstopModeState;
-      case "youtube":
-        return youtubeModeState;
-      default:
-        return { active: false, loading: false, startTime: null };
-    }
-  };
-
-  // Helper to set mode state
-  const setModeState = (mode, newState) => {
-    switch (mode) {
-      case "playlist":
-        setPlaylistModeState(newState);
-        break;
-      case "nonstop":
-        setNonstopModeState(newState);
-        break;
-      case "youtube":
-        setYoutubeModeState(newState);
-        break;
-      default:
-        console.warn(`Unknown mode: ${mode}`);
-    }
-  };
-
-  // ✅ NEW: Listen for external playlist stops (when overlays are closed directly)
+  // The user closed the YouTube player themselves: end the test run, and if
+  // it was playing an ad break, go back to the radio.
+  const latest = useRef({});
+  latest.current = { isAdBreakActive, adBreakMode, onEndAdBreak, onStopTimer };
   useEffect(() => {
-    const handlePlaylistStopped = (type) => {
-      console.log(`🎵 External playlist stop detected: ${type}`);
-
-      // ✅ NEW: Handle ad break scenarios when overlays are manually closed
-      if (isAdBreakActive && adBreakMode === "youtube" && type === "youtube") {
-        console.log(
-          "🎵 Lofi overlay manually closed during ad break - resuming radio",
-        );
-        // Resume the radio since the lofi overlay was closed during an ad break
-        if (audioPlayer?.resumeRadioFromAdBreak) {
-          audioPlayer.resumeRadioFromAdBreak();
-        }
-        // Stop the timer since the ad break content was manually stopped
-        if (onStopTimer) {
-          onStopTimer();
-        }
+    return eventBus.on("playlist:stopped", async (type) => {
+      if (type !== "youtube") return;
+      setModeState("youtube", IDLE);
+      const { isAdBreakActive: active, adBreakMode: mode, onEndAdBreak: end, onStopTimer: stop } = latest.current;
+      if (active && mode === "youtube") {
+        await end?.();
+        stop?.();
       }
-
-      // Reset manual mode states
-      switch (type) {
-        case "spotify":
-          setPlaylistModeState({
-            active: false,
-            loading: false,
-            startTime: null,
-          });
-          break;
-        case "youtube":
-          setYoutubeModeState({
-            active: false,
-            loading: false,
-            startTime: null,
-          });
-          break;
-        case "nonstop":
-          setNonstopModeState({
-            active: false,
-            loading: false,
-            startTime: null,
-          });
-          break;
-      }
-    };
-
-    // Listen for playlist stops via event bus
-    const unsub = eventBus.on("playlist:stopped", handlePlaylistStopped);
-
-    // Cleanup
-    return () => unsub();
+    });
   }, []);
 
-  // Check if any mode is active
-  const isAnyModeActive = () => {
-    return (
-      playlistModeState.active ||
-      nonstopModeState.active ||
-      youtubeModeState.active
-    );
-  };
-
-  // Check if any mode is loading
-  const isAnyModeLoading = () => {
-    return (
-      playlistModeState.loading ||
-      nonstopModeState.loading ||
-      youtubeModeState.loading
-    );
-  };
-  // Get the currently active mode
-  const getActiveMode = () => {
-    if (playlistModeState.active) return "playlist";
-    if (nonstopModeState.active) return "nonstop";
-    if (youtubeModeState.active) return "youtube";
-    return null;
-  }; // ✅ GOLDEN RULE ENFORCEMENT: Stop all manual modes (exposed globally)
-  const stopAllManualModes = async () => {
-    console.log("🛑 GOLDEN RULE: Stopping ALL active manual modes");
-
-    // ✅ CLEAR nonstop mode flag when stopping all modes
-    // nonstop mode tracked via nonstopModeState.active
-
-    const activeModes = [];
-    if (playlistModeState.active) activeModes.push("playlist");
-    if (nonstopModeState.active) activeModes.push("nonstop");
-    if (youtubeModeState.active) activeModes.push("youtube");
-
-    // ✅ CRITICAL: Also check if the ad break timer is running any of these modes
-    if (
-      isAdBreakActive &&
-      (adBreakMode === "playlist" ||
-        adBreakMode === "nonstop" ||
-        adBreakMode === "youtube")
-    ) {
-      console.log(
-        "🛑 GOLDEN RULE: Also stopping active ad break mode:",
-        adBreakMode,
-      );
-      if (onStopTimer) {
-        onStopTimer(); // This will call forceExitAdBreakMode
-      }
-    }
-
-    if (activeModes.length === 0) {
-      console.log("🔧 No manual modes active to stop");
-      return;
-    }
-
-    console.log("🛑 Stopping active manual modes:", activeModes);
-    // Stop all active modes simultaneously
-    const stopPromises = activeModes.map((mode) => stopSpecificMode(mode));
-    await Promise.all(stopPromises); // Force stop all audio sources
-    if (audioPlayer && audioPlayer.forceStopAllAudio) {
-      audioPlayer.forceStopAllAudio("manual modes stopped", false);
-    }
-
-    console.log(
-      "✅ All manual modes stopped - enforcing ONE AUDIO STREAM rule",
-    );
-  }; // Register stopAllManualModes via event bus
-  useEffect(() => {
-    registerStopAllManualModes(stopAllManualModes);
-    return () => registerStopAllManualModes(null);
-  }, [stopAllManualModes, isAdBreakActive, adBreakMode, onStopTimer]); // ✅ ISOLATED: Manual mode toggle with complete mode isolation
   const handleManualModeToggle = async () => {
-    const currentModeState = getModeState(adBreakMode);
-
-    // Prevent rapid clicking during loading
-    if (currentModeState.loading) {
-      console.log(`🚫 ${adBreakMode} mode is loading, ignoring click`);
+    const mode = adBreakMode;
+    const current = getModeState(mode);
+    if (current.loading) return;
+    if (current.active) {
+      stopMode(mode);
       return;
     }
 
-    if (currentModeState.active) {
-      // Stop current mode
-      await stopSpecificMode(adBreakMode);
-    } else {
-      // ✅ INSTANT FIX: Set loading state IMMEDIATELY to prevent double-clicking
-      setModeState(adBreakMode, { loading: true });
-
-      // ✅ CRITICAL: If switching was active, deactivate it first!
-      if (isTimerRunning) {
-        console.log(
-          "🛑 Timer switching is active - stopping it first before starting manual mode",
-        );
-        onStopTimer();
-        // Small delay to ensure cleanup
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-
-      // Start current mode (first stop any other active mode)
-      const activeMode = getActiveMode();
-      if (activeMode && activeMode !== adBreakMode) {
-        console.log(`🔄 Stopping ${activeMode} to start ${adBreakMode}`);
-        await stopSpecificMode(activeMode);
-        // Brief pause to ensure cleanup
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-      await startSpecificMode(adBreakMode);
+    setModeState(mode, { active: false, loading: true });
+    if (isTimerRunning) {
+      onStopTimer();
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
+    const other = getActiveMode();
+    if (other && other !== mode) stopMode(other);
+    await startMode(mode);
   };
-  // ✅ ISOLATED: Start a specific mode with complete isolation
-  const startSpecificMode = async (mode) => {
-    const currentModeState = getModeState(mode);
 
-    // Prevent starting if already loading or active
-    if (currentModeState.loading || currentModeState.active) {
-      console.log(
-        `🚫 ${mode} mode already loading/active, ignoring start request`,
-      );
-      return;
-    }
-
+  const startMode = async (mode) => {
     try {
-      console.log(`🎵 Starting isolated ${mode} mode test`);
-
-      // Set loading state immediately for this specific mode
-      setModeState(mode, { loading: true });
-      // Stop any audio sources first
-      if (audioPlayer?.forceStopAllAudio) {
-        audioPlayer.forceStopAllAudio(`starting ${mode} mode`, false);
-        await new Promise((resolve) => setTimeout(resolve, 400));
+      if (mode === "playlist") {
+        if (!playlistUrl) throw new Error("Geen Spotify playlist ingesteld");
+        await audioPlayer.playSpotify(playlistUrl, { shuffle: playlistShuffle });
+      } else {
+        if (!youtubeUrl) throw new Error("Geen YouTube URL ingesteld");
+        const { videoId, playlistId } = parseYouTubeUrl(youtubeUrl);
+        if (!videoId && !playlistId) throw new Error("Ongeldige YouTube URL");
+        openYouTubePlayer({ videoId, playlistId, title: "YouTube", isAutomatic: false, autoCloseSeconds: null });
       }
-
-      // Start the specific mode
-      switch (mode) {
-        case "playlist":
-          await startIsolatedPlaylistMode();
-          break;
-        case "nonstop":
-          await startIsolatedNonstopMode();
-          break;
-        case "youtube":
-          await startIsolatedYouTubeMode();
-          break;
-        default:
-          throw new Error(`Unknown mode: ${mode}`);
-      }
-
-      // Set active state only after successful start
-      setModeState(mode, {
-        active: true,
-        loading: false,
-        startTime: Date.now(),
-      });
-      setSelectedManualMode(mode);
-
-      notify(`${getModeDisplayName(mode)} Test Gestart`, "success", 2000);
+      setModeState(mode, { active: true, loading: false });
+      notify(`${MODE_NAMES[mode]} Test Gestart`, "success", 2000);
     } catch (error) {
-      console.error(`Failed to start ${mode} mode:`, error);
-
-      // Reset state on error
-      setModeState(mode, { active: false, loading: false, startTime: null });
-
-      notify(
-        `Kan ${getModeDisplayName(mode)} test niet starten: ${error.message}`,
-        "error",
-        3000,
-      );
-    }
-  }; // ✅ ISOLATED: Stop a specific mode with complete isolation
-  const stopSpecificMode = async (mode) => {
-    const currentModeState = getModeState(mode);
-
-    if (!currentModeState.active && !currentModeState.loading) {
-      console.log(`🚫 ${mode} mode not active, nothing to stop`);
-      return;
-    }
-
-    try {
-      console.log(`🛑 Stopping isolated ${mode} mode test`);
-      // ✅ CLEAR nonstop mode flag when stopping nonstop mode
-      if (mode === "nonstop") {
-        // nonstop mode tracked via nonstopModeState.active
-        // ✅ NEW: Clear simple state for cycling button
-        if (setIsNonstopModeManuallyActive) {
-          setIsNonstopModeManuallyActive(false);
-        }
-      } // Stop all audio sources completely
-      if (audioPlayer?.forceStopAllAudio) {
-        audioPlayer.forceStopAllAudio(`stopping ${mode} mode`, false);
-      }
-
-      // Close YouTube players when stopping lofi or playlist mode
-      if (mode === "youtube" || mode === "playlist") {
-        console.log(`✕ Closing YouTube player for ${mode} mode`);
-        closeAllYouTubePlayers();
-      }
-
-      // Reset state for this specific mode
-      setModeState(mode, { active: false, loading: false, startTime: null });
-
-      // Clear selected mode if this was the selected one
-      if (selectedManualMode === mode) {
-        setSelectedManualMode(null);
-      }
-
-      notify(`${getModeDisplayName(mode)} Test Gestopt`, "info", 2000);
-    } catch (error) {
-      console.error(`Failed to stop ${mode} mode:`, error);
-      // Force reset state even on error
-      setModeState(mode, { active: false, loading: false, startTime: null });
-      if (selectedManualMode === mode) {
-        setSelectedManualMode(null);
-      }
-      // ✅ FORCE CLEAR nonstop mode flag even on error
-      if (mode === "nonstop") {
-        // nonstop mode tracked via nonstopModeState.active
-      }
-    }
-  }; // ✅ ISOLATED: Individual mode start functions
-  const startIsolatedPlaylistMode = async () => {
-    if (!playlistUrl) {
-      throw new Error("Geen Spotify playlist ingesteld");
-    }
-
-    console.log("🎵 Starting isolated Spotify playlist test");
-
-    if (audioPlayer?.playSpotify) {
-      await audioPlayer.playSpotify(playlistUrl, {
-        shuffle: playlistShuffle,
-      });
-    } else {
-      throw new Error("Spotify afspelen niet beschikbaar");
-    }
-  };
-  const startIsolatedNonstopMode = async () => {
-    console.log(
-      "🎵 Starting isolated nonstop radio test (no ad breaks, just nonstop radio)",
-    );
-
-    const {
-      getRandomNonstopStation,
-      markStationAsFailed,
-      getNonstopStationsCount,
-    } = await import("../utils/nonstopUtils.js");
-
-    const maxRetries = Math.min(getNonstopStationsCount(), 6);
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const nonstopStation = getRandomNonstopStation();
-      if (!nonstopStation) {
-        throw new Error("Geen nonstop stations beschikbaar");
-      }
-
-      console.log(
-        `🎵 Nonstop attempt ${attempt + 1}/${maxRetries}: ${nonstopStation.name}`,
-      );
-
-      try {
-        // nonstop mode tracked via nonstopModeState.active
-        if (setIsNonstopModeManuallyActive) {
-          setIsNonstopModeManuallyActive(true);
-        }
-
-        await audioPlayer.playRadio(nonstopStation, {
-          isManualTest: true,
-          isIsolatedTest: true,
-          isNonstopMode: true,
-        });
-        return; // Success - exit the retry loop
-      } catch (error) {
-        console.warn(
-          `⚠️ Nonstop station "${nonstopStation.name}" failed:`,
-          error.message,
-        );
-        markStationAsFailed(nonstopStation.name);
-        // Continue to next station
-      }
-    }
-
-    // All retries exhausted
-    // nonstop mode tracked via nonstopModeState.active
-    if (setIsNonstopModeManuallyActive) {
-      setIsNonstopModeManuallyActive(false);
-    }
-    throw new Error(
-      `Geen werkende nonstop stations gevonden na ${maxRetries} pogingen`,
-    );
-  };
-  const startIsolatedYouTubeMode = async () => {
-    console.log("🎵 Starting isolated YouTube mode");
-
-    const url = youtubeUrl;
-    if (!url) {
-      throw new Error("Geen YouTube URL ingesteld");
-    }
-
-    const { extractYouTubeVideoId } = await import("../utils/lofiUtils.js");
-    const { extractPlaylistId } = await import("../utils/youtubeUtils.js");
-
-    const videoId = extractYouTubeVideoId(url);
-    const playlistId = extractPlaylistId(url);
-
-    if (!videoId && !playlistId) {
-      throw new Error("Ongeldige YouTube URL");
-    }
-
-    // Open the resizable YouTube player overlay
-    openYouTubePlayer({
-      videoId: videoId || undefined,
-      playlistId: playlistId || undefined,
-      title: "YouTube",
-      isAutomatic: false,
-      autoCloseSeconds: null,
-    });
-  };
-
-  // Helper function to get mode display name
-  const getModeDisplayName = (mode) => {
-    switch (mode) {
-      case "playlist":
-        return "Spotify";
-      case "nonstop":
-        return "Nonstop Radio";
-      case "youtube":
-        return "YouTube";
-      default:
-        return "Onbekend";
+      setModeState(mode, IDLE);
+      notify(`Kan ${MODE_NAMES[mode]} test niet starten: ${error.message}`, "error", 3000);
     }
   };
 
-  // ✅ INSTANT FIX: Wrapper for onStartTimer to set instant disable state
+  const stopMode = (mode) => {
+    closeAllYouTubePlayers();
+    if (mode === "playlist") audioPlayer?.stop?.();
+    setModeState(mode, IDLE);
+    notify(`${MODE_NAMES[mode]} Test Gestopt`, "info", 2000);
+  };
+
   const handleStartTimer = async () => {
-    if (isTimerStarting || isTimerRunning) {
-      console.log("🚫 Timer already starting or running, ignoring click");
-      return;
-    }
-
-    // Set instant state to disable manual mode buttons immediately
+    if (isTimerStarting || isTimerRunning) return;
+    // Disable the test buttons right away, before the timer state arrives.
     setIsTimerStarting(true);
-
     try {
       await onStartTimer();
-    } catch (error) {
-      console.error("Error starting timer:", error);
     } finally {
-      // Clear the loading state after a short delay (should be cleared by isTimerRunning becoming true)
-      setTimeout(() => {
-        setIsTimerStarting(false);
-      }, 2000);
+      setTimeout(() => setIsTimerStarting(false), 2000);
     }
   };
 
-  // ✅ RESET TIMER STARTING STATE: When timer actually starts running
   useEffect(() => {
-    if (isTimerRunning) {
-      setIsTimerStarting(false);
-    }
+    if (isTimerRunning) setIsTimerStarting(false);
   }, [isTimerRunning]);
 
   return (
     <div className="p-4">
       <div className="max-w-6xl mx-auto">
         <div className="space-y-4">
-          {" "}
-          {/* ✅ NEW: Playlist Mode Selector at Top */}
+          {/* Switch method selector */}
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <label className="block text-sm font-medium mb-3 text-gray-300">
               Switch Methode:
@@ -690,7 +250,6 @@ const AdBreakSettings = ({
                           onPlaylistInfoChange(info);
                         }
                       }}
-                      onValidatingChange={() => {}}
                       error={audioPlayer?.error}
                       onRetry={audioPlayer?.manualInitializeSpotifyPlayer}
                     />
@@ -795,16 +354,6 @@ const AdBreakSettings = ({
           />
         </div>
       </div>
-      {/* Visualizer Settings Overlay - commented out
-      <VisualizerSettings
-        isOpen={showVisualizerSettings}
-        onClose={() => setShowVisualizerSettings(false)}
-        visualizerType={visualizerType}
-        onVisualizerTypeChange={onVisualizerTypeChange}
-        visualizerBlur={visualizerBlur}
-        onVisualizerBlurChange={onVisualizerBlurChange}
-      />
-      */}
     </div>
   );
 };

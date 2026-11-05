@@ -1,121 +1,64 @@
-// Non-stop radio management with enhanced error handling
+// utils/nonstopUtils.js - The station list for the "Non-stop radio" ad-break mode.
+//
+// The user's list is stored as station ids. Older versions stored station
+// names in two keys (added stations + removed defaults); those are migrated
+// once by loadNonstopIds().
 
-import { allRadioStations } from '../data/allRadioStations.js';
+import { DEFAULT_NONSTOP_IDS, getStation, resolveStationRefs } from '../data/stations.js';
 
-let currentNonstopIndex = 0;
-let nonstopStations = [];
-let failedStations = new Set(); // Track failed stations to avoid retrying them
+const STORAGE_KEY = 'nonstop_station_ids';
+const LEGACY_ADDED_KEY = 'custom_nonstop_stations';
+const LEGACY_REMOVED_KEY = 'removed_default_stations';
+const LEGACY_DEFAULTS = ['Alex FM Non Stop Hits', 'Non Stop AlexFM'];
 
-// Initialize nonstop stations array
-const initializeNonstopStations = () => {
-  if (nonstopStations.length === 0) {
-    // Start with default realnonstop stations
-    const defaultStations = Object.values(allRadioStations.realnonstop || {});
-    
-    // Add custom stations from localStorage
-    try {
-      const customStationNames = JSON.parse(localStorage.getItem('custom_nonstop_stations') || '[]');
-      const customStations = [];
-      
-      // Find each custom station in the allRadioStations data
-      customStationNames.forEach(stationName => {
-        let foundStation = null;
-        
-        // Search through all categories to find the station
-        Object.entries(allRadioStations).forEach(([category, stations]) => {
-          if (category !== 'realnonstop') {
-            Object.values(stations).forEach(station => {
-              if (station.name === stationName) {
-                foundStation = { ...station, isCustom: true };
-              }
-            });
-          }
-        });
-        
-        if (foundStation) {
-          customStations.push(foundStation);
-        }
-      });
-      
-      // Combine default and custom stations
-      nonstopStations = [...defaultStations, ...customStations];
-    } catch (error) {
-      console.warn('Failed to load custom nonstop stations:', error);
-      nonstopStations = defaultStations;
-    }
-    
-    // Shuffle the array for randomness
-    for (let i = nonstopStations.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [nonstopStations[i], nonstopStations[j]] = [nonstopStations[j], nonstopStations[i]];
-    }
-  }
-};
-
-export const getRandomNonstopStation = () => {
-  initializeNonstopStations();
-  
-  if (nonstopStations.length === 0) {
-    console.warn('No nonstop stations available');
+const readJson = (key) => {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch {
     return null;
   }
-  
-  // Find next working station that hasn't failed
-  let attempts = 0;
-  let station = null;
-  
-  while (attempts < nonstopStations.length) {
-    station = nonstopStations[currentNonstopIndex];
-    currentNonstopIndex = (currentNonstopIndex + 1) % nonstopStations.length;
-    
-    // Skip failed stations unless we've tried all others
-    if (!failedStations.has(station.name) || attempts === nonstopStations.length - 1) {
-      break;
-    }
-    
-    attempts++;
+};
+
+/** Configured ids (sync). Falls back to the defaults when nothing is stored. */
+export function getNonstopIds() {
+  const stored = readJson(STORAGE_KEY);
+  const ids = Array.isArray(stored) ? stored.filter((id) => getStation(id)) : [];
+  return ids.length ? ids : DEFAULT_NONSTOP_IDS;
+}
+
+export function setNonstopIds(ids) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // Storage unavailable: the list lasts for this session only.
   }
-  
-  return {
-    ...station,
-    type: 'nonstop',
-    isNonstop: true
-  };
-};
+}
 
-export const markStationAsFailed = (stationName) => {
-  console.log(`🚫 Marking nonstop station as failed: ${stationName}`);
-  failedStations.add(stationName);
-  
-  // If too many stations failed, reset the failed list to try again
-  if (failedStations.size >= nonstopStations.length * 0.8) {
-    console.log('🔄 Too many failed stations, resetting failed list');
-    failedStations.clear();
-  }
-};
+/** Configured ids, migrating the pre-id storage format if present. */
+export async function loadNonstopIds() {
+  const added = readJson(LEGACY_ADDED_KEY);
+  const removed = readJson(LEGACY_REMOVED_KEY);
+  if (!Array.isArray(added) && !Array.isArray(removed)) return getNonstopIds();
 
-export const resetNonstopIndex = () => {
-  currentNonstopIndex = 0;
-  failedStations.clear(); // Clear failed stations on reset
-  
-  // Re-shuffle when resetting
-  for (let i = nonstopStations.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [nonstopStations[i], nonstopStations[j]] = [nonstopStations[j], nonstopStations[i]];
-  }
-};
+  // Same list the user had: old defaults they kept plus stations they added.
+  const kept = LEGACY_DEFAULTS.filter((name) => !(removed ?? []).includes(name));
+  const ids = await resolveStationRefs([...kept, ...(added ?? [])]);
+  setNonstopIds(ids);
+  localStorage.removeItem(LEGACY_ADDED_KEY);
+  localStorage.removeItem(LEGACY_REMOVED_KEY);
+  return ids;
+}
 
-export const getNonstopStationsCount = () => {
-  initializeNonstopStations();
-  return nonstopStations.length;
-};
+let rotation = 0;
 
-export const getFailedStationsCount = () => {
-  return failedStations.size;
-};
-
-export const refreshNonstopStations = () => {
-  nonstopStations = [];
-  failedStations.clear();
-  initializeNonstopStations();
-};
+/**
+ * Stations to try for the next ad break, in order. The starting point rotates
+ * so consecutive breaks do not always play the same station; the rest of the
+ * list follows as fallbacks in case a stream is down.
+ */
+export function getNonstopCandidates() {
+  const stations = getNonstopIds().map(getStation).filter(Boolean);
+  if (stations.length === 0) return [];
+  const start = rotation++ % stations.length;
+  return [...stations.slice(start), ...stations.slice(0, start)];
+}

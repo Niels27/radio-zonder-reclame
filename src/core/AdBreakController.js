@@ -1,5 +1,6 @@
-// core/AdBreakController.js - Simplified ad break management
-// Handles automatic switching to alternative audio during ad breaks
+// core/AdBreakController.js - Runs one ad break: switches to the chosen
+// alternative (playlist, non-stop radio or YouTube) and restores the radio
+// station when the break ends.
 
 import { notify, openYouTubePlayer, closeAllYouTubePlayers } from '../utils/eventBus';
 
@@ -22,11 +23,10 @@ export class AdBreakController {
    */
   async start(mode, duration, config = {}) {
     if (this.isActive) {
-      console.warn('⚠️ AdBreakController: Ad break already active');
+      console.warn('AdBreakController: Ad break already active');
       return false;
     }
 
-    console.log(`🎵 AdBreakController: Starting ${mode} ad break for ${duration} minutes`);
 
     try {
       // Save current station for restoration
@@ -61,7 +61,7 @@ export class AdBreakController {
       }
 
       if (!success) {
-        console.error(`❌ AdBreakController: Failed to start ${mode} mode - cancelling ad break`);
+        console.error(`AdBreakController: failed to start ${mode} mode, cancelling ad break`);
         this._cleanup();
         this.isActive = false;
         this.savedStation = null;
@@ -78,11 +78,10 @@ export class AdBreakController {
         this.end();
       }, duration * 60 * 1000);
 
-      console.log(`✅ AdBreakController: ${mode} ad break started`);
       return true;
 
     } catch (error) {
-      console.error('❌ AdBreakController: Failed to start ad break', error);
+      console.error('AdBreakController: Failed to start ad break', error);
       this._cleanup();
       this.isActive = false;
       this.savedStation = null;
@@ -100,11 +99,10 @@ export class AdBreakController {
    */
   async end() {
     if (!this.isActive) {
-      console.warn('⚠️ AdBreakController: No active ad break to end');
+      console.warn('AdBreakController: No active ad break to end');
       return;
     }
 
-    console.log('🎵 AdBreakController: Ending ad break');
 
     try {
       // Clear timers
@@ -118,7 +116,6 @@ export class AdBreakController {
 
       // Restore saved station if available
       if (this.savedStation) {
-        console.log(`🔄 AdBreakController: Restoring ${this.savedStation.name}`);
         await this.audioManager.play('radio', {
           station: this.savedStation
         });
@@ -129,10 +126,9 @@ export class AdBreakController {
       this.savedStation = null;
       this.actions.endAdBreak();
 
-      console.log('✅ AdBreakController: Ad break ended');
 
     } catch (error) {
-      console.error('❌ AdBreakController: Failed to end ad break cleanly', error);
+      console.error('AdBreakController: Failed to end ad break cleanly', error);
       // Force cleanup anyway
       this._cleanup();
       this.isActive = false;
@@ -145,7 +141,6 @@ export class AdBreakController {
    * Cancel the current ad break without restoring
    */
   cancel() {
-    console.log('🚫 AdBreakController: Canceling ad break');
     this._cleanup();
 
     // Close any open YouTube overlays
@@ -161,11 +156,10 @@ export class AdBreakController {
    */
   extend(minutes) {
     if (!this.isActive) {
-      console.warn('⚠️ AdBreakController: No active ad break to extend');
+      console.warn('AdBreakController: No active ad break to extend');
       return;
     }
 
-    console.log(`⏰ AdBreakController: Extending ad break by ${minutes} minutes`);
 
     // Clear existing timer
     if (this.timer) {
@@ -199,7 +193,6 @@ export class AdBreakController {
       throw new Error('No playlist ID provided');
     }
 
-    console.log(`🎵 AdBreakController: Starting ${provider} playlist ${playlistId}`);
 
     // Open YouTube overlay for YouTube playlists
     if (provider === 'youtube') {
@@ -218,20 +211,15 @@ export class AdBreakController {
   }
 
   /**
-   * Start nonstop mode (switch to non-stop radio station)
+   * Start nonstop mode: play the first configured non-stop station that works.
    */
-  async _startNonstopMode(config) {
-    const { station } = config;
-
-    if (!station) {
-      throw new Error('No nonstop station provided');
+  async _startNonstopMode({ stations = [] }) {
+    if (stations.length === 0) throw new Error('Geen non-stop zenders ingesteld');
+    for (const station of stations) {
+      if (await this.audioManager.play('radio', { station })) return true;
+      if (!this.isActive) return false; // cancelled while trying
     }
-
-    console.log(`🎵 AdBreakController: Switching to nonstop station ${station.name}`);
-
-    return await this.audioManager.play('radio', {
-      station: station
-    });
+    return false;
   }
 
   /**
@@ -244,7 +232,6 @@ export class AdBreakController {
       throw new Error('No YouTube video or playlist ID provided');
     }
 
-    console.log(`🎵 AdBreakController: Starting YouTube ${playlistId ? 'playlist' : 'video'}`);
 
     // Open YouTube overlay
     openYouTubePlayer({
@@ -292,14 +279,6 @@ export class AdBreakController {
   }
 
   /**
-   * Get current countdown time left
-   */
-  _getCountdownTimeLeft() {
-    // No longer used - countdown tracked internally in _startCountdown
-    return 0;
-  }
-
-  /**
    * Cleanup timers only. Deliberately does NOT touch React state - callers
    * always follow up with actions.endAdBreak(), which clears isAdBreakActive
    * and adBreakTimeLeft together in one reducer update. Clearing the timer
@@ -333,5 +312,3 @@ export class AdBreakController {
     return this.savedStation;
   }
 }
-
-export default AdBreakController;
